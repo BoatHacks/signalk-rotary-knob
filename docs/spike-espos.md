@@ -32,6 +32,25 @@ nothing from the spike ships.
 6. Composite USB device, then check enumeration on a PC while Wi-Fi stays connected.
 7. Record numbers for questions 6 and 7.
 
+## Results so far (2026-11-22, espOS 0.32.0, board on COM9)
+
+| # | Question | Result |
+|---|---|---|
+| 1 | Builds for esp32s3? | Yes, but needs **IDF 6.1.x**. The `from_registry` example pins `>=6.1.0,<6.2.0`. Built with 6.1.1. 6.0.3 and the cockpit firmware's pin belong to older espOS. |
+| 2 | Boots, portal, Wi-Fi, token? | Boots and opens the setup portal `espOS-adc4` (open AP, 192.168.4.1). Wi-Fi join, SignalK discovery and token still untested: needs Wi-Fi credentials entered by hand. |
+| 6 | Timing | `app_main` at 329 ms, portal up at 489 ms after reset (no display yet). Wi-Fi join and `SK_STREAM_CONNECTED` not measured yet. |
+| 7 | Memory | Boot log shows about 251 KiB + 21 KiB + 32 KiB internal heap regions. Healthy for 40 s, no health alarms. PSRAM not enabled in the spike, so PSRAM headroom is untested. |
+| 9 | Flash layout | espOS's 16 MB table works as is: two 6.5 MB app slots, 1.75 MB LittleFS storage. App is 1.38 MB (79% of a slot free). |
+
+Not tested yet: 3 (display before network), 4 (GC9A01 + CST816D), 5 (encoder indev, dimmer wake), 8 (USB composite).
+
+Findings that affect the spec:
+- Build needs the espOS signing key (`espsecure generate-signing-key`, kept out of git) even with OTA unused.
+- With the stock `sdkconfig.defaults`, SNTP init fails (`CONFIG_LWIP_DHCP_GET_NTP_SRV` is off). Harmless, but needs a config line.
+- The REST API is open on the network until `httpd.api_key` is set, and the setup AP is open.
+- espOS 0.32.0 started cleanly on the S3 at default 80 MHz DIO flash, with OTA validated on boot (`running knob_spike 0.1.0 in ota_0 (valid)`).
+- Reading flash with the esptool stub failed at one page (0x1e6000) on this unit. Writing was fine.
+
 ## Outcome
 
 Write down for each question: works, works with changes, or blocked, and any workaround. Then pick:
