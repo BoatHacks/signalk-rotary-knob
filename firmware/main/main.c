@@ -10,6 +10,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "input.h"
+#include "knob_net.h"
 #include "knob_power.h"
 #include "lv_port.h"
 #include "marine_ui.h"
@@ -43,6 +44,7 @@ void app_main(void)
 
     ESP_ERROR_CHECK(espos_start(NULL));
     ESP_LOGI(TAG, "espos_start returned at %lu ms", ms());
+    knob_net_start();
 
     for (;;) {
         static int n;

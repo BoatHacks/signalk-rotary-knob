@@ -69,6 +69,12 @@ One task, 5 ms period: reads `board` for encoder steps, button level and touch, 
 time. Activity is tracked here, **not** through LVGL's inactivity counter, so the dimmer wakes on turn, push and touch alike
 (closes SPEC question 7). The input task also applies the 5 s boot hold for reset-setup.
 
+### 2.4a knob_net
+Polls espOS (Wi-Fi state machine, SignalK token state, stream status) every 250 ms and reports one boot phase: starting,
+setup portal, Wi-Fi, server search, pairing, token check, link, failed, online. It carries a short text for the splash
+status bar and a progress value for the progress bar. Polled, not event driven, so it cannot interfere with espOS. The model
+maps the phase to a system screen.
+
 ### 2.5 knob_model
 The only owner of `marine_ui_snapshot_t`. Inputs, all copied and enqueued from callbacks (never blocking on the stream task):
 - SignalK subscriptions (`espos_sk_subscribe`), values and `meta` (for `meta.timeout`).

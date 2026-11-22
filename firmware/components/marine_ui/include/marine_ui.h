@@ -181,6 +181,7 @@ typedef struct {
     char setup_ap_ssid[32];
     uint8_t boot_progress_pct;   // 0..100
     uint8_t connect_step;        // 0 = Wi-Fi, 1 = Server, 2 = SignalK Link
+    char boot_phase[16];         // text in the boot splash status bar, upper case, for example "WI-FI" or "SIGNALK"
 } marine_ui_snapshot_t;
 
 /**

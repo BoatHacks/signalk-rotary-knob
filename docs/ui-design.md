@@ -148,7 +148,7 @@ screens.
 
 | Screen | Shows |
 |---|---|
-| Boot | Name and a progress arc, no input needed |
+| Boot | The splash picture (firmware/assets/splash.png) with a live progress bar and a status bar under it that names the current phase in text: `STARTING`, `WI-FI`, `SIGNALK`, `TOKEN`. It stays up until the stream is connected, then the last mode opens. The portal, approval and cannot-connect screens below replace it when they apply. No input needed |
 | Wi-Fi setup portal | `JOIN WI-FI`, the setup network name in a pill (an example, the real name comes from espOS), `THEN OPEN THE SETUP PAGE`, curved `SETUP ONLY`. Wi-Fi only, no pairing code |
 | Connecting | Three steps with drawn status marks: Wi-Fi, server, link (done = green disc with a check, current = cyan ring, pending = grey ring) |
 | Waiting for approval | `APPROVE KNOB IN SIGNALK ADMIN UI` and the device name. First connect only |

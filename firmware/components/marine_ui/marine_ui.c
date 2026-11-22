@@ -232,6 +232,13 @@ extern const lv_image_dsc_t marine_splash_img;
 static lv_obj_t *sys_splash;
 static lv_obj_t *sys_splash_track;
 static lv_obj_t *sys_splash_fill;
+// Status bar under the progress bar, in the place of the four baked-in dots (they are erased in splash_img.c). It names
+// the current boot phase in text, from snap.boot_phase.
+#define SPLASH_PILL_W 84
+#define SPLASH_PILL_H 14
+#define SPLASH_PILL_Y (218 + SPLASH_OFF_Y)
+static lv_obj_t *sys_splash_pill;
+static lv_obj_t *sys_splash_phase;
 
 // Shared Scratch Glyph Canvas for Tangent Rotation (24x24 ARGB8888 in PSRAM)
 #define GLYPH_TMP_SIZE 24
@@ -1521,6 +1528,23 @@ static void build_overlays_and_system(void) {
     lv_obj_set_style_bg_color(sys_splash_fill, lv_color_hex(0xFEBF11), 0);
     lv_obj_set_style_bg_opa(sys_splash_fill, LV_OPA_COVER, 0);
     lv_obj_add_flag(sys_splash_fill, LV_OBJ_FLAG_HIDDEN);
+
+    sys_splash_pill = lv_obj_create(scr_system);
+    lv_obj_remove_style_all(sys_splash_pill);
+    lv_obj_set_size(sys_splash_pill, SPLASH_PILL_W, SPLASH_PILL_H);
+    lv_obj_set_pos(sys_splash_pill, (240 - SPLASH_PILL_W) / 2, SPLASH_PILL_Y);
+    lv_obj_set_style_radius(sys_splash_pill, SPLASH_PILL_H / 2, 0);
+    lv_obj_set_style_bg_color(sys_splash_pill, lv_color_hex(0x012E68), 0);
+    lv_obj_set_style_bg_opa(sys_splash_pill, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(sys_splash_pill, 1, 0);
+    lv_obj_set_style_border_color(sys_splash_pill, lv_color_hex(0x2F5E9B), 0);
+    lv_obj_remove_flag(sys_splash_pill, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(sys_splash_pill, LV_OBJ_FLAG_HIDDEN);
+
+    sys_splash_phase = lv_label_create(sys_splash_pill);
+    lv_obj_set_style_text_font(sys_splash_phase, &lv_font_montserrat_12, 0);
+    lv_label_set_text(sys_splash_phase, "");
+    lv_obj_center(sys_splash_phase);
 }
 
 // Show or hide the boot splash and set the live progress bar (0..100).
@@ -1529,6 +1553,7 @@ static void sys_splash_show(bool show, uint8_t pct) {
         lv_obj_add_flag(sys_splash, LV_OBJ_FLAG_HIDDEN);
         lv_obj_add_flag(sys_splash_track, LV_OBJ_FLAG_HIDDEN);
         lv_obj_add_flag(sys_splash_fill, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(sys_splash_pill, LV_OBJ_FLAG_HIDDEN);
         return;
     }
     if (pct > 100) pct = 100;
@@ -1536,6 +1561,10 @@ static void sys_splash_show(bool show, uint8_t pct) {
     lv_obj_remove_flag(sys_splash_track, LV_OBJ_FLAG_HIDDEN);
     lv_obj_remove_flag(sys_splash_fill, LV_OBJ_FLAG_HIDDEN);
     lv_obj_set_width(sys_splash_fill, (SPLASH_BAR_W * pct) / 100);
+    lv_obj_remove_flag(sys_splash_pill, LV_OBJ_FLAG_HIDDEN);
+    lv_label_set_text(sys_splash_phase, snap.boot_phase);
+    lv_obj_set_style_text_color(sys_splash_phase, snap.night_palette ? COL_NIGHT_RED : lv_color_hex(0xE8F0FF), 0);
+    lv_obj_center(sys_splash_phase);
     lv_obj_set_style_bg_color(sys_splash_fill, snap.night_palette ? COL_NIGHT_RED : lv_color_hex(0xFEBF11), 0);
 }
 

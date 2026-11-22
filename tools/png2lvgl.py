@@ -7,6 +7,8 @@ Standard library only. Transparent pixels are composited over black, which is wh
     python tools/png2lvgl.py firmware/assets/splash.png firmware/components/marine_ui/splash_img.c marine_splash_img         --shift 1,1 --circle 118.5
     python tools/png2lvgl.py --probe image.png X0 Y0 X1 Y1     # print the RGB values of a pixel row/area (layout work)
 
+--erase X0,Y0,X1,Y1  fill a rectangle (inclusive) by fading each column from the pixel above it to the pixel below it, to
+                remove small baked-in details such as indicator dots. Applied before --shift.
 --shift DX,DY   move the picture by whole pixels (the gap is filled black).
 --circle R      paint everything farther than R pixels from the screen centre black, so a square picture with a white
                 background shows no white rim on a round glass. The centre is (w-1)/2, (h-1)/2.
@@ -77,11 +79,18 @@ def main():
     opts = {}
     argv = sys.argv[1:]
     for i, a in enumerate(argv):
-        if a in ("--shift", "--circle"):
+        if a in ("--shift", "--circle", "--erase"):
             opts[a] = argv[i + 1]
             args = [x for x in args if x != argv[i + 1]]
     src, dst, name = args[:3]
     w, h, px = read_png(src)
+    if "--erase" in opts:
+        x0, y0, x1, y1 = map(int, opts["--erase"].split(","))
+        for x in range(x0, x1 + 1):
+            top, bot = px[y0 - 1][x], px[y1 + 1][x]
+            for y in range(y0, y1 + 1):
+                t = (y - y0 + 1) / float(y1 - y0 + 2)
+                px[y][x] = tuple(int(round(top[i] * (1 - t) + bot[i] * t)) for i in range(3))
     if "--shift" in opts:
         dx, dy = map(int, opts["--shift"].split(","))
         shifted = [[(0, 0, 0)] * w for _ in range(h)]

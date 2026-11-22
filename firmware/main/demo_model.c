@@ -9,6 +9,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
+#include "knob_net.h"
 #include "knob_power.h"
 #include "lv_port.h"
 #include "usb_dev.h"
@@ -20,6 +21,7 @@ static marine_ui_snapshot_t s_snap;
 static volatile bool s_stream_down, s_heading_frozen;
 static volatile int s_alarm_req = -1; /* -1 none pending, else marine_alarm_type_t */
 static volatile int s_night_toggle;
+static volatile bool s_bypass_net; /* bench command d: show the operational UI without waiting for Wi-Fi and SignalK */
 static volatile int s_phase;
 static volatile uint32_t s_loop_ms, s_apply_done_ms;
 
@@ -48,8 +50,9 @@ void demo_model_command(char c)
     case 'x': s_stream_down = !s_stream_down; break;
     case 's': s_heading_frozen = !s_heading_frozen; break;
     case 'n': s_night_toggle = 1; break;
+    case 'd': s_bypass_net = !s_bypass_net; break;
     default:
-        ESP_LOGI(TAG, "commands: a anchor alarm, g gps alarm, c clear, x stream down, s freeze heading, n night");
+        ESP_LOGI(TAG, "commands: a anchor alarm, g gps alarm, c clear, x stream down, s freeze heading, n night, d bypass network gating");
         return;
     }
     ESP_LOGI(TAG, "command %c", c);
@@ -96,7 +99,6 @@ static void apply_action(const marine_ui_action_t *a)
 
 static void demo_task(void *arg)
 {
-    uint32_t boot_start = (uint32_t)(esp_timer_get_time() / 1000);
     float h = s_snap.heading_deg;
     for (;;) {
         marine_ui_action_t a;
@@ -107,13 +109,34 @@ static void demo_task(void *arg)
         uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
         s_snap.now_ms = now;
 
-        /* Boot screen for 2.5 s, then operational. */
-        uint32_t since = now - boot_start;
-        if (since < 2500) {
-            s_snap.system_screen = MARINE_SCREEN_BOOT;
-            s_snap.boot_progress_pct = (uint8_t)(since * 100 / 2500);
-        } else {
+        /* The system screen follows the real Wi-Fi and SignalK state from knob_net. The data behind the operational
+         * screens is still simulated until knob_model exists. Bench command d bypasses the gating. */
+        knob_net_status_t ns;
+        knob_net_get(&ns);
+        if (s_bypass_net) {
             s_snap.system_screen = MARINE_SCREEN_OPERATIONAL;
+        } else {
+            switch (ns.phase) {
+            case KNOB_NET_PORTAL:
+                s_snap.system_screen = MARINE_SCREEN_WIFI_PORTAL;
+                strncpy(s_snap.setup_ap_ssid, ns.portal_ssid, sizeof(s_snap.setup_ap_ssid) - 1);
+                break;
+            case KNOB_NET_PAIRING:
+                s_snap.system_screen = MARINE_SCREEN_PAIRING;
+                strncpy(s_snap.device_name, ns.hostname, sizeof(s_snap.device_name) - 1);
+                break;
+            case KNOB_NET_FAILED:
+                s_snap.system_screen = MARINE_SCREEN_CANNOT_CONNECT;
+                break;
+            case KNOB_NET_ONLINE:
+                s_snap.system_screen = MARINE_SCREEN_OPERATIONAL;
+                break;
+            default: /* starting, Wi-Fi, server, token, link: the splash with the phase name */
+                s_snap.system_screen = MARINE_SCREEN_BOOT;
+                break;
+            }
+            strncpy(s_snap.boot_phase, ns.text, sizeof(s_snap.boot_phase) - 1);
+            s_snap.boot_progress_pct = ns.progress;
         }
 
         if (s_night_toggle) {
