@@ -14,8 +14,9 @@ It controls three things:
 - **Dimmer:** brightness of lighting circuits or display groups.
 - **Anchor alarm:** arm, disarm, set the drop point and radius, see drag state, acknowledge alarms.
 
-The project has two parts: this firmware, and a companion SignalK server plugin that owns pairing,
-configuration, and the mapping from knob actions to SignalK paths. Firmware stays generic.
+The project is this firmware. It talks to the SignalK server directly, there is no companion plugin in the MVP (section 12).
+Pairing, configuration and the mapping from knob actions to SignalK paths and API calls live in the firmware and on the knob's
+own settings page. A plugin may be added later (section 6.1).
 
 ### 1.2 Background
 
@@ -26,9 +27,9 @@ configuration, and the mapping from knob actions to SignalK paths. Firmware stay
 ### 1.3 Terminology
 
 - **Knob**: the physical device running this firmware.
-- **Companion plugin**: the `signalk-rotary-knob` SignalK server plugin.
+- **Companion plugin**: a possible later SignalK server plugin for shims, snapshots or central config. Not part of the MVP.
 - **Mode / screen**: one UI context (Autopilot, Dimmer, Anchor, ...). The dial and button mean different things per mode.
-- **Transport**: how the knob reaches its target. `wifi` (talks to the plugin) or `hid` (acts as a USB input device for a host).
+- **Transport**: how the knob reaches its target. `wifi` (talks to the SignalK server) or `hid` (acts as a USB input device for a host).
 - **Dim mode**: low-power idle state with the backlight and LEDs reduced.
 
 ## 2. Domain Rules
@@ -62,32 +63,46 @@ level so heading and alarm state stay visible. The dim level also follows the bo
 
 ## 4. Data Model
 
-- **Pairing**: device id (from the MAC), server address, device token. Stored in NVS.
-- **Layout**: ordered list of modes the plugin wants shown, with per-mode settings (which autopilot id,
-  which dimmer channels, anchor plugin target).
-- **State snapshot** (plugin to knob): autopilot state/mode/target/heading, dimmer channel levels,
-  anchor state (armed, position, radius, distance, alarm state).
-- **Action** (knob to plugin): `{mode, action, value}`, for example `autopilot.adjustTarget +10`,
-  `dimmer.set channel=salon 40`, `anchor.arm`.
+- **Pairing**: device id (from the MAC), SignalK server address, device token from the SignalK access request. Stored in
+  NVS by espOS. This is the only credential the knob holds, there is no separate knob-to-plugin pairing.
+- **Config** (on the knob, in NVS, edited on the espOS settings page): ordered list of visible modes, per-mode settings
+  (autopilot id, dimmer channels as a name plus a SignalK path, anchor alarm plugin target), steps, timeouts, dim levels and
+  the HID profile.
+- **Local state model**: the knob keeps its own model, filled from SignalK subscriptions: autopilot state/mode/target/heading,
+  dimmer channel levels, anchor state (armed, position, radius, distance, alarm state). Every value carries the time it last
+  arrived, so the UI can decide what is stale.
+- **Action** (UI to adapter layer): `{mode, action, value}`, for example `autopilot.adjustTarget +10`,
+  `dimmer.set channel=salon 40`, `anchor.arm`. The firmware turns an action into a SignalK `PUT` or REST call (section 6.1).
 
 ## 5. Sources / Inputs
 
 - Physical: dial (quadrature), push (short, long, double), capacitive touch (swipe to change mode, optional).
-- Network: state snapshots and config from the companion plugin over Wi-Fi.
-- Day/night: night/day mode or `environment.sun` from SignalK, relayed in the state snapshot **(verify paths)**.
+- Network: SignalK stream subscriptions and REST calls to the server over Wi-Fi.
+- Day/night: night/day mode or `environment.sun` from SignalK, subscribed directly **(verify paths)**.
 - USB: host enumerates the knob. Wired power from the same cable.
 
 ## 6. API Specification
 
-### 6.1 Knob to plugin (Wi-Fi)
+### 6.1 Knob to SignalK (Wi-Fi)
 
-Draft shape, to be settled in ARCHITECTURE.md:
+Decided 2026-11-22: no companion plugin in the MVP, the knob talks to the SignalK server directly. Draft shape, to be settled
+in ARCHITECTURE.md:
 
-- WebSocket from knob to plugin. Plugin pushes `state` and `config`, knob sends `action` and `hello`.
-- Pairing: plugin shows a pairing code in its config page, knob sends it, plugin returns a token.
-- Security: plain WebSocket on the boat LAN, every connection authenticated by the pairing token. No TLS.
-- mDNS discovery of the SignalK server (`_signalk-ws._tcp`) **(verify)**, manual host as fallback.
-- The plugin translates actions to the SignalK autopilot API, PUTs on `electrical.switches.*` dimmer paths, and the anchor alarm API.
+- espOS's SignalK client does discovery (mDNS `_signalk-ws._tcp` **(verify)**, manual host as fallback), the access request,
+  the token, the WebSocket stream with subscriptions, and `PUT`.
+- Pairing: one approval, the SignalK access request in the server's admin UI. No pairing code and no second token.
+- Security: plain WebSocket and HTTP on the boat LAN, every request authenticated by the SignalK token. No TLS.
+- Simple paths go through the stream and `PUT`: `environment.mode` subscription, dimmer paths, anchor radius.
+- Autopilot v2 REST calls, anchor alarm endpoints and alarm acknowledge are plain HTTP requests with the token. Whether
+  espOS's client can make them, or we use `esp_http_client` with the stored token, is open (question 8).
+- The firmware keeps these in one adapter layer per domain (autopilot, anchor, dimmer, notifications), so SignalK API details
+  stay in one place. If a plugin is added later for shims, snapshots or central config, the adapter can point at it.
+- The token must be granted write access for `PUT` and the autopilot and anchor calls **(verify)** (question 9).
+- Stale handling: each subscribed value has an age and a timeout. The timeout is the key's SignalK `meta.timeout` (seconds a
+  value stays valid) when the server has one, otherwise a per-path default on the knob. `timeout: 0` or an event-driven key never
+  times out by age. Age is measured against the server's timestamps, not the knob's clock. When a value the current mode
+  depends on is stale, or the stream is down, the UI shows STALE and disables controls (section 3.1, docs/ui-design.md
+  section 4).
 
 ### 6.2 USB-HID
 
@@ -97,9 +112,10 @@ plus CDC for logs) **(verify composite works in TinyUSB mode on this board)**. U
 application such as OpenCPN. The profile is configurable per mode (dial, mouse wheel, media keys) and
 defaults to a HID dial.
 
-### 6.3 SignalK interfaces the companion plugin uses
+### 6.3 SignalK interfaces the knob uses
 
-Researched against the SignalK server docs and the anchor alarm plugin README. The knob never talks to these directly.
+Researched against the SignalK server docs and the anchor alarm plugin README. The firmware calls these through its adapter
+layer (section 6.1).
 
 - **Autopilot (v2 API)**, base `/signalk/v2/api/vessels/self/autopilots/{id}` (`_default` for the default device):
   `GET` status (`state`, `mode`, `target` in radians, `engaged`), `POST engage`, `POST disengage`,
@@ -132,15 +148,18 @@ Everything else is ephemeral.
 
 ## 9. Configuration
 
-- Via the companion plugin config page (layout, channels, steps, timeouts, dim levels).
-- First-time Wi-Fi: the knob opens a captive portal AP on first boot or after a long-press reset. SSID and the
-  plugin pairing code are entered on a phone.
+- On the knob, through the espOS settings web page of each device (layout, dimmer channels and paths, anchor target, steps,
+  timeouts, dim levels, HID profile). Stored in NVS. Each knob is configured separately, backup and restore is open
+  (question 10).
+- First-time Wi-Fi: the knob opens a captive portal AP on first boot or after a long-press reset. Only the Wi-Fi SSID and
+  password are entered on a phone. Pairing is then the SignalK access request approved in the server's admin UI, no code.
+- Reset setup (proposed): a long hold at power-up clears Wi-Fi and the token and reopens the portal.
 
 ## 10. MVP Scope
 
 ### 10.1 MVP Features
 
-- Wi-Fi connect, pair with the plugin, auto reconnect, STALE handling.
+- Wi-Fi connect, SignalK access request and token, auto reconnect, STALE handling.
 - Autopilot mode (engage/standby, target +/-1 and +/-10).
 - Dimmer mode (one channel group, then several).
 - Anchor mode (arm/disarm, set drop point and radius, state, ack).
@@ -150,8 +169,12 @@ Everything else is ephemeral.
 ### 10.2 Post-MVP / Deferred
 
 - USB-HID dial mode (second milestone, after Wi-Fi control works).
-- Any over-the-air update path. Decided: firmware is NOT pulled from the companion plugin. Flashing is over USB.
+- Any over-the-air update path. Decided: firmware is NOT pulled from a server or plugin. Flashing is over USB.
 - Haptics, battery, custom enclosure and mounting.
+- Touch masking around knob pushes. A knob push physically presses the glass and reads as a touch near the centre
+  (about 138,111 on the bench unit), about 230 ms before the button switch closes. The MVP uses a circular dead zone
+  around the centre instead. Masking touches within a short window of a push (needs a small delay on touch-down) would
+  let the centre be used for touch again.
 
 ## 11. References
 
@@ -160,14 +183,16 @@ Everything else is ephemeral.
 
 ## 12. Design Decisions
 
-- **Wi-Fi via companion plugin, not direct to SignalK.** Keeps the firmware generic and puts pairing, layouts and
-  path mapping in a place that is easy to change without reflashing.
+- **No companion plugin in the MVP, the knob talks to SignalK directly** (decided 2026-11-22, replaces the earlier decision
+  for a plugin). One credential (the SignalK access-request token), fewer parts to install and keep in sync. The cost is that
+  SignalK API details (autopilot v2, anchor alarm endpoints, alarm acknowledge) live in a firmware adapter layer. A plugin
+  may return later for shims, snapshots or central config.
 - **USB-HID is a selectable mode, not a separate firmware.** Both transports share the input and UI code.
 - **Any autopilot through the SignalK autopilot API.** No autopilot specific code in the knob.
 - **Full anchor control on the knob** (arm/disarm and drop point), alarm logic remains on the server.
 - **ESP-IDF + LVGL**, for control over PCNT, boot time, OTA, power and the esp_tinyusb composite device.
 - **Engage = long press + confirm turn.** Anchor changes only need a press, because they are less time critical.
-- **Dimmer = `electrical.switches` dimmer paths**, with channels mapped by the plugin.
+- **Dimmer = `electrical.switches` dimmer paths**, with channels (name plus path) configured on the knob.
 - **Build on espOS (ESP-IDF 6 components, `signalk-espos/espos_core`) with our own knob app.** espOS provides the Wi-Fi
   setup portal, NVS config, SignalK discovery/token/stream/PUT, REST/web UI, event bus and logs. It has no
   display, encoder, HID or dimming support, so those stay ours. We borrow ideas and code (Apache-2.0, 2.x line only)
@@ -175,12 +200,15 @@ Everything else is ephemeral.
   and the day/night theme. We do not adopt its touch-first JSON Layout Player for the MVP: our UI is a fixed set of
   modes driven by the encoder. espOS is pre-1.0 and S3/CrowPanel support is unverified, hence the bench spike
   ([docs/spike-espos.md](docs/spike-espos.md)).
-- **Companion plugin stays as specified** (pairing, layouts, channel mapping, path shims) even though espOS's own SignalK
-  client could talk to the server directly. See open questions 5 and 6 for the overlap with espOS.
+- **One credential, config on the knob** (questions 5 and 6, decided 2026-11-22). The SignalK access request is the only
+  pairing step, the token stays in NVS. Layout, channels, steps, timeouts, dim levels and HID profile are set on the knob's
+  own espOS settings page. The knob uses espOS's SignalK client directly for simple paths.
 - **Day/night follows `environment.mode`** (`"day"` / `"night"`), as `sun_state` in the cockpit firmware does. Default to Day until the first
   value arrives, because a dark helm display is worse than a bright one.
-- **Plain WS plus pairing token, no TLS.** Keeps connect time inside the ONLINE target on a closed boat LAN.
-- **No firmware updates pulled from the plugin.** Decided after first leaning the other way. Flashing over USB.
+- **Touch is secondary and ignored in the centre.** A knob push registers as a touch there (hardware coupling, not a
+  bug). The dead zone is a 50 px radius around the centre, size unverified. Masking touches around pushes is deferred.
+- **Plain WS and HTTP plus the SignalK token, no TLS.** Keeps connect time inside the ONLINE target on a closed boat LAN.
+- **No firmware updates pulled from a server or plugin.** Decided after first leaning the other way. Flashing over USB.
 - **Configurable HID profile, default dial.**
 - **Looser boot targets (4 s / 10 s)** because the device is always on, not cold-booted per use.
 
@@ -192,12 +220,21 @@ Everything else is ephemeral.
 3. Anchor alarm: the espOS cockpit docs target `hoeken/hoekens-anchor-alarm` (PUT `null` on `navigation.anchor.position`
    raises, PUT `navigation.anchor.maxRadius` sets scope, dropping at the current fix needs a plugin change). Which plugin
    do we drive? Previously researched: sbender9 `anchoralarm`. Is the `anchoralarm` plugin the target? How are its alarms acknowledged, and does disarm equal `raiseAnchor`?
-4. How is firmware updated if not over the air from the plugin? USB flashing is assumed for now. Does the
-   partition table still keep a second app slot? espOS ships signed OTA with rollback and a plugin-served manifest
-   option. Decide whether we keep OTA disabled, or only allow a manually posted URL.
-5. Pairing overlap: espOS already does the SignalK access request and keeps the token in NVS. What does our plugin's pairing
-   code add, and which side owns the layout and channel config (espOS settings page vs the plugin)?
-6. Does the knob subscribe and PUT directly with espOS's SignalK client for simple paths (dimmer, anchor radius), with the
-   plugin only for the autopilot and anchor shims, or does everything go through our own knob protocol?
+4. How is firmware updated if not over the air from a server? USB flashing is assumed for now. Does the
+   partition table still keep a second app slot? espOS ships signed OTA with rollback and a manifest served from a plugin
+   or server option. Decide whether we keep OTA disabled, or only allow a manually posted URL.
+5. RESOLVED 2026-11-22: pairing overlap. The SignalK access request is the only pairing step, no plugin pairing code. Layout
+   and channel config live on the knob's espOS settings page.
+6. RESOLVED 2026-11-22: the knob subscribes and does `PUT` with espOS's SignalK client for simple paths. There is no companion
+   plugin in the MVP, so autopilot and anchor calls are made by the firmware too (section 6.1, questions 8 and 9).
 7. Can the encoder indev wake the dimmer? In the cockpit code LVGL's inactivity counter is reset by the touch indev. Our
    encoder and button need to do the same.
+8. Can espOS's SignalK client make authenticated HTTP requests (autopilot v2 REST, anchor alarm `POST`s, notification
+   acknowledge), or do we use `esp_http_client` with the token espOS stores?
+9. Which permission does the device token get from the access request, and is it enough for `PUT` and the autopilot v2 and
+   anchor alarm calls on a server with security on?
+10. Config backup and restore: can the espOS settings page export and import a knob's config, so a replaced knob or a second
+    knob does not need re-entering everything?
+11. Staleness: which of the boat's paths carry `meta.timeout`, and does the server enforce it (the signalk-server stale-data
+    work marks timed-out paths)? How does the knob read the meta (REST `.../meta` or `meta` deltas) and compute age against the
+    server's clock when the server has no RTC?

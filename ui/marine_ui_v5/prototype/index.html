@@ -1,0 +1,1685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Elecrow 1.28" Marine UI v5 (LVGL 9.3 Architecture & Visual Prototype)</title>
+<style>
+  :root {
+    --bg: #070d17;
+    --panel: #0e1828;
+    --border: #1e2f4a;
+    --text: #f0f6fc;
+    --muted: #8CA0BC;
+    --cyan: #00f0ff;
+    --amber: #ffaa00;
+    --red: #ff2a3c;
+    --green: #00e676;
+    --purple: #b388ff;
+    --gold: #ffd54f;
+  }
+  * { box-sizing: border-box; user-select: none; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 18px;
+    gap: 16px;
+  }
+  h1 { margin: 0; font-size: 1.15rem; letter-spacing: 0.04em; color: var(--cyan); text-align: center; }
+  .workspace {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    align-items: flex-start;
+    justify-content: center;
+    max-width: 1140px;
+  }
+  .stage-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+  .bezel-outer {
+    width: 336px;
+    height: 336px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, #445063, #171e2b 70%, #090c12);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.85), inset 0 2px 4px rgba(255,255,255,0.22);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    cursor: grab;
+    border: 4px dashed #52627a;
+  }
+  .bezel-outer:active { cursor: grabbing; }
+  .bezel-inner {
+    width: 264px;
+    height: 264px;
+    border-radius: 50%;
+    background: #04070d;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 4px 12px #000;
+    position: relative;
+  }
+  .hw-led {
+    position: absolute;
+    top: 6px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--cyan);
+    box-shadow: 0 0 8px var(--cyan);
+    transition: opacity 0.1s;
+  }
+  canvas#lcd {
+    width: 240px;
+    height: 240px;
+    border-radius: 50%;
+    background: #030811;
+    cursor: pointer;
+    box-shadow: 0 0 0 2px #111b2e;
+  }
+  .action-log {
+    width: 336px;
+    background: #0a1220;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.74rem;
+    color: var(--cyan);
+    min-height: 78px;
+    max-height: 92px;
+    overflow-y: auto;
+    line-height: 1.4;
+  }
+  .controls {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    width: 540px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .ctrl-group { display: flex; flex-direction: column; gap: 6px; }
+  .ctrl-title { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 700; }
+  .btn-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  button {
+    background: #15243b;
+    color: var(--text);
+    border: 1px solid #284166;
+    border-radius: 6px;
+    padding: 7px 9px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    cursor: pointer;
+    flex: 1 1 auto;
+    transition: all 0.12s;
+  }
+  button:hover { background: #1e3352; border-color: var(--cyan); }
+  button.active { background: #07384a; border-color: var(--cyan); color: var(--cyan); }
+  button.warn.active { background: #422c05; border-color: var(--amber); color: var(--amber); }
+  button.danger.active { background: #4a0d16; border-color: var(--red); color: var(--red); }
+  .hint { font-size: 0.75rem; color: var(--muted); line-height: 1.45; border-top: 1px solid var(--border); padding-top: 8px; }
+</style>
+</head>
+<body>
+  <h1>ELECROW 1.28" (240×240) MARINE UI v5 — LVGL 9.3 SIMULATOR</h1>
+  <div class="workspace">
+    <div class="stage-col">
+      <div class="bezel-outer" id="bezel" title="Drag rim or scroll wheel to turn endless encoder">
+        <div class="bezel-inner">
+          <div class="hw-led" id="hwLed"></div>
+          <canvas id="lcd" width="240" height="240"></canvas>
+        </div>
+      </div>
+      <div class="action-log" id="actionLog">[UI->FW] Ready. Demo snapshot loaded in prototype.</div>
+    </div>
+
+    <div class="controls">
+      <div class="ctrl-group">
+        <div class="ctrl-title">1. Primary Operational Screens</div>
+        <div class="btn-row">
+          <button id="btnScrAP" class="active" onclick="jumpToOperational('AUTOPILOT')">Autopilot</button>
+          <button id="btnScrANC" onclick="jumpToOperational('ANCHOR')">Anchor Watch</button>
+          <button id="btnScrDIM" onclick="jumpToOperational('DIMMER')">Dimmer</button>
+          <button id="btnScrHID" onclick="jumpToOperational('USB_HID')">USB-HID</button>
+          <button id="btnScrRING" onclick="openModeRing()">Mode Ring (2x)</button>
+        </div>
+      </div>
+
+      <div class="ctrl-group">
+        <div class="ctrl-title">2. Prompts, Alarms & Stale Faults</div>
+        <div class="btn-row">
+          <button id="btnApConfirm" onclick="triggerApConfirmPrompt()">AP Engage Prompt</button>
+          <button id="btnAncMenu" onclick="triggerAnchorMenu()">Anchor Menu</button>
+          <button id="btnDragAlarm" class="danger" onclick="toggleDragAlarm()">Drag Alarm</button>
+          <button id="btnGpsAlarm" class="danger" onclick="toggleGpsAlarm()">GPS Lost Alarm</button>
+          <button id="btnStale" class="warn" onclick="toggleStaleLink()">Stream Down (LINK LOST)</button>
+          <button id="btnStaleOne" class="warn" onclick="toggleStaleOne()">One Value Stale (depth)</button>
+          <button id="btnStaleEss" class="warn" onclick="toggleStaleEssential()">Essential Value Stale</button>
+        </div>
+      </div>
+
+      <div class="ctrl-group">
+        <div class="ctrl-title">3. Boot, Setup Portal & Pairing Screens</div>
+        <div class="btn-row">
+          <button id="btnBoot" onclick="setSystemScreen('BOOT')">Boot</button>
+          <button id="btnWifi" onclick="setSystemScreen('WIFI_PORTAL')">Wi-Fi Portal</button>
+          <button id="btnConn" onclick="setSystemScreen('CONNECTING')">Connecting</button>
+          <button id="btnPair" onclick="setSystemScreen('PAIRING')">Approval</button>
+          <button id="btnNoSrv" onclick="setSystemScreen('CANNOT_CONNECT')">Cannot Connect</button>
+          <button id="btnReset" onclick="setSystemScreen('RESET_SETUP')">Reset Hold (5s)</button>
+        </div>
+      </div>
+
+      <div class="ctrl-group">
+        <div class="ctrl-title">4. Hardware Encoder & Button Classifier</div>
+        <div class="btn-row">
+          <button onclick="hwTurn(-1)">Turn CCW (-1)</button>
+          <button onclick="hwTurn(1)">Turn CW (+1)</button>
+          <button onclick="emitClassified('SINGLE_PRESS')">1x Press (300ms)</button>
+          <button onclick="emitClassified('DOUBLE_PRESS')">2x Press (Mode Ring)</button>
+          <button onclick="emitClassified('LONG_PRESS')">Long Press (750ms)</button>
+        </div>
+      </div>
+
+      <div class="ctrl-group">
+        <div class="ctrl-title">5. Options, Effects & Power States</div>
+        <div class="btn-row">
+          <button id="btnNight" onclick="toggleNight()">Night: OFF</button>
+          <button id="btnGlass" class="active" onclick="toggleGlass()">Glass: ON</button>
+          <button id="btnGlow" class="active" onclick="toggleGlow()">Glow: ON</button>
+          <button id="btnAckBehavior" class="active" onclick="toggleAckBehavior()">Ack: Return+Ring</button>
+          <button id="btnUsbHost" class="active" onclick="toggleUsbHost()">USB Host: ON</button>
+          <button id="btnDimVariant" onclick="toggleDimmerVariant()">Dimmer: Groups</button>
+          <button id="btnIdleTest" onclick="forceIdleDim()">Test 10s Dim</button>
+        </div>
+      </div>
+
+      <div class="hint">
+        • <b>v5 Stale demo:</b> "One Value Stale" freezes depth, only that value shows <b>---</b>. "Essential Value Stale" freezes the active mode's heading, anchor or light data, the mode shows its own reason (for example NO HEADING), its controls are off, and the mode ring (2x press) still opens. "Stream Down" shows LINK LOST. USB-HID mode ignores SignalK staleness. All values are fed live by a simulator except frozen ones.<br>
+        • <b>v4 Fixes:</b> Mode Ring center shows live miniaturized mode preview; Alarm Ack can either return to operational mode with a persistent red ring/badge (default) or keep the full overlay; Dimmer buffers pending level/7-preset changes across rapid clicks; Reset Hold requires full <b>5.0 s</b> hold.<br>
+        • <b>Touch Restriction:</b> Outer canvas taps only step to the next Dimmer group (harmless action); never triggers Long Press or Double Press. Use buttons in Section 4 to simulate hardware encoder button double/long presses.
+      </div>
+    </div>
+  </div>
+
+<script>
+const canvas = document.getElementById('lcd');
+const ctx = canvas.getContext('2d');
+const bezel = document.getElementById('bezel');
+const logEl = document.getElementById('actionLog');
+
+// Per-value stale timeouts in ms (0 = never stale by age). In the firmware these come from the SignalK `meta.timeout`
+// of each key, or a per-path default, and travel in the snapshot as `<name>_timeout_ms`.
+const TIMEOUTS = {
+  apState: 5000, heading: 5000, cts: 5000, rudder: 5000,
+  depth: 10000, voltage: 30000, gps: 10000,
+  anchor: 10000,
+  dimmer: 0            // event-driven levels never time out by age (set to 5000 by the "Essential stale" demo)
+};
+// Live-feed simulator: keeps every value fresh unless it is frozen with the demo buttons.
+const SIM = { frozen: {} };
+
+const CONST = {
+  IDLE_DIM_MS: 10000,
+  IDLE_DIM_PCT: 10,
+  IDLE_OFF_MS: 600000, // 10 minutes
+  FACTORY_RESET_HOLD_MS: 5000
+};
+
+// Fixed slots: AUTO top (0), LIGHT right (1), ANCHOR bottom (2), USB left (3)
+const SLOTS = [
+  { id: 'AUTOPILOT', label: 'AUTO',   angle: -Math.PI / 2 },
+  { id: 'DIMMER',    label: 'LIGHT',  angle: 0 },
+  { id: 'ANCHOR',    label: 'ANCHOR', angle: Math.PI / 2 },
+  { id: 'USB_HID',   label: 'USB',    angle: Math.PI }
+];
+
+// 7 RGBW Presets (optional variant)
+const RGBW_PRESETS = [
+  { name: 'NIGHT RED',   hex: '#ff1e27' },
+  { name: 'WARM WHITE',  hex: '#ffcf87' },
+  { name: 'COOL WHITE',  hex: '#e8f4ff' },
+  { name: 'AMBER DECK',  hex: '#ff9800' },
+  { name: 'OCEAN CYAN',  hex: '#00e5ff' },
+  { name: 'DEEP BLUE',   hex: '#2979ff' },
+  { name: 'EMERALD',     hex: '#00e676' }
+];
+
+// Demo SignalK Snapshot (firmware initializes clean zeros; prototype populates demo values)
+const SNAPSHOT = {
+  nowMs: performance.now(),
+  screen: 'OPERATIONAL',
+  mode: 'AUTOPILOT',
+  signalkConnected: true,
+  lastDataMs: performance.now(),
+  nightPalette: false,
+  fxGlass: true,
+  fxGlow: true,
+  alarmAckReturnsWithBadge: true, // Option: true = dismiss full screen & show persistent ring/label
+
+  // Telemetry + per-value timestamps
+  depthM: 6.4,
+  depthUpdatedMs: performance.now(),
+  voltageV: 12.8,
+  voltageUpdatedMs: performance.now(),
+  gpsFix: true,
+  gpsUpdatedMs: performance.now(),
+
+  // Autopilot
+  apEngaged: true,
+  apStateUpdatedMs: performance.now(),
+  heading: 284.0,
+  headingUpdatedMs: performance.now(),
+  cts: 285,
+  ctsUpdatedMs: performance.now(),
+  rudder: 3.5,
+  rudderUpdatedMs: performance.now(),
+
+  // Anchor
+  anchorArmed: true,
+  anchorRadiusM: 35,
+  anchorDistM: 14,
+  anchorBearingDeg: 85,
+  anchorUpdatedMs: performance.now(),
+  alarmType: 'NONE', // NONE | DRAG | GPS_LOST
+  alarmAcknowledged: false,
+
+  // Dimmer (Groups) & Optional 7-Preset RGBW Variant
+  dimmerVariant: 'GROUPS',
+  dimmerUpdatedMs: performance.now(),
+  groupIndex: 0,
+  groups: [
+    { name: 'SALOON',  on: true,  level: 65, lastLevel: 65 },
+    { name: 'COCKPIT', on: true,  level: 40, lastLevel: 40 },
+    { name: 'CABIN',   on: false, level: 0,  lastLevel: 80 }
+  ],
+  rgbwPresetIdx: 0,
+
+  // USB-HID
+  usbHostEnumerated: true,
+  hidProfileIdx: 0,
+  hidProfiles: ['CHARTPLOTTER', 'MEDIA / AUDIO', 'CURSOR KEYS'],
+  hidLastEvent: 'READY',
+
+  // Boot / Onboarding
+  deviceName: 'HELM-DIAL-04',
+  setupApSsid: 'HelmDial-Setup-04',
+  bootProgress: 0.72,
+  connectStep: 1,
+  resetHoldProgress: 0.0
+};
+
+const UI = {
+  modeRingOpen: false,
+  ringSelectedSlot: 0,
+  ringOpenedAt: 0,
+
+  apStepDeg: 1,
+  apPendingCts: null,
+  apPendingDeadline: 0,
+  apPendingSent: false,
+  apConfirmOpen: false,
+  apConfirmDeadline: 0,
+
+  anchorPreviewRadius: null,
+  anchorMenuOpen: false,
+  anchorMenuIdx: 0,
+  anchorMenuOpenedAt: 0,
+
+  dimmerPendingLevel: null,
+  dimmerPendingPreset: null,
+  dimmerPendingDeadline: 0,
+  dimmerPendingSent: false,
+
+  lastInputAt: performance.now(),
+  backlightPct: 100,
+  ledFlashUntil: 0,
+  resetHolding: false,
+  resetStartAt: 0
+};
+
+function emitAction(mode, action, value) {
+  const line = `[UI->FW] { mode: "${mode}", action: "${action}", value: ${JSON.stringify(value)} }`;
+  logEl.innerHTML = `${line}<br>` + logEl.innerHTML;
+  simulateServerResponse(mode, action, value);
+}
+
+function simulateServerResponse(mode, action, value) {
+  const now = performance.now();
+  SNAPSHOT.lastDataMs = now;
+  if (mode === 'AUTOPILOT') {
+    if (action === 'SET_CTS') { SNAPSHOT.cts = value; SNAPSHOT.ctsUpdatedMs = now; }
+    if (action === 'ENGAGE') { SNAPSHOT.apEngaged = true; SNAPSHOT.cts = Math.round(SNAPSHOT.heading); SNAPSHOT.ctsUpdatedMs = now; }
+    if (action === 'STANDBY') { SNAPSHOT.apEngaged = false; }
+  } else if (mode === 'ANCHOR') {
+    if (action === 'SET_RADIUS') { SNAPSHOT.anchorRadiusM = value; SNAPSHOT.anchorUpdatedMs = now; }
+    if (action === 'ARM_HERE') { SNAPSHOT.anchorArmed = true; SNAPSHOT.anchorDistM = 2; SNAPSHOT.alarmType = 'NONE'; SNAPSHOT.anchorUpdatedMs = now; }
+    if (action === 'MOVE_DROP_HERE') { SNAPSHOT.anchorDistM = 0; SNAPSHOT.alarmType = 'NONE'; SNAPSHOT.anchorUpdatedMs = now; }
+    if (action === 'DISARM') { SNAPSHOT.anchorArmed = false; SNAPSHOT.anchorDistM = 0; SNAPSHOT.alarmType = 'NONE'; SNAPSHOT.anchorUpdatedMs = now; }
+  } else if (mode === 'ALARM') {
+    if (action === 'ACKNOWLEDGE') SNAPSHOT.alarmAcknowledged = true;
+  } else if (mode === 'DIMMER') {
+    const g = SNAPSHOT.groups[SNAPSHOT.groupIndex];
+    if (action === 'SET_LEVEL') {
+      g.level = value;
+      g.on = value > 0;
+      if (value > 0) g.lastLevel = value;
+    } else if (action === 'TOGGLE_POWER') {
+      if (g.on) { g.on = false; g.level = 0; }
+      else { g.on = true; g.level = g.lastLevel || 50; }
+    } else if (action === 'SET_PRESET') {
+      SNAPSHOT.rgbwPresetIdx = value;
+    }
+  } else if (mode === 'USB_HID') {
+    if (action === 'TURN') SNAPSHOT.hidLastEvent = value > 0 ? 'HID STEP +1' : 'HID STEP -1';
+    if (action === 'PRESS') SNAPSHOT.hidLastEvent = 'HID CLICK / ENTER';
+    if (action === 'NEXT_PROFILE') SNAPSHOT.hidProfileIdx = (SNAPSHOT.hidProfileIdx + 1) % SNAPSHOT.hidProfiles.length;
+  }
+}
+
+function wrap360(d) { return ((d % 360) + 360) % 360; }
+
+function pal() {
+  if (SNAPSHOT.nightPalette) {
+    return {
+      bg: '#050000', primary: '#ff1e27', text: '#ff1e27',
+      muted: '#7a1014', amber: '#ff1e27', green: '#ff1e27', red: '#ff1e27', purple: '#ff1e27'
+    };
+  }
+  return {
+    bg: '#030811', primary: '#00f0ff', text: '#f0f6fc',
+    muted: '#8CA0BC', amber: '#ffaa00', green: '#00e676', red: '#ff2a3c', purple: '#b388ff'
+  };
+}
+
+// --- Per-value staleness (age vs the value's own timeout; mirrors current_stale() in marine_ui.c) ---
+function valueStale(name, now) {
+  const t = TIMEOUTS[name];
+  if (!t) return false;                         // 0 = never stale by age
+  const u = SNAPSHOT[name + 'UpdatedMs'];
+  if (!u) return true;                          // never received
+  return (now - u) > t;
+}
+
+// Display-only values: a stale one masks only itself.
+function displayStale(now) {
+  return {
+    rudder: valueStale('rudder', now),
+    depth: valueStale('depth', now),
+    voltage: valueStale('voltage', now),
+    gps: valueStale('gps', now)
+  };
+}
+
+function essentialStaleReason(now) {
+  if (SNAPSHOT.mode === 'AUTOPILOT') {
+    if (valueStale('apState', now)) return 'NO AP STATE';
+    if (valueStale('heading', now)) return 'NO HEADING';
+    if (valueStale('cts', now)) return 'NO TARGET';
+  } else if (SNAPSHOT.mode === 'ANCHOR') {
+    if (valueStale('anchor', now)) return 'NO ANCHOR DATA';
+  } else if (SNAPSHOT.mode === 'DIMMER') {
+    if (valueStale('dimmer', now)) return 'NO LIGHT DATA';
+  }
+  return null;
+}
+
+// state: 'NONE' | 'LINK' | 'ESSENTIAL'. HID never depends on the SignalK link.
+function currentStale(now) {
+  if (SNAPSHOT.mode === 'USB_HID') return { state: 'NONE', reason: null };
+  if (!SNAPSHOT.signalkConnected) return { state: 'LINK', reason: null };
+  const reason = essentialStaleReason(now);
+  if (reason) return { state: 'ESSENTIAL', reason };
+  return { state: 'NONE', reason: null };
+}
+
+function isModeDataStale(now) { return currentStale(now).state !== 'NONE'; }
+
+// Live-feed simulator: refresh every value that is not frozen (the firmware does this from SignalK deltas).
+function feedLive(now) {
+  if (!SNAPSHOT.signalkConnected) return;
+  SNAPSHOT.lastDataMs = now;
+  ['apState', 'heading', 'cts', 'rudder', 'depth', 'voltage', 'gps', 'anchor', 'dimmer'].forEach(n => {
+    if (!SIM.frozen[n]) SNAPSHOT[n + 'UpdatedMs'] = now;
+  });
+}
+
+function freezeValue(name, on) {
+  const now = performance.now();
+  SIM.frozen[name] = on;
+  if (on) {
+    if (name === 'dimmer' && !TIMEOUTS.dimmer) TIMEOUTS.dimmer = 5000;
+    SNAPSHOT[name + 'UpdatedMs'] = now - (TIMEOUTS[name] || 5000) - 1000;   // already too old: show the effect now
+  } else {
+    if (name === 'dimmer') TIMEOUTS.dimmer = 0;
+    SNAPSHOT[name + 'UpdatedMs'] = now;
+  }
+}
+
+function toggleStaleOne() {
+  freezeValue('depth', !SIM.frozen.depth);
+  syncButtons();
+}
+
+function essentialKeyForMode() {
+  return { AUTOPILOT: 'heading', ANCHOR: 'anchor', DIMMER: 'dimmer' }[SNAPSHOT.mode] || null;
+}
+
+function toggleStaleEssential() {
+  const key = essentialKeyForMode();
+  if (!key) return;   // HID has no essential values
+  freezeValue(key, !SIM.frozen[key]);
+  syncButtons();
+}
+
+function noteActivity(isAlarmAck = false) {
+  const now = performance.now();
+  const prevBl = UI.backlightPct;
+  UI.lastInputAt = now;
+  UI.backlightPct = 100;
+  if (prevBl === 0 && !isAlarmAck) {
+    emitAction('POWER', 'WAKE_SCREEN', 100);
+    return false;
+  }
+  return true;
+}
+
+function isFullAlarmBlocking() {
+  if (SNAPSHOT.alarmType === 'NONE') return false;
+  if (SNAPSHOT.alarmAcknowledged && SNAPSHOT.alarmAckReturnsWithBadge) return false;
+  return true;
+}
+
+// --- Semantic Input Router ---
+function hwTurn(dir) {
+  if (dir === 0) return;
+  if (!noteActivity(false)) return;
+
+  if (!SNAPSHOT.nightPalette) UI.ledFlashUntil = performance.now() + 140;
+
+  if (isFullAlarmBlocking()) return;
+
+  if (SNAPSHOT.screen !== 'OPERATIONAL') {
+    if (SNAPSHOT.screen === 'CONNECTING') SNAPSHOT.connectStep = (SNAPSHOT.connectStep + 1) % 3;
+    return;
+  }
+
+  if (UI.modeRingOpen) {
+    UI.ringOpenedAt = performance.now();
+    for (let i = 1; i <= SLOTS.length; i++) {
+      const next = (UI.ringSelectedSlot + dir * i + SLOTS.length * 4) % SLOTS.length;
+      const slotMode = SLOTS[next].id;
+      if (slotMode === 'USB_HID' && !SNAPSHOT.usbHostEnumerated) continue;
+      UI.ringSelectedSlot = next;
+      break;
+    }
+    return;
+  }
+
+  // Stale: the mode ring (above) stays usable so the user can leave; the mode's own controls are off.
+  if (isModeDataStale(performance.now())) return;
+
+  if (UI.apConfirmOpen) {
+    if (dir > 0) {
+      UI.apConfirmOpen = false;
+      emitAction('AUTOPILOT', 'ENGAGE', true);
+    }
+    return;
+  }
+
+  if (UI.anchorMenuOpen) {
+    UI.anchorMenuOpenedAt = performance.now();
+    const items = getAnchorMenuItems();
+    UI.anchorMenuIdx = (UI.anchorMenuIdx + dir + items.length) % items.length;
+    return;
+  }
+
+  if (SNAPSHOT.mode === 'AUTOPILOT') {
+    if (!SNAPSHOT.apEngaged) return;
+    const base = UI.apPendingCts !== null ? UI.apPendingCts : SNAPSHOT.cts;
+    UI.apPendingCts = Math.round(wrap360(base + dir * UI.apStepDeg));
+    UI.apPendingSent = false;
+    UI.apPendingDeadline = performance.now() + 400;
+  } else if (SNAPSHOT.mode === 'ANCHOR') {
+    const baseR = UI.anchorPreviewRadius !== null ? UI.anchorPreviewRadius : SNAPSHOT.anchorRadiusM;
+    UI.anchorPreviewRadius = Math.max(10, Math.min(150, baseR + dir * 5));
+  } else if (SNAPSHOT.mode === 'DIMMER') {
+    if (SNAPSHOT.dimmerVariant === 'RGBW_OPTIONAL') {
+      const baseP = UI.dimmerPendingPreset !== null ? UI.dimmerPendingPreset : SNAPSHOT.rgbwPresetIdx;
+      UI.dimmerPendingPreset = (baseP + dir + RGBW_PRESETS.length) % RGBW_PRESETS.length;
+      UI.dimmerPendingSent = false;
+      UI.dimmerPendingDeadline = performance.now() + 250;
+    } else {
+      const g = SNAPSHOT.groups[SNAPSHOT.groupIndex];
+      const baseL = UI.dimmerPendingLevel !== null ? UI.dimmerPendingLevel : g.level;
+      UI.dimmerPendingLevel = Math.max(0, Math.min(100, baseL + dir * 5));
+      UI.dimmerPendingSent = false;
+      UI.dimmerPendingDeadline = performance.now() + 250;
+    }
+  } else if (SNAPSHOT.mode === 'USB_HID') {
+    if (!SNAPSHOT.usbHostEnumerated) return;
+    emitAction('USB_HID', 'TURN', dir);
+  }
+}
+
+function emitClassified(evType) {
+  const fullAlarm = isFullAlarmBlocking();
+  if (!noteActivity(fullAlarm && evType === 'SINGLE_PRESS')) return;
+
+  if (fullAlarm) {
+    if (evType === 'SINGLE_PRESS') {
+      emitAction('ALARM', 'ACKNOWLEDGE', SNAPSHOT.alarmType);
+    }
+    return;
+  }
+
+  if (SNAPSHOT.screen !== 'OPERATIONAL') return;
+
+  if (evType === 'DOUBLE_PRESS') {
+    if (UI.modeRingOpen) UI.modeRingOpen = false;
+    else openModeRing();
+    return;
+  }
+
+  if (UI.modeRingOpen) {
+    if (evType === 'SINGLE_PRESS') {
+      const chosen = SLOTS[UI.ringSelectedSlot].id;
+      UI.modeRingOpen = false;
+      SNAPSHOT.mode = chosen;
+      UI.anchorPreviewRadius = null;
+      syncButtons();
+    }
+    return;
+  }
+
+  // Stale: the mode ring (above) stays usable; the mode's own controls are off.
+  if (isModeDataStale(performance.now())) return;
+
+  if (UI.apConfirmOpen) {
+    if (evType === 'SINGLE_PRESS' || evType === 'LONG_PRESS') UI.apConfirmOpen = false;
+    return;
+  }
+
+  if (UI.anchorMenuOpen) {
+    if (evType === 'SINGLE_PRESS') {
+      const items = getAnchorMenuItems();
+      const sel = items[UI.anchorMenuIdx];
+      UI.anchorMenuOpen = false;
+      emitAction('ANCHOR', sel.action, true);
+    } else if (evType === 'LONG_PRESS') {
+      UI.anchorMenuOpen = false;
+    }
+    return;
+  }
+
+  if (SNAPSHOT.mode === 'AUTOPILOT') {
+    if (evType === 'SINGLE_PRESS' && SNAPSHOT.apEngaged) {
+      UI.apStepDeg = UI.apStepDeg === 1 ? 10 : 1;
+    } else if (evType === 'LONG_PRESS') {
+      if (!SNAPSHOT.apEngaged) {
+        UI.apConfirmOpen = true;
+        UI.apConfirmDeadline = performance.now() + 5000;
+      } else {
+        UI.apPendingCts = null;
+        emitAction('AUTOPILOT', 'STANDBY', true);
+      }
+    }
+  } else if (SNAPSHOT.mode === 'ANCHOR') {
+    if (evType === 'SINGLE_PRESS' && UI.anchorPreviewRadius !== null) {
+      const r = UI.anchorPreviewRadius;
+      UI.anchorPreviewRadius = null;
+      emitAction('ANCHOR', 'SET_RADIUS', r);
+    } else if (evType === 'LONG_PRESS') {
+      UI.anchorMenuOpen = true;
+      UI.anchorMenuIdx = 0;
+      UI.anchorMenuOpenedAt = performance.now();
+    }
+  } else if (SNAPSHOT.mode === 'DIMMER') {
+    if (evType === 'SINGLE_PRESS') {
+      UI.dimmerPendingLevel = null;
+      SNAPSHOT.groupIndex = (SNAPSHOT.groupIndex + 1) % SNAPSHOT.groups.length;
+    } else if (evType === 'LONG_PRESS') {
+      UI.dimmerPendingLevel = null;
+      emitAction('DIMMER', 'TOGGLE_POWER', SNAPSHOT.groupIndex);
+    }
+  } else if (SNAPSHOT.mode === 'USB_HID') {
+    if (!SNAPSHOT.usbHostEnumerated) return;
+    if (evType === 'SINGLE_PRESS') emitAction('USB_HID', 'PRESS', 1);
+    if (evType === 'LONG_PRESS') emitAction('USB_HID', 'NEXT_PROFILE', 1);
+  }
+}
+
+function getAnchorMenuItems() {
+  if (!SNAPSHOT.anchorArmed) return [{ label: 'ARM HERE', action: 'ARM_HERE' }];
+  return [
+    { label: 'MOVE DROP POINT HERE', action: 'MOVE_DROP_HERE' },
+    { label: 'DISARM', action: 'DISARM' }
+  ];
+}
+
+// --- Touch Restricted to Harmless Single Role (Next Dimmer Group) & 5.0 s Reset Hold ---
+canvas.addEventListener('pointerdown', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left) * (240 / rect.width);
+  const y = (e.clientY - rect.top) * (240 / rect.height);
+  if (Math.hypot(x - 120, y - 120) < 50) return;
+
+  if (SNAPSHOT.screen === 'RESET_SETUP') {
+    UI.resetHolding = true;
+    UI.resetStartAt = performance.now();
+    return;
+  }
+
+  // Harmless secondary touch role: tap outer ring in Dimmer mode steps to next group
+  if (SNAPSHOT.screen === 'OPERATIONAL' && !isFullAlarmBlocking() && !UI.modeRingOpen && SNAPSHOT.mode === 'DIMMER') {
+    noteActivity(false);
+    UI.dimmerPendingLevel = null;
+    SNAPSHOT.groupIndex = (SNAPSHOT.groupIndex + 1) % SNAPSHOT.groups.length;
+  }
+});
+
+canvas.addEventListener('pointerup', () => {
+  UI.resetHolding = false;
+  SNAPSHOT.resetHoldProgress = 0;
+});
+
+// Rim Drag & Wheel Encoder
+let dragging = false, lastAng = 0, accum = 0;
+const STEP_RAD = (2 * Math.PI) / 36;
+bezel.addEventListener('pointerdown', (e) => {
+  if (e.target === canvas) return;
+  dragging = true;
+  bezel.setPointerCapture(e.pointerId);
+  const r = bezel.getBoundingClientRect();
+  lastAng = Math.atan2(e.clientY - (r.top + r.height / 2), e.clientX - (r.left + r.width / 2));
+  accum = 0;
+});
+bezel.addEventListener('pointermove', (e) => {
+  if (!dragging) return;
+  const r = bezel.getBoundingClientRect();
+  const cur = Math.atan2(e.clientY - (r.top + r.height / 2), e.clientX - (r.left + r.width / 2));
+  const diff = Math.atan2(Math.sin(cur - lastAng), Math.cos(cur - lastAng));
+  lastAng = cur;
+  accum += diff;
+  while (Math.abs(accum) >= STEP_RAD) {
+    const s = Math.sign(accum);
+    hwTurn(s);
+    accum -= s * STEP_RAD;
+  }
+});
+bezel.addEventListener('pointerup', () => { dragging = false; });
+bezel.addEventListener('wheel', (e) => { e.preventDefault(); hwTurn(Math.sign(e.deltaY)); }, { passive: false });
+
+// --- Control Panel Helpers ---
+function refreshDemoTimestamps() {
+  const now = performance.now();
+  SNAPSHOT.lastDataMs = now;
+  ['apState', 'heading', 'cts', 'rudder', 'depth', 'voltage', 'gps', 'anchor', 'dimmer'].forEach(n => {
+    if (!SIM.frozen[n]) SNAPSHOT[n + 'UpdatedMs'] = now;   // frozen values stay old on purpose
+  });
+}
+
+function jumpToOperational(m) {
+  SNAPSHOT.screen = 'OPERATIONAL';
+  SNAPSHOT.mode = m;
+  SNAPSHOT.alarmType = 'NONE';
+  SNAPSHOT.signalkConnected = true;
+  refreshDemoTimestamps();
+  UI.modeRingOpen = false;
+  UI.apConfirmOpen = false;
+  UI.anchorMenuOpen = false;
+  UI.anchorPreviewRadius = null;
+  noteActivity(false);
+  syncButtons();
+}
+function openModeRing() {
+  SNAPSHOT.screen = 'OPERATIONAL';
+  SNAPSHOT.signalkConnected = true;
+  refreshDemoTimestamps();
+  UI.modeRingOpen = true;
+  UI.ringOpenedAt = performance.now();
+  const idx = SLOTS.findIndex(s => s.id === SNAPSHOT.mode);
+  UI.ringSelectedSlot = idx >= 0 ? idx : 0;
+  syncButtons();
+}
+function triggerApConfirmPrompt() {
+  jumpToOperational('AUTOPILOT');
+  SNAPSHOT.apEngaged = false;
+  UI.apConfirmOpen = true;
+  UI.apConfirmDeadline = performance.now() + 5000;
+}
+function triggerAnchorMenu() {
+  jumpToOperational('ANCHOR');
+  UI.anchorMenuOpen = true;
+  UI.anchorMenuIdx = 0;
+  UI.anchorMenuOpenedAt = performance.now();
+}
+function triggerAlarmWithWake(type) {
+  SNAPSHOT.screen = 'OPERATIONAL';
+  SNAPSHOT.alarmType = type;
+  SNAPSHOT.alarmAcknowledged = false;
+  // Immediate backlight wake + LED flash on alarm arrival
+  UI.backlightPct = 100;
+  UI.lastInputAt = performance.now();
+  UI.ledFlashUntil = performance.now() + 1200;
+  emitAction('POWER', 'ALARM_WAKE_100', 100);
+}
+function toggleDragAlarm() {
+  if (SNAPSHOT.alarmType === 'DRAG') {
+    SNAPSHOT.alarmType = 'NONE';
+  } else {
+    SNAPSHOT.anchorArmed = true;
+    SNAPSHOT.anchorRadiusM = 35;
+    SNAPSHOT.anchorDistM = 48;
+    SNAPSHOT.gpsFix = true;
+    triggerAlarmWithWake('DRAG');
+  }
+  syncButtons();
+}
+function toggleGpsAlarm() {
+  if (SNAPSHOT.alarmType === 'GPS_LOST') {
+    SNAPSHOT.alarmType = 'NONE';
+    SNAPSHOT.gpsFix = true;
+  } else {
+    SNAPSHOT.gpsFix = false;
+    triggerAlarmWithWake('GPS_LOST');
+  }
+  syncButtons();
+}
+function toggleStaleLink() {
+  SNAPSHOT.screen = 'OPERATIONAL';
+  SNAPSHOT.alarmType = 'NONE';
+  if (SNAPSHOT.signalkConnected) {
+    SNAPSHOT.signalkConnected = false;
+    SNAPSHOT.lastDataMs = performance.now() - 14000;
+  } else {
+    SNAPSHOT.signalkConnected = true;
+    refreshDemoTimestamps();
+  }
+  syncButtons();
+}
+function setSystemScreen(scr) {
+  SNAPSHOT.screen = scr;
+  SNAPSHOT.alarmType = 'NONE';
+  UI.modeRingOpen = false;
+  if (scr === 'RESET_SETUP') SNAPSHOT.resetHoldProgress = 0.0;
+  syncButtons();
+}
+function toggleNight() { SNAPSHOT.nightPalette = !SNAPSHOT.nightPalette; syncButtons(); }
+function toggleGlass() { SNAPSHOT.fxGlass = !SNAPSHOT.fxGlass; syncButtons(); }
+function toggleGlow() { SNAPSHOT.fxGlow = !SNAPSHOT.fxGlow; syncButtons(); }
+function toggleAckBehavior() { SNAPSHOT.alarmAckReturnsWithBadge = !SNAPSHOT.alarmAckReturnsWithBadge; syncButtons(); }
+function toggleUsbHost() { SNAPSHOT.usbHostEnumerated = !SNAPSHOT.usbHostEnumerated; syncButtons(); }
+function toggleDimmerVariant() {
+  SNAPSHOT.dimmerVariant = SNAPSHOT.dimmerVariant === 'GROUPS' ? 'RGBW_OPTIONAL' : 'GROUPS';
+  jumpToOperational('DIMMER');
+}
+function forceIdleDim() { UI.lastInputAt = performance.now() - (CONST.IDLE_DIM_MS + 1000); }
+
+function syncButtons() {
+  document.getElementById('btnScrAP').classList.toggle('active', SNAPSHOT.screen === 'OPERATIONAL' && SNAPSHOT.mode === 'AUTOPILOT');
+  document.getElementById('btnScrANC').classList.toggle('active', SNAPSHOT.screen === 'OPERATIONAL' && SNAPSHOT.mode === 'ANCHOR');
+  document.getElementById('btnScrDIM').classList.toggle('active', SNAPSHOT.screen === 'OPERATIONAL' && SNAPSHOT.mode === 'DIMMER');
+  document.getElementById('btnScrHID').classList.toggle('active', SNAPSHOT.screen === 'OPERATIONAL' && SNAPSHOT.mode === 'USB_HID');
+  document.getElementById('btnScrRING').classList.toggle('active', UI.modeRingOpen);
+  document.getElementById('btnDragAlarm').classList.toggle('active', SNAPSHOT.alarmType === 'DRAG');
+  document.getElementById('btnGpsAlarm').classList.toggle('active', SNAPSHOT.alarmType === 'GPS_LOST');
+  document.getElementById('btnStale').classList.toggle('active', !SNAPSHOT.signalkConnected);
+  document.getElementById('btnStaleOne').classList.toggle('active', !!SIM.frozen.depth);
+  const ek = essentialKeyForMode();
+  document.getElementById('btnStaleEss').classList.toggle('active', !!(ek && SIM.frozen[ek]));
+  document.getElementById('btnNight').textContent = `Night: ${SNAPSHOT.nightPalette ? 'ON' : 'OFF'}`;
+  document.getElementById('btnNight').classList.toggle('active', SNAPSHOT.nightPalette);
+  document.getElementById('btnGlass').textContent = `Glass: ${SNAPSHOT.fxGlass ? 'ON' : 'OFF'}`;
+  document.getElementById('btnGlass').classList.toggle('active', SNAPSHOT.fxGlass);
+  document.getElementById('btnGlow').textContent = `Glow: ${SNAPSHOT.fxGlow ? 'ON' : 'OFF'}`;
+  document.getElementById('btnGlow').classList.toggle('active', SNAPSHOT.fxGlow);
+  document.getElementById('btnAckBehavior').textContent = SNAPSHOT.alarmAckReturnsWithBadge ? 'Ack: Return+Ring' : 'Ack: Stay Overlay';
+  document.getElementById('btnUsbHost').textContent = `USB Host: ${SNAPSHOT.usbHostEnumerated ? 'ON' : 'OFF'}`;
+  document.getElementById('btnUsbHost').classList.toggle('active', SNAPSHOT.usbHostEnumerated);
+  document.getElementById('btnDimVariant').textContent = `Dimmer: ${SNAPSHOT.dimmerVariant === 'GROUPS' ? 'Groups' : 'RGBW (7)'}`;
+}
+
+// --- Curved Text Helper ---
+function drawCurvedText(text, radius, centerRad, bottom, color, font = '700 12px sans-serif') {
+  ctx.save();
+  ctx.font = font;
+  ctx.fillStyle = color;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const chars = text.split('');
+  const step = 0.082;
+  const total = (chars.length - 1) * step;
+  chars.forEach((ch, i) => {
+    const a = bottom ? centerRad + total / 2 - i * step : centerRad - total / 2 + i * step;
+    const x = 120 + Math.cos(a) * radius;
+    const y = 120 + Math.sin(a) * radius;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(bottom ? a - Math.PI / 2 : a + Math.PI / 2);
+    ctx.fillText(ch, 0, 0);
+    ctx.restore();
+  });
+  ctx.restore();
+}
+
+function drawTickRing(headingDeg, dimmedNight) {
+  ctx.save();
+  ctx.translate(120, 120);
+  for (let deg = 0; deg < 360; deg += 5) {
+    const rel = (deg - headingDeg - 90) * (Math.PI / 180);
+    const maj = deg % 30 === 0;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(rel) * (maj ? 105 : 111), Math.sin(rel) * (maj ? 105 : 111));
+    ctx.lineTo(Math.cos(rel) * 116, Math.sin(rel) * 116);
+    ctx.strokeStyle = maj ? (dimmedNight ? '#6a1216' : '#c8d6e8') : (dimmedNight ? '#3a080a' : '#435670');
+    ctx.lineWidth = maj ? 2 : 1;
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// --- Screen Renderers ---
+// Depth, voltage and fix line. A stale value shows `---` in its own place, the others stay (mirrors format_telemetry()).
+function telemStr(ds, longFix) {
+  const d = ds && ds.depth ? '---m' : `${SNAPSHOT.depthM.toFixed(1)}m`;
+  const v = ds && ds.voltage ? '---V' : `${SNAPSHOT.voltageV.toFixed(1)}V`;
+  const g = ds && ds.gps ? '---' : (SNAPSHOT.gpsFix ? (longFix ? '3D FIX' : '3D') : 'NO FIX');
+  return `${d} • ${v} • ${g}`;
+}
+
+// Drawn vector icons on a 32 x 32 grid, scaled to `size` (mirror of icon_draw() in marine_ui.c, no font glyphs).
+function drawIcon(id, cx, cy, size, color) {
+  const s = size / 32;
+  const P = (x, y) => [cx - size / 2 + x * s, cy - size / 2 + y * s];
+  const line = (x1, y1, x2, y2) => { ctx.beginPath(); ctx.moveTo(...P(x1, y1)); ctx.lineTo(...P(x2, y2)); ctx.stroke(); };
+  const circ = (x, y, r, fill) => { ctx.beginPath(); ctx.arc(...P(x, y), r * s, 0, Math.PI * 2); if (fill) ctx.fill(); else ctx.stroke(); };
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = Math.max(2, 2.4 * s);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  if (id === 'AUTO') {
+    ctx.beginPath(); ctx.arc(...P(16, 17), 12 * s, 0.75 * Math.PI, 2.25 * Math.PI); ctx.stroke();
+    line(16, 17, 22, 9); circ(16, 17, 2.5, true);
+  } else if (id === 'LIGHT') {
+    circ(16, 13, 8, false);
+    line(12, 24, 20, 24); line(13, 28, 19, 28);
+    line(16, 1.5, 16, 3); line(3, 13, 5, 13); line(27, 13, 29, 13);
+  } else if (id === 'ANCHOR') {
+    circ(16, 6, 3, false);
+    line(16, 9, 16, 26); line(10, 13, 22, 13);
+    ctx.beginPath(); ctx.arc(...P(16, 17), 10 * s, (20 * Math.PI) / 180, (160 * Math.PI) / 180); ctx.stroke();
+    line(6, 17, 7.5, 21); line(26, 17, 24.5, 21);
+  } else if (id === 'USB') {
+    line(16, 6, 16, 24); circ(16, 27, 3, false);
+    line(13, 8, 16, 3); line(16, 3, 19, 8); line(19, 8, 13, 8);
+    line(16, 18, 9, 14); line(9, 14, 9, 11);
+    line(16, 14, 23, 11); circ(23, 8, 2.2, true);
+  } else if (id === 'WARN') {
+    line(16, 3, 29, 27); line(29, 27, 3, 27); line(3, 27, 16, 3);
+    line(16, 11, 16, 19); circ(16, 23, 1.6, true);
+  }
+  ctx.restore();
+}
+
+function drawAutopilot(p, mask, ds) {
+  const displayCts = UI.apPendingCts !== null ? UI.apPendingCts : SNAPSHOT.cts;
+  drawTickRing(SNAPSHOT.heading, SNAPSHOT.nightPalette);
+
+  if (!mask) {
+    ctx.save();
+    ctx.translate(120, 120);
+    const ctsRel = (displayCts - SNAPSHOT.heading - 90) * (Math.PI / 180);
+    ctx.beginPath();
+    ctx.arc(Math.cos(ctsRel) * 108, Math.sin(ctsRel) * 108, 5, 0, Math.PI * 2);
+    ctx.fillStyle = UI.apPendingCts !== null ? p.amber : p.primary;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  ctx.beginPath();
+  ctx.moveTo(115, 2); ctx.lineTo(125, 2); ctx.lineTo(120, 11);
+  ctx.fillStyle = p.red;
+  ctx.fill();
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = p.muted;
+  ctx.font = '700 12px sans-serif';
+  ctx.fillText('HEADING', 120, 36);
+
+  ctx.fillStyle = p.text;
+  ctx.font = '800 40px sans-serif';
+  ctx.fillText(mask ? '---' : `${String(Math.round(wrap360(SNAPSHOT.heading))).padStart(3, '0')}°`, 120, 70);
+
+  ctx.fillStyle = SNAPSHOT.apEngaged ? 'rgba(0,240,255,0.12)' : 'rgba(255,170,0,0.12)';
+  ctx.strokeStyle = SNAPSHOT.apEngaged ? p.primary : p.amber;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.roundRect(46, 82, 148, 22, 11);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = SNAPSHOT.apEngaged ? p.primary : p.amber;
+  ctx.font = '700 12px sans-serif';
+  ctx.fillText(mask ? '---' : (SNAPSHOT.apEngaged ? `AUTO • STEP ${UI.apStepDeg}°` : 'STANDBY'), 120, 97);
+
+  ctx.fillStyle = UI.apPendingCts !== null ? p.amber : p.primary;
+  ctx.font = '800 22px sans-serif';
+  ctx.fillText(mask ? 'CTS ---' : `CTS ${String(displayCts).padStart(3, '0')}°`, 120, 126);
+
+  let diff = displayCts - Math.round(SNAPSHOT.heading);
+  if (diff > 180) diff -= 360;
+  if (diff < -180) diff += 360;
+  ctx.fillStyle = p.muted;
+  ctx.font = '700 12px sans-serif';
+  ctx.fillText(mask ? 'DELTA ---' : (diff === 0 ? 'ON COURSE' : `DELTA ${Math.abs(diff)}° ${diff > 0 ? 'STBD' : 'PORT'}`), 120, 144);
+
+  ctx.strokeStyle = '#233856';
+  ctx.fillStyle = '#0b1628';
+  ctx.beginPath();
+  ctx.roundRect(62, 154, 116, 9, 4);
+  ctx.fill();
+  ctx.stroke();
+  if (!mask && !(ds && ds.rudder)) {
+    const bw = Math.min(54, (Math.abs(SNAPSHOT.rudder) / 35) * 54);
+    ctx.fillStyle = SNAPSHOT.rudder >= 0 ? p.green : p.red;
+    if (SNAPSHOT.rudder >= 0) ctx.fillRect(120, 155, bw, 7);
+    else ctx.fillRect(120 - bw, 155, bw, 7);
+  }
+
+  ctx.fillStyle = p.muted;
+  ctx.font = '700 12px sans-serif';
+  const telem = mask ? '---m • ---V • ---' : telemStr(ds, false);
+  ctx.fillText(telem, 120, 184);
+}
+
+function drawAnchor(p, mask, ds) {
+  const activeR = UI.anchorPreviewRadius !== null ? UI.anchorPreviewRadius : SNAPSHOT.anchorRadiusM;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(120, 120, 72, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(0,240,255,0.05)';
+  ctx.fill();
+  if (UI.anchorPreviewRadius !== null) {
+    ctx.setLineDash([7, 5]);
+    ctx.strokeStyle = p.amber;
+  } else {
+    ctx.strokeStyle = SNAPSHOT.anchorArmed ? p.primary : '#2c4263';
+  }
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+  ctx.restore();
+
+  const topStr = mask
+    ? '--- / ---'
+    : (UI.anchorPreviewRadius !== null
+        ? `SET RADIUS • ${activeR}m`
+        : (SNAPSHOT.anchorArmed ? `ANCHORED • ${Math.round(SNAPSHOT.anchorDistM)}m / ${activeR}m` : `READY • ${activeR}m`));
+  drawCurvedText(topStr, 98, -Math.PI / 2, false, UI.anchorPreviewRadius !== null ? p.amber : p.primary, '700 12px sans-serif');
+
+  const botStr = mask ? '---m • ---V • ---' : telemStr(ds, true);
+  drawCurvedText(botStr, 98, Math.PI / 2, true, p.muted, '700 12px sans-serif');
+
+  ctx.textAlign = 'center';
+  drawIcon('ANCHOR', 120, 108, 30, p.amber);
+
+  ctx.fillStyle = p.text;
+  ctx.font = '700 12px sans-serif';
+  ctx.fillText(UI.anchorPreviewRadius !== null ? 'PRESS TO APPLY' : 'HOLD FOR ACTIONS', 120, 144);
+
+  if (SNAPSHOT.anchorArmed && !mask && SNAPSHOT.gpsFix) {
+    const ratio = Math.min(1.15, SNAPSHOT.anchorDistM / activeR);
+    const th = (SNAPSHOT.anchorBearingDeg - 90) * (Math.PI / 180);
+    const bx = 120 + Math.cos(th) * (ratio * 70);
+    const by = 120 + Math.sin(th) * (ratio * 70);
+    ctx.beginPath();
+    ctx.arc(bx, by, 6, 0, Math.PI * 2);
+    ctx.fillStyle = p.green;
+    ctx.fill();
+    ctx.strokeStyle = p.text;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+}
+
+function drawDimmer(p, mask) {
+  if (SNAPSHOT.dimmerVariant === 'RGBW_OPTIONAL') {
+    const idx = UI.dimmerPendingPreset !== null ? UI.dimmerPendingPreset : SNAPSHOT.rgbwPresetIdx;
+    const preset = RGBW_PRESETS[idx];
+    const col = SNAPSHOT.nightPalette ? p.primary : preset.hex;
+    ctx.beginPath();
+    ctx.arc(120, 120, 48, 0, Math.PI * 2);
+    ctx.fillStyle = col;
+    ctx.fill();
+    ctx.textAlign = 'center';
+    ctx.fillStyle = p.text;
+    ctx.font = '800 15px sans-serif';
+    ctx.fillText(mask ? '---' : `${idx + 1}/7 ${preset.name}`, 120, 192);
+    ctx.fillStyle = p.muted;
+    ctx.font = '700 12px sans-serif';
+    ctx.fillText('OPTIONAL RGBW (7 PRESETS)', 120, 46);
+    return;
+  }
+
+  const g = SNAPSHOT.groups[SNAPSHOT.groupIndex];
+  const activeLvl = UI.dimmerPendingLevel !== null ? UI.dimmerPendingLevel : g.level;
+  const isOn = !mask && (UI.dimmerPendingLevel !== null ? activeLvl > 0 : (g.on && activeLvl > 0));
+
+  ctx.beginPath();
+  ctx.arc(120, 120, 104, 0.75 * Math.PI, 2.25 * Math.PI);
+  ctx.strokeStyle = '#16263e';
+  ctx.lineWidth = 10;
+  ctx.stroke();
+
+  if (isOn) {
+    ctx.beginPath();
+    ctx.arc(120, 120, 104, 0.75 * Math.PI, (0.75 + (activeLvl / 100) * 1.5) * Math.PI);
+    ctx.strokeStyle = UI.dimmerPendingLevel !== null ? p.amber : (SNAPSHOT.nightPalette ? p.primary : '#ffd54f');
+    ctx.lineWidth = 10;
+    ctx.stroke();
+  }
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = p.muted;
+  ctx.font = '700 12px sans-serif';
+  ctx.fillText(`GROUP ${SNAPSHOT.groupIndex + 1} OF ${SNAPSHOT.groups.length}`, 120, 56);
+
+  const spacing = 18;
+  const startX = 120 - ((SNAPSHOT.groups.length - 1) * spacing) / 2;
+  SNAPSHOT.groups.forEach((grp, idx) => {
+    const sel = idx === SNAPSHOT.groupIndex;
+    ctx.beginPath();
+    ctx.arc(startX + idx * spacing, 74, sel ? 5.5 : 3.5, 0, Math.PI * 2);
+    ctx.fillStyle = sel ? p.primary : p.muted;
+    ctx.fill();
+  });
+
+  ctx.fillStyle = p.text;
+  ctx.font = '800 38px sans-serif';
+  ctx.fillText(mask ? '---' : (isOn ? `${activeLvl}%` : 'OFF'), 120, 124);
+
+  ctx.fillStyle = isOn ? p.primary : p.muted;
+  ctx.font = '700 14px sans-serif';
+  ctx.fillText(g.name, 120, 150);
+
+  ctx.fillStyle = p.muted;
+  ctx.font = '700 12px sans-serif';
+  ctx.fillText(isOn ? '1x/TAP: GROUP • HOLD: OFF' : 'HOLD TO TURN ON', 120, 184);
+}
+
+function drawUsbHid(p) {
+  ctx.textAlign = 'center';
+  if (!SNAPSHOT.usbHostEnumerated) {
+    ctx.fillStyle = p.red;
+    ctx.font = '800 16px sans-serif';
+    ctx.fillText('USB DISCONNECTED', 120, 86);
+
+    ctx.fillStyle = p.text;
+    ctx.font = '700 14px sans-serif';
+    ctx.fillText('NO USB HOST', 120, 114);
+
+    ctx.fillStyle = SNAPSHOT.signalkConnected ? p.green : p.amber;
+    ctx.font = '700 12px sans-serif';
+    ctx.fillText(SNAPSHOT.signalkConnected ? 'SIGNALK LINK STILL UP' : 'SIGNALK LINK DOWN', 120, 142);
+
+    ctx.fillStyle = p.muted;
+    ctx.font = '700 12px sans-serif';
+    ctx.fillText('2x PRESS: MODES', 120, 174);
+    return;
+  }
+
+  ctx.fillStyle = p.green;
+  ctx.font = '700 12px sans-serif';
+  ctx.fillText('USB HOST ACTIVE', 120, 62);
+
+  ctx.fillStyle = p.text;
+  ctx.font = '800 20px sans-serif';
+  ctx.fillText(SNAPSHOT.hidProfiles[SNAPSHOT.hidProfileIdx], 120, 112);
+
+  ctx.fillStyle = p.purple;
+  ctx.font = '700 12px sans-serif';
+  ctx.fillText(SNAPSHOT.hidLastEvent, 120, 140);
+
+  ctx.fillStyle = p.muted;
+  ctx.font = '700 12px sans-serif';
+  ctx.fillText('1x: CLICK • HOLD: PROFILE', 120, 172);
+}
+
+// --- Screen 1: Glass Mode Ring with Live Shrunk Center Preview ---
+function drawModeRing(p) {
+  ctx.save();
+  ctx.fillStyle = SNAPSHOT.fxGlass ? 'rgba(4, 10, 20, 0.78)' : 'rgba(4, 10, 20, 0.94)';
+  ctx.beginPath();
+  ctx.arc(120, 120, 120, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(120, 120, 116, 0, Math.PI * 2);
+  ctx.strokeStyle = SNAPSHOT.nightPalette ? 'rgba(255,30,39,0.45)' : 'rgba(220, 238, 255, 0.35)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Inner clear dark circle cutout (56px radius) containing miniaturized live mode view
+  ctx.beginPath();
+  ctx.arc(120, 120, 56, 0, Math.PI * 2);
+  ctx.fillStyle = '#030811';
+  ctx.fill();
+  ctx.strokeStyle = SNAPSHOT.nightPalette ? 'rgba(255,30,39,0.4)' : 'rgba(220, 238, 255, 0.28)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Live shrunk preview of active mode inside center cutout
+  ctx.textAlign = 'center';
+  if (SNAPSHOT.mode === 'AUTOPILOT') {
+    ctx.fillStyle = p.text;
+    ctx.font = '800 18px sans-serif';
+    ctx.fillText(`${String(Math.round(wrap360(SNAPSHOT.heading))).padStart(3, '0')}°`, 120, 108);
+    ctx.fillStyle = SNAPSHOT.apEngaged ? p.primary : p.amber;
+    ctx.font = '700 12px sans-serif';
+    ctx.fillText(SNAPSHOT.apEngaged ? 'AUTO' : 'STBY', 120, 125);
+    ctx.fillStyle = p.muted;
+    ctx.font = '700 12px sans-serif';
+    ctx.fillText(`CTS ${SNAPSHOT.cts}°`, 120, 142);
+  } else if (SNAPSHOT.mode === 'ANCHOR') {
+    ctx.beginPath();
+    ctx.arc(120, 114, 20, 0, Math.PI * 2);
+    ctx.strokeStyle = SNAPSHOT.anchorArmed ? p.primary : p.muted;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    drawIcon('ANCHOR', 120, 114, 22, p.amber);
+    ctx.fillStyle = p.text;
+    ctx.font = '700 12px sans-serif';
+    ctx.fillText(`${Math.round(SNAPSHOT.anchorDistM)}/${SNAPSHOT.anchorRadiusM}m`, 120, 148);
+  } else if (SNAPSHOT.mode === 'DIMMER') {
+    const g = SNAPSHOT.groups[SNAPSHOT.groupIndex];
+    ctx.fillStyle = p.muted;
+    ctx.font = '700 12px sans-serif';
+    ctx.fillText(g.name, 120, 106);
+    ctx.fillStyle = p.text;
+    ctx.font = '800 20px sans-serif';
+    ctx.fillText(g.on ? `${g.level}%` : 'OFF', 120, 132);
+  } else {
+    ctx.fillStyle = p.purple;
+    ctx.font = '800 12px sans-serif';
+    ctx.fillText('USB-HID', 120, 115);
+    ctx.fillStyle = p.muted;
+    ctx.font = '700 12px sans-serif';
+    ctx.fillText(SNAPSHOT.usbHostEnumerated ? 'ACTIVE' : 'NO HOST', 120, 134);
+  }
+
+  // Fixed slots: AUTO top, LIGHT right, ANCHOR bottom, USB left
+  SLOTS.forEach((slot, idx) => {
+    const sx = 120 + Math.cos(slot.angle) * 86;
+    const sy = 120 + Math.sin(slot.angle) * 86;
+    const hidden = (slot.id === 'USB_HID' && !SNAPSHOT.usbHostEnumerated);
+
+    if (hidden) {
+      ctx.beginPath();
+      ctx.arc(sx, sy, 4, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(140, 160, 188, 0.28)';
+      ctx.fill();
+      return;
+    }
+
+    const selected = idx === UI.ringSelectedSlot;
+    if (selected) {
+      if (SNAPSHOT.fxGlow) {
+        ctx.save();
+        ctx.shadowColor = p.primary;
+        ctx.shadowBlur = 14;
+        ctx.fillStyle = SNAPSHOT.nightPalette ? 'rgba(255,30,39,0.18)' : 'rgba(0,240,255,0.16)';
+        ctx.beginPath();
+        ctx.roundRect(sx - 28, sy - 18, 56, 36, 6);
+        ctx.fill();
+        ctx.restore();
+      }
+      const bw = 27, bh = 17, bl = 7;
+      ctx.strokeStyle = p.primary;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(sx - bw, sy - bh + bl); ctx.lineTo(sx - bw, sy - bh); ctx.lineTo(sx - bw + bl, sy - bh);
+      ctx.moveTo(sx + bw - bl, sy - bh); ctx.lineTo(sx + bw, sy - bh); ctx.lineTo(sx + bw, sy - bh + bl);
+      ctx.moveTo(sx - bw, sy + bh - bl); ctx.lineTo(sx - bw, sy + bh); ctx.lineTo(sx - bw + bl, sy + bh);
+      ctx.moveTo(sx + bw - bl, sy + bh); ctx.lineTo(sx + bw, sy + bh); ctx.lineTo(sx + bw, sy + bh - bl);
+      ctx.stroke();
+    }
+
+    // drawn icon above the label (mirror of the 54 x 48 slot box in marine_ui.c)
+    const col = selected ? p.primary : p.text;
+    drawIcon(slot.label === 'USB' ? 'USB' : slot.label, sx, sy - 8, 28, col);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = col;
+    ctx.font = '800 12px sans-serif';
+    ctx.fillText(slot.label, sx, sy + 16);
+  });
+  ctx.restore();
+}
+
+// --- Screen 2: Full-Screen Alarm Takeover + Persistent Ack Indicator ---
+function drawAlarmTakeover(p, now) {
+  const isDrag = SNAPSHOT.alarmType === 'DRAG';
+  ctx.fillStyle = p.bg;
+  ctx.fillRect(0, 0, 240, 240);
+
+  const grad = ctx.createLinearGradient(0, 0, 240, 240);
+  grad.addColorStop(0, '#495466');
+  grad.addColorStop(0.5, '#1b222e');
+  grad.addColorStop(1, '#58657a');
+  ctx.beginPath();
+  ctx.arc(120, 120, 114, 0, Math.PI * 2);
+  ctx.strokeStyle = grad;
+  ctx.lineWidth = 10;
+  ctx.stroke();
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(120, 102, 46, 0, Math.PI * 2);
+  if (!isDrag) ctx.setLineDash([6, 5]);
+  ctx.strokeStyle = SNAPSHOT.nightPalette ? p.primary : '#6e7f99';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.restore();
+
+  if (isDrag) {
+    ctx.beginPath();
+    ctx.arc(168, 72, 6, 0, Math.PI * 2);
+    ctx.fillStyle = p.red;
+    ctx.fill();
+    ctx.strokeStyle = p.text;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+
+  ctx.save();
+  if (SNAPSHOT.fxGlow) {
+    ctx.shadowColor = p.red;
+    ctx.shadowBlur = 14;
+  }
+  drawIcon('ANCHOR', 120, 102, 44, p.red);
+  ctx.restore();
+
+  ctx.save();
+  if (SNAPSHOT.fxGlow && Math.floor(now / 300) % 2 === 0) {
+    ctx.shadowColor = p.red;
+    ctx.shadowBlur = 16;
+  }
+  drawIcon('WARN', 120, 134, 18, p.red);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = p.red;
+  ctx.font = '800 22px sans-serif';
+  ctx.fillText(isDrag ? 'DRAG ALARM!' : 'GPS LOST!', 120, 158);
+  ctx.restore();
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = SNAPSHOT.alarmAcknowledged ? p.amber : p.text;
+  ctx.font = '700 12px sans-serif';
+  ctx.fillText(SNAPSHOT.alarmAcknowledged ? 'ACKNOWLEDGED • WAITING' : 'PRESS TO ACKNOWLEDGE', 120, 178);
+
+  const topLine = isDrag
+    ? `ANCHORED • ${Math.round(SNAPSHOT.anchorDistM)}m / ${SNAPSHOT.anchorRadiusM}m`
+    : 'ANCHOR WATCH • FIX LOST';
+  drawCurvedText(topLine, 98, -Math.PI / 2, false, p.red, '700 12px sans-serif');
+
+  const botLeft = `${SNAPSHOT.depthM.toFixed(1)}m • ${SNAPSHOT.voltageV.toFixed(1)}V • `;
+  const botRight = isDrag ? '3D FIX' : 'NO GPS FIX';
+  drawCurvedText(botLeft + botRight, 98, Math.PI / 2, true, isDrag ? p.muted : p.red, '700 12px sans-serif');
+}
+
+function drawAcknowledgedAlarmBadge(p, now) {
+  const pulse = (Math.sin(now / 180) + 1) * 0.5;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(120, 120, 117, 0, Math.PI * 2);
+  ctx.strokeStyle = p.red;
+  ctx.lineWidth = 4 + pulse * 3;
+  ctx.stroke();
+
+  ctx.fillStyle = 'rgba(255, 42, 60, 0.9)';
+  ctx.beginPath();
+  ctx.roundRect(68, 12, 104, 18, 9);
+  ctx.fill();
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '800 12px sans-serif';
+  ctx.fillText(SNAPSHOT.alarmType === 'DRAG' ? 'DRAG ALARM' : 'GPS LOST', 120, 25);
+  ctx.restore();
+}
+
+// --- Screen 3: Stale Link Overlay ---
+function drawStaleLinkOverlay(p, now, st) {
+  ctx.fillStyle = 'rgba(2, 5, 11, 0.84)';
+  ctx.beginPath();
+  ctx.arc(120, 120, 120, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(120, 120, 112, 0, Math.PI * 2);
+  ctx.strokeStyle = p.amber;
+  ctx.lineWidth = 5;
+  ctx.stroke();
+
+  const link = st.state === 'LINK';
+  const ageSec = Math.max(0, Math.floor((now - SNAPSHOT.lastDataMs) / 1000));
+  ctx.textAlign = 'center';
+  ctx.fillStyle = p.amber;
+  ctx.font = '800 22px sans-serif';
+  // Stream down: LINK LOST + age. A stale essential value: its own reason, not "LINK LOST".
+  ctx.fillText(link ? 'LINK LOST' : st.reason, 120, 96);
+
+  ctx.fillStyle = p.text;
+  ctx.font = '700 13px sans-serif';
+  ctx.fillText(link ? `LAST DATA ${ageSec} s AGO` : 'VALUE TOO OLD', 120, 124);
+
+  ctx.fillStyle = p.muted;
+  ctx.font = '700 12px sans-serif';
+  ctx.fillText(link ? 'CONTROLS OFF' : '2x PRESS: MODES', 120, 152);
+}
+
+// --- Screen 4 & 5: Prompts ---
+function drawApConfirmPrompt(p, now) {
+  const rem = Math.max(0, (UI.apConfirmDeadline - now) / 5000);
+  ctx.fillStyle = 'rgba(3, 8, 17, 0.94)';
+  ctx.beginPath();
+  ctx.arc(120, 120, 120, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(120, 120, 110, -Math.PI / 2, -Math.PI / 2 + rem * Math.PI * 2);
+  ctx.strokeStyle = p.primary;
+  ctx.lineWidth = 7;
+  ctx.stroke();
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = p.muted;
+  ctx.font = '700 12px sans-serif';
+  ctx.fillText('ENGAGE AUTOPILOT', 120, 76);
+
+  ctx.fillStyle = p.primary;
+  ctx.font = '800 18px sans-serif';
+  ctx.fillText('TURN RIGHT', 120, 112);
+  ctx.fillText('TO CONFIRM', 120, 134);
+
+  ctx.fillStyle = p.muted;
+  ctx.font = '700 12px sans-serif';
+  ctx.fillText(`${Math.ceil(rem * 5)} s REMAINING`, 120, 168);
+}
+
+function drawAnchorActionPrompt(p) {
+  const items = getAnchorMenuItems();
+  ctx.fillStyle = 'rgba(3, 8, 17, 0.94)';
+  ctx.beginPath();
+  ctx.arc(120, 120, 120, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.arc(120, 120, 112, 0, Math.PI * 2);
+  ctx.strokeStyle = p.amber;
+  ctx.lineWidth = 4;
+  ctx.stroke();
+
+  ctx.textAlign = 'center';
+  ctx.fillStyle = p.muted;
+  ctx.font = '700 12px sans-serif';
+  ctx.fillText('ANCHOR ACTION', 120, 58);
+
+  items.forEach((it, idx) => {
+    const sel = idx === UI.anchorMenuIdx;
+    const y = 104 + idx * 34;
+    if (sel) {
+      ctx.fillStyle = 'rgba(255,170,0,0.18)';
+      ctx.beginPath();
+      ctx.roundRect(34, y - 16, 172, 26, 8);
+      ctx.fill();
+    }
+    ctx.fillStyle = sel ? p.amber : p.text;
+    ctx.font = '800 13px sans-serif';
+    ctx.fillText(it.label, 120, y);
+  });
+
+  ctx.fillStyle = p.muted;
+  ctx.font = '700 12px sans-serif';
+  ctx.fillText('1x PRESS TO CONFIRM', 120, 184);
+}
+
+// --- Screen 6: System / Boot / Pairing Screens with Tick Ring, Curved Labels & Pill ---
+function drawSystemScreen(p) {
+  ctx.fillStyle = p.bg;
+  ctx.fillRect(0, 0, 240, 240);
+  drawTickRing(0, true);
+  ctx.textAlign = 'center';
+
+  if (SNAPSHOT.screen === 'BOOT') {
+    drawCurvedText('HELM DIAL', 96, -Math.PI / 2, false, p.primary, '700 12px sans-serif');
+    drawCurvedText('INITIALIZING', 96, Math.PI / 2, true, p.muted, '700 12px sans-serif');
+    ctx.beginPath();
+    ctx.arc(120, 120, 76, -Math.PI / 2, -Math.PI / 2 + SNAPSHOT.bootProgress * Math.PI * 2);
+    ctx.strokeStyle = p.primary;
+    ctx.lineWidth = 6;
+    ctx.stroke();
+    ctx.fillStyle = p.text;
+    ctx.font = '800 20px sans-serif';
+    ctx.fillText('HELM DIAL', 120, 118);
+    ctx.fillStyle = p.muted;
+    ctx.font = '700 12px sans-serif';
+    ctx.fillText(`${Math.round(SNAPSHOT.bootProgress * 100)}%`, 120, 142);
+  } else if (SNAPSHOT.screen === 'WIFI_PORTAL') {
+    drawCurvedText('JOIN WI-FI', 96, -Math.PI / 2, false, p.amber, '700 12px sans-serif');
+    drawCurvedText('SETUP ONLY', 96, Math.PI / 2, true, p.muted, '700 12px sans-serif');
+
+    // Network name in pill
+    ctx.fillStyle = '#0b1628';
+    ctx.strokeStyle = p.amber;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(34, 82, 172, 28, 14);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = p.text;
+    ctx.font = '800 13px sans-serif';
+    ctx.fillText(SNAPSHOT.setupApSsid, 120, 100);
+
+    ctx.fillStyle = p.primary;
+    ctx.font = '700 12px sans-serif';
+    ctx.fillText('THEN OPEN THE', 120, 134);
+    ctx.fillText('SETUP PAGE', 120, 150);
+  } else if (SNAPSHOT.screen === 'CONNECTING') {
+    drawCurvedText('CONNECTING', 96, -Math.PI / 2, false, p.primary, '700 12px sans-serif');
+    drawCurvedText('PLEASE WAIT', 96, Math.PI / 2, true, p.muted, '700 12px sans-serif');
+    // Status marks are drawn shapes (the built-in Montserrat has no check or circle glyphs):
+    // done = green disc with a check, current = cyan ring, pending = grey ring.
+    const steps = ['WI-FI', 'SERVER', 'LINK'];
+    steps.forEach((st, idx) => {
+      const done = idx < SNAPSHOT.connectStep;
+      const cur = idx === SNAPSHOT.connectStep;
+      const y = 96 + idx * 26;
+      ctx.beginPath();
+      ctx.arc(76, y - 5, 8, 0, Math.PI * 2);
+      if (done) {
+        ctx.fillStyle = p.green; ctx.fill();
+        ctx.strokeStyle = p.bg; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(72, y - 5); ctx.lineTo(75, y - 2); ctx.lineTo(81, y - 9); ctx.stroke();
+      } else if (cur) {
+        ctx.fillStyle = 'rgba(0,240,255,0.3)'; ctx.fill();
+        ctx.strokeStyle = p.primary; ctx.lineWidth = 3; ctx.stroke();
+      } else {
+        ctx.strokeStyle = p.muted; ctx.lineWidth = 2; ctx.stroke();
+      }
+      ctx.fillStyle = done ? p.text : (cur ? p.primary : p.muted);
+      ctx.font = '800 14px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(st, 96, y);
+      ctx.textAlign = 'center';
+    });
+  } else if (SNAPSHOT.screen === 'PAIRING') {
+    drawCurvedText('PAIRING', 96, -Math.PI / 2, false, p.amber, '700 12px sans-serif');
+    drawCurvedText('WAITING APPROVAL', 96, Math.PI / 2, true, p.muted, '700 12px sans-serif');
+    ctx.fillStyle = p.text;
+    ctx.font = '800 12px sans-serif';
+    ctx.fillText('APPROVE THIS KNOB IN', 120, 94);
+    ctx.fillText('THE SIGNALK ADMIN UI', 120, 110);
+    ctx.fillStyle = p.primary;
+    ctx.font = '800 17px sans-serif';
+    ctx.fillText(SNAPSHOT.deviceName, 120, 144);
+  } else if (SNAPSHOT.screen === 'CANNOT_CONNECT') {
+    drawCurvedText('CONNECTION ERROR', 96, -Math.PI / 2, false, p.red, '700 12px sans-serif');
+    drawCurvedText('RETRYING', 96, Math.PI / 2, true, p.muted, '700 12px sans-serif');
+    ctx.fillStyle = p.red;
+    ctx.font = '800 20px sans-serif';
+    ctx.fillText('NO SERVER', 120, 108);
+    ctx.fillStyle = p.green;
+    ctx.font = '700 13px sans-serif';
+    ctx.fillText('WI-FI OK', 120, 136);
+  } else if (SNAPSHOT.screen === 'RESET_SETUP') {
+    drawCurvedText('FACTORY RESET', 96, -Math.PI / 2, false, p.red, '700 12px sans-serif');
+    drawCurvedText('RELEASE TO CANCEL', 96, Math.PI / 2, true, p.muted, '700 12px sans-serif');
+    ctx.beginPath();
+    ctx.arc(120, 120, 76, -Math.PI / 2, -Math.PI / 2 + SNAPSHOT.resetHoldProgress * Math.PI * 2);
+    ctx.strokeStyle = p.red;
+    ctx.lineWidth = 8;
+    ctx.stroke();
+    ctx.fillStyle = p.red;
+    ctx.font = '800 16px sans-serif';
+    ctx.fillText('HOLD 5 SECONDS', 120, 106);
+    ctx.fillStyle = p.text;
+    ctx.font = '700 12px sans-serif';
+    ctx.fillText('CLEARS WI-FI', 120, 130);
+    ctx.fillText('AND PAIRING', 120, 146);
+  }
+}
+
+// --- Main Loop ---
+function tick(now) {
+  SNAPSHOT.nowMs = now;
+  feedLive(now);   // simulated live SignalK feed, except frozen values
+
+  // Autopilot CTS 400ms commit; keep pending preview until snapshot confirms or 3s timeout
+  if (UI.apPendingCts !== null) {
+    if (!UI.apPendingSent && now >= UI.apPendingDeadline) {
+      UI.apPendingSent = true;
+      emitAction('AUTOPILOT', 'SET_CTS', UI.apPendingCts);
+    }
+    if (UI.apPendingSent && (SNAPSHOT.cts === UI.apPendingCts || now >= UI.apPendingDeadline + 3000)) {
+      UI.apPendingCts = null;
+      UI.apPendingSent = false;
+    }
+  }
+
+  // Dimmer pending level / preset commit
+  if (UI.dimmerPendingLevel !== null) {
+    if (!UI.dimmerPendingSent && now >= UI.dimmerPendingDeadline) {
+      UI.dimmerPendingSent = true;
+      emitAction('DIMMER', 'SET_LEVEL', UI.dimmerPendingLevel);
+    }
+    if (UI.dimmerPendingSent && (SNAPSHOT.groups[SNAPSHOT.groupIndex].level === UI.dimmerPendingLevel || now >= UI.dimmerPendingDeadline + 2000)) {
+      UI.dimmerPendingLevel = null;
+      UI.dimmerPendingSent = false;
+    }
+  }
+  if (UI.dimmerPendingPreset !== null) {
+    if (!UI.dimmerPendingSent && now >= UI.dimmerPendingDeadline) {
+      UI.dimmerPendingSent = true;
+      emitAction('DIMMER', 'SET_PRESET', UI.dimmerPendingPreset);
+    }
+    if (UI.dimmerPendingSent && (SNAPSHOT.rgbwPresetIdx === UI.dimmerPendingPreset || now >= UI.dimmerPendingDeadline + 2000)) {
+      UI.dimmerPendingPreset = null;
+      UI.dimmerPendingSent = false;
+    }
+  }
+
+  if (UI.apConfirmOpen && now >= UI.apConfirmDeadline) UI.apConfirmOpen = false;
+  if (UI.modeRingOpen && now - UI.ringOpenedAt >= 5000) UI.modeRingOpen = false;
+  if (UI.anchorMenuOpen && now - UI.anchorMenuOpenedAt >= 5000) UI.anchorMenuOpen = false;
+
+  // Reset hold full 5.0 s requirement
+  if (UI.resetHolding && SNAPSHOT.screen === 'RESET_SETUP') {
+    SNAPSHOT.resetHoldProgress = Math.min(1, (now - UI.resetStartAt) / CONST.FACTORY_RESET_HOLD_MS);
+    if (SNAPSHOT.resetHoldProgress >= 1) {
+      UI.resetHolding = false;
+      SNAPSHOT.resetHoldProgress = 0;
+      emitAction('SYSTEM', 'FACTORY_RESET', true);
+      SNAPSHOT.screen = 'WIFI_PORTAL';
+    }
+  }
+
+  // Idle power dimming (10s -> 10%, 10m -> 0% unless AP engaged or Alarm active)
+  const idleMs = now - UI.lastInputAt;
+  const keepAwake = SNAPSHOT.apEngaged || SNAPSHOT.alarmType !== 'NONE';
+  if (idleMs > CONST.IDLE_OFF_MS && !keepAwake) UI.backlightPct = 0;
+  else if (idleMs > CONST.IDLE_DIM_MS) UI.backlightPct = CONST.IDLE_DIM_PCT;
+  else UI.backlightPct = 100;
+
+  const p = pal();
+  ctx.fillStyle = p.bg;
+  ctx.fillRect(0, 0, 240, 240);
+
+  if (isFullAlarmBlocking()) {
+    drawAlarmTakeover(p, now);
+  } else if (SNAPSHOT.screen !== 'OPERATIONAL') {
+    drawSystemScreen(p);
+  } else {
+    const st = currentStale(now);
+    const stale = st.state !== 'NONE';
+    const ds = displayStale(now);
+    if (stale) {
+      // a mode that went stale drops its transient previews and prompts
+      UI.apConfirmOpen = false; UI.anchorMenuOpen = false;
+      UI.apPendingCts = null; UI.anchorPreviewRadius = null; UI.dimmerPendingLevel = null; UI.dimmerPendingPreset = null;
+    }
+    if (SNAPSHOT.mode === 'AUTOPILOT') drawAutopilot(p, stale, ds);
+    else if (SNAPSHOT.mode === 'ANCHOR') drawAnchor(p, stale, ds);
+    else if (SNAPSHOT.mode === 'DIMMER') drawDimmer(p, stale);
+    else if (SNAPSHOT.mode === 'USB_HID') drawUsbHid(p);
+
+    // The mode ring is never covered by the stale overlay, so the user can leave a stale mode.
+    if (UI.modeRingOpen) drawModeRing(p);
+    else if (stale) drawStaleLinkOverlay(p, now, st);
+    else if (UI.apConfirmOpen) drawApConfirmPrompt(p, now);
+    else if (UI.anchorMenuOpen) drawAnchorActionPrompt(p);
+
+    // The persistent acknowledged-alarm ring and badge stay above everything else.
+    if (SNAPSHOT.alarmType !== 'NONE' && SNAPSHOT.alarmAcknowledged && SNAPSHOT.alarmAckReturnsWithBadge) {
+      drawAcknowledgedAlarmBadge(p, now);
+    }
+  }
+
+  if (UI.backlightPct < 100) {
+    ctx.fillStyle = `rgba(0, 0, 0, ${1 - UI.backlightPct / 100})`;
+    ctx.fillRect(0, 0, 240, 240);
+  }
+
+  const led = document.getElementById('hwLed');
+  if (SNAPSHOT.nightPalette) {
+    led.style.opacity = '0';
+  } else {
+    led.style.opacity = now < UI.ledFlashUntil ? '1' : '0.25';
+    led.style.background = (SNAPSHOT.alarmType !== 'NONE') ? p.red : p.primary;
+  }
+
+  requestAnimationFrame(tick);
+}
+
+syncButtons();
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
