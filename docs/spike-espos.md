@@ -32,17 +32,29 @@ nothing from the spike ships.
 6. Composite USB device, then check enumeration on a PC while Wi-Fi stays connected.
 7. Record numbers for questions 6 and 7.
 
-## Results so far (2026-11-22, espOS 0.32.0, board on COM9)
+## Results so far (2026-11-22, espOS 0.32.0, one CrowPanel 1.28" board)
 
 | # | Question | Result |
 |---|---|---|
 | 1 | Builds for esp32s3? | Yes, but needs **IDF 6.1.x**. The `from_registry` example pins `>=6.1.0,<6.2.0`. Built with 6.1.1. 6.0.3 and the cockpit firmware's pin belong to older espOS. |
-| 2 | Boots, portal, Wi-Fi, token? | Boots and opens the setup portal `espOS-adc4` (open AP, 192.168.4.1). Wi-Fi join, SignalK discovery and token still untested: needs Wi-Fi credentials entered by hand. |
+| 2 | Boots, portal, Wi-Fi, token? | Boots and opens the setup portal `espOS-xxxx` (open AP, 192.168.4.1). Wi-Fi join, SignalK discovery and token still untested: needs Wi-Fi credentials entered by hand. |
 | 6 | Timing | `app_main` at 329 ms, portal up at 489 ms after reset (no display yet). Wi-Fi join and `SK_STREAM_CONNECTED` not measured yet. |
 | 7 | Memory | Boot log shows about 251 KiB + 21 KiB + 32 KiB internal heap regions. Healthy for 40 s, no health alarms. PSRAM not enabled in the spike, so PSRAM headroom is untested. |
 | 9 | Flash layout | espOS's 16 MB table works as is: two 6.5 MB app slots, 1.75 MB LittleFS storage. App is 1.38 MB (79% of a slot free). |
 
-Not tested yet: 3 (display before network), 4 (GC9A01 + CST816D), 5 (encoder indev, dimmer wake), 8 (USB composite).
+Second round (raw hardware, no LVGL yet, code in `spike/main/board.c`):
+
+| # | Question | Result |
+|---|---|---|
+| 3 | Display before network? | Yes. Power rails, GC9A01 and the test pattern run before `espos_start()`. Boot log shows the first frame about 0.6 s after reset, espOS up shortly after. Not yet measured to a stable UI. |
+| 4 | GC9A01 + CST816D | GC9A01 initialises over SPI at 40 MHz (`espressif/esp_lcd_gc9a01` 2.0.4, BGR order, inverted, as in Elecrow's example). CST816D ACKs at 0x15 after a reset pulse on GPIO13. **Visual check of colours/orientation and touch coordinates still needs a person at the device.** |
+| 5 | Encoder | PCNT x4 unit and button input are created without errors. **Turn direction, edges per detent and button polarity still need a person at the device.** Not yet an LVGL indev, dimmer wake untested. |
+
+The test pattern should show: top band red, right green, bottom blue, left yellow, black centre, a white square orbiting
+the centre as the dial turns (24 steps per lap, red while pressed) and a centre box that turns red on press. If colours
+look swapped or inverted, flip `rgb_ele_order` or the invert call in `board_display_init()`.
+
+Not tested yet: LVGL on this panel, encoder as LVGL indev, 8 (USB composite), Wi-Fi join and SignalK token.
 
 Findings that affect the spec:
 - Build needs the espOS signing key (`espsecure generate-signing-key`, kept out of git) even with OTA unused.
