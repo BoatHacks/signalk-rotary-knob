@@ -252,8 +252,8 @@ espOS components used selectively (`espos_sk`, `espos_config`, `espos_net`) unde
 
 | Gate | Pass if | Status |
 |---|---|---|
-| Wi-Fi join and SignalK access request through the espOS portal | Token approved once, survives reboot | untested |
-| Boot to `SK_STREAM_CONNECTED` | ONLINE under 10 s, last screen under 4 s | untested |
+| Wi-Fi join and SignalK access request through the espOS portal | Token approved once, survives reboot | **passed 2026-11-23**: joined Wi-Fi, access request sent to the boat server (manual host through a tunnel), approved with readwrite, delta stream connected. The token survived a reboot and a reflash |
+| Boot to `SK_STREAM_CONNECTED` | ONLINE under 10 s, last screen under 4 s | **ONLINE passed 2026-11-23**: 5.2 s after boot by the chip clock (Wi-Fi joining from 2.4 s, server 3.4 s, token check 4.7 s, link 5.0 s, online 5.2 s; manual server). **Last screen under 4 s not met**: the splash stays until the stream is up. The stream dropped and reconnected once at 7.9 s, cause not investigated |
 | espOS alive next to USB composite | setup AP or stream up while CDC+HID enumerated, no health reboot | unconfirmed |
 | Stream and REST under LVGL load | no dropped frames above 2 per minute during turning and a heartbeat | untested |
 | `espos_sk_http` autopilot `GET` against the real server | 200 with token | untested |

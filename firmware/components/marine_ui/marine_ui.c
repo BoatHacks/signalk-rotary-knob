@@ -237,6 +237,10 @@ static lv_obj_t *sys_splash_fill;
 #define SPLASH_PILL_W 84
 #define SPLASH_PILL_H 14
 #define SPLASH_PILL_Y (218 + SPLASH_OFF_Y)
+// Pairing screen: straight, large text in the middle instead of the curved labels.
+static lv_obj_t *sys_pair_big;    // "PAIRING / WAITING FOR / APPROVAL", montserrat 28
+static lv_obj_t *sys_pair_hint;   // where to approve
+static lv_obj_t *sys_pair_name;   // the name the request shows in the SignalK admin UI
 static lv_obj_t *sys_splash_pill;
 static lv_obj_t *sys_splash_phase;
 
@@ -1545,6 +1549,28 @@ static void build_overlays_and_system(void) {
     lv_obj_set_style_text_font(sys_splash_phase, &lv_font_montserrat_12, 0);
     lv_label_set_text(sys_splash_phase, "");
     lv_obj_center(sys_splash_phase);
+
+    sys_pair_big = lv_label_create(scr_system);
+    lv_obj_set_style_text_font(sys_pair_big, &lv_font_montserrat_28, 0);
+    lv_obj_set_style_text_align(sys_pair_big, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_set_style_text_line_space(sys_pair_big, 2, 0);
+    lv_label_set_text(sys_pair_big, "PAIRING\nWAITING FOR\nAPPROVAL");
+    lv_obj_align(sys_pair_big, LV_ALIGN_CENTER, 0, -22);
+    lv_obj_add_flag(sys_pair_big, LV_OBJ_FLAG_HIDDEN);
+
+    sys_pair_hint = lv_label_create(scr_system);
+    lv_obj_set_style_text_font(sys_pair_hint, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_align(sys_pair_hint, LV_TEXT_ALIGN_CENTER, 0);
+    lv_label_set_text(sys_pair_hint, "APPROVE IN SIGNALK ADMIN UI");
+    lv_obj_align(sys_pair_hint, LV_ALIGN_CENTER, 0, 52);
+    lv_obj_add_flag(sys_pair_hint, LV_OBJ_FLAG_HIDDEN);
+
+    sys_pair_name = lv_label_create(scr_system);
+    lv_obj_set_style_text_font(sys_pair_name, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_align(sys_pair_name, LV_TEXT_ALIGN_CENTER, 0);
+    lv_label_set_text(sys_pair_name, "");
+    lv_obj_align(sys_pair_name, LV_ALIGN_CENTER, 0, 70);
+    lv_obj_add_flag(sys_pair_name, LV_OBJ_FLAG_HIDDEN);
 }
 
 // Show or hide the boot splash and set the live progress bar (0..100).
@@ -1960,6 +1986,12 @@ void marine_ui_apply_snapshot(const marine_ui_snapshot_t *snapshot) {
         sys_set_steps(false, 0);
         lv_obj_add_flag(ovl_stale, LV_OBJ_FLAG_HIDDEN);
         sys_splash_show(snap.system_screen == MARINE_SCREEN_BOOT, snap.boot_progress_pct);
+        // Curved labels and the pairing text are shown per screen below
+        lv_obj_remove_flag(sys_canvas_top, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_remove_flag(sys_canvas_bot, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(sys_pair_big, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(sys_pair_hint, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(sys_pair_name, LV_OBJ_FLAG_HIDDEN);
 
         if (snap.system_screen == MARINE_SCREEN_BOOT) {
             update_curved_canvas(sys_canvas_top, sys_cache_top, "HELM DIAL", false, c_primary());
@@ -1984,11 +2016,19 @@ void marine_ui_apply_snapshot(const marine_ui_snapshot_t *snapshot) {
             lv_label_set_text(sys_lbl_line1, "");
             lv_label_set_text(sys_lbl_line2, "");
         } else if (snap.system_screen == MARINE_SCREEN_PAIRING) {
-            update_curved_canvas(sys_canvas_top, sys_cache_top, "PAIRING", false, c_amber());
-            update_curved_canvas(sys_canvas_bot, sys_cache_bot, "WAITING APPROVAL", true, c_muted());
-            lv_label_set_text(sys_lbl_title, "APPROVE KNOB");
-            lv_label_set_text(sys_lbl_line1, "IN SIGNALK ADMIN UI");
-            lv_label_set_text(sys_lbl_line2, snap.device_name);
+            // Straight, large text in the middle; no curved labels on this screen.
+            lv_obj_add_flag(sys_canvas_top, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_flag(sys_canvas_bot, LV_OBJ_FLAG_HIDDEN);
+            lv_label_set_text(sys_lbl_title, "");
+            lv_label_set_text(sys_lbl_line1, "");
+            lv_label_set_text(sys_lbl_line2, "");
+            lv_obj_remove_flag(sys_pair_big, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_remove_flag(sys_pair_hint, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_remove_flag(sys_pair_name, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_style_text_color(sys_pair_big, c_amber(), 0);
+            lv_obj_set_style_text_color(sys_pair_hint, c_text(), 0);
+            lv_obj_set_style_text_color(sys_pair_name, c_muted(), 0);
+            lv_label_set_text(sys_pair_name, snap.device_name);
         } else if (snap.system_screen == MARINE_SCREEN_CANNOT_CONNECT) {
             update_curved_canvas(sys_canvas_top, sys_cache_top, "CONNECTION ERROR", false, c_red());
             update_curved_canvas(sys_canvas_bot, sys_cache_bot, "RETRYING", true, c_muted());
