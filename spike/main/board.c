@@ -1,4 +1,4 @@
-/* Spike: raw hardware bring-up, no LVGL yet. Throwaway code. */
+/* Spike: raw hardware bring-up (power, GC9A01, backlight, PCNT encoder, touch). Throwaway code. */
 #include "board.h"
 
 #include <math.h>
@@ -32,6 +32,9 @@ static pcnt_unit_handle_t s_pcnt;
 static i2c_master_bus_handle_t s_i2c;
 static i2c_master_dev_handle_t s_tp;
 static bool s_tp_ok;
+static board_flush_done_cb_t s_flush_cb;
+static void *s_flush_ctx;
+static int s_enc_taken;     /* edges already handed out as steps */
 
 /* RGB565, byte-swapped for the SPI wire. */
 #define C565(r, g, b) __builtin_bswap16((uint16_t)((((r) >> 3) << 11) | (((g) >> 2) << 5) | ((b) >> 3)))
@@ -57,6 +60,10 @@ void board_power_on(void)
 
 static bool on_color_trans_done(esp_lcd_panel_io_handle_t io, esp_lcd_panel_io_event_data_t *ev, void *ctx)
 {
+    if (s_flush_cb) {
+        s_flush_cb(s_flush_ctx);
+        return false;
+    }
     BaseType_t woken = pdFALSE;
     xSemaphoreGiveFromISR((SemaphoreHandle_t)ctx, &woken);
     return woken == pdTRUE;
@@ -139,15 +146,15 @@ void board_display_init(void)
     ESP_LOGI(TAG, "display up (GC9A01, %d MHz), test pattern drawn", LCD_PCLK_HZ / 1000000);
 }
 
-void board_display_text_counter(int value, bool pressed)
+void board_display_set_flush_cb(board_flush_done_cb_t cb, void *ctx)
 {
-    static int px = -1, py = -1;
-    if (px >= 0) fill_rect(px, py, 24, 24, COL_BLACK);
-    float a = value * (2.0f * (float)M_PI / 24.0f);
-    px = 120 + (int)(70.0f * sinf(a)) - 12;
-    py = 120 - (int)(70.0f * cosf(a)) - 12;
-    fill_rect(px, py, 24, 24, pressed ? COL_RED : COL_WHITE);
-    fill_rect(104, 104, 32, 32, pressed ? COL_RED : COL_GREEN);
+    s_flush_ctx = ctx;
+    s_flush_cb = cb;
+}
+
+void board_display_draw(int x1, int y1, int x2, int y2, const void *data)
+{
+    esp_lcd_panel_draw_bitmap(s_panel, x1, y1, x2, y2, data);
 }
 
 static void touch_init(void)
@@ -220,6 +227,22 @@ int board_encoder_count(void)
     int c = 0;
     pcnt_unit_get_count(s_pcnt, &c);
     return c;
+}
+
+int board_encoder_take_steps(void)
+{
+    int c = board_encoder_count();
+    if (BOARD_ENC_INVERT) c = -c;
+    int steps = (c - s_enc_taken) / BOARD_ENC_EDGES_PER_STEP; /* truncates toward zero, keeps the remainder */
+    s_enc_taken += steps * BOARD_ENC_EDGES_PER_STEP;
+    if (c > 10000 || c < -10000) {
+        /* Stay far from the PCNT limits (+-30000, where it wraps to zero). An edge arriving between the read and the
+         * clear is lost, which is acceptable for a spike and happens once per 2500 steps. */
+        int rem = c - s_enc_taken;
+        pcnt_unit_clear_count(s_pcnt);
+        s_enc_taken = -rem; /* so the next call sees the remainder again */
+    }
+    return steps;
 }
 
 bool board_button_pressed(void) { return gpio_get_level(BOARD_PIN_ENC_SW) == 0; }

@@ -29,9 +29,25 @@
 void board_power_on(void);                 /* rails + power LED */
 void board_display_init(void);             /* SPI + GC9A01 + backlight PWM, draws the test pattern */
 void board_backlight_set(uint8_t percent); /* 0..100 */
-void board_display_text_counter(int value, bool pressed); /* redraws the centre box */
 void board_input_init(void);               /* PCNT encoder, button, touch probe */
-int  board_encoder_count(void);            /* raw quadrature edges, 4 per detent step */
+int  board_encoder_count(void);            /* raw quadrature edges */
+
+/* Quadrature edges per UI step. PCNT counts all four edges of a quadrature cycle, so 4 matches an encoder with one
+ * detent per cycle. UNVERIFIED on the real encoder: if one detent gives 2 steps or 0.5 steps, change this. */
+#ifndef BOARD_ENC_EDGES_PER_STEP
+#define BOARD_ENC_EDGES_PER_STEP 4
+#endif
+/* Set to 1 if clockwise turns count down. UNVERIFIED: the expected direction is clockwise = positive. */
+#ifndef BOARD_ENC_INVERT
+#define BOARD_ENC_INVERT 0
+#endif
+int  board_encoder_take_steps(void);       /* whole steps since the last call, clockwise positive, remainder kept */
+
+/* Asynchronous pixel push for a UI toolkit. (x2, y2) are exclusive. Call board_display_set_flush_cb() first; the
+ * callback runs in ISR context when the transfer has finished. Before a callback is set, draws block instead. */
+typedef void (*board_flush_done_cb_t)(void *ctx);
+void board_display_set_flush_cb(board_flush_done_cb_t cb, void *ctx);
+void board_display_draw(int x1, int y1, int x2, int y2, const void *rgb565_swapped);
 bool board_button_pressed(void);
 bool board_touch_read(uint16_t *x, uint16_t *y); /* true while a finger is down */
 bool board_touch_present(void);

@@ -6,3 +6,4 @@ dependencies:
   signalk-espos/espos_sk: "^0.32.0"
   signalk-espos/espos_ota: "^0.32.0"
   espressif/esp_lcd_gc9a01: "*"
+  lvgl/lvgl: "~9.3.0"

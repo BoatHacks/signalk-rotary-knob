@@ -62,3 +62,8 @@ CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
 # Spike: the CrowPanel 1.28 console is the native USB-Serial/JTAG on the FPC USB cable.
 CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
 CONFIG_LWIP_DHCP_GET_NTP_SRV=y
+
+# LVGL 9.3 for the knob UI: RGB565 to match the GC9A01, the Montserrat 28 font used by the test screen, and the
+# builtin allocator (64 KB default is plenty for one screen).
+CONFIG_LV_COLOR_DEPTH_16=y
+CONFIG_LV_FONT_MONTSERRAT_28=y
