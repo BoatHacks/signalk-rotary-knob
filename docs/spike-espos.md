@@ -99,5 +99,8 @@ Findings that affect the spec:
 
 ## Outcome
 
-Write down for each question: works, works with changes, or blocked, and any workaround. Then pick:
-espOS as the base, espOS components selectively, or plain ESP-IDF.
+**Decision (2026-11-22): espOS as the base, gated.** Works: 1 (IDF 6.1.x), 3, 4, 5 (turn, one step per click, idle dim; push and
+wake still to confirm at the board), 7 (needs PSRAM), 8 (enumerates, espOS alive unconfirmed), 9. Works with changes: 4 (mirror, ghost
+touch filter, centre dead zone), 5 (encoder key), 8 (console moves to CDC, 1200 baud reflash path). Not yet answered: 2 and 6 (Wi-Fi
+join, token, boot to stream). The gate for keeping espOS is in ARCHITECTURE.md section 9. If it fails, fall back to espOS components
+selectively, then plain ESP-IDF.

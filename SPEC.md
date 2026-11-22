@@ -171,7 +171,8 @@ Everything else is ephemeral.
 ### 10.2 Post-MVP / Deferred
 
 - USB-HID dial mode (second milestone, after Wi-Fi control works).
-- Any over-the-air update path. Decided: firmware is NOT pulled from a server or plugin. Flashing is over USB.
+- Over-the-air updates and a signed firmware repository. Updates are possible over USB (MVP) and later over the air. The
+  partition table, rollback and signing key stay in the build so OTA can be added without a re-partition.
 - Haptics, battery, custom enclosure and mounting.
 - Touch masking around knob pushes. A knob push physically presses the glass and reads as a touch near the centre
   (about 138,111 on the bench unit), about 230 ms before the button switch closes. The MVP uses a circular dead zone
@@ -210,7 +211,14 @@ Everything else is ephemeral.
 - **Touch is secondary and ignored in the centre.** A knob push registers as a touch there (hardware coupling, not a
   bug). The dead zone is a 50 px radius around the centre, size unverified. Masking touches around pushes is deferred.
 - **Plain WS and HTTP plus the SignalK token, no TLS.** Keeps connect time inside the ONLINE target on a closed boat LAN.
-- **No firmware updates pulled from a server or plugin.** Decided after first leaning the other way. Flashing over USB.
+- **Firmware updates: USB in the MVP, OTA and a signed firmware repository later** (decided 2026-11-22, replaces the earlier
+  "never pull from a server"). Nothing in the MVP points the OTA component at an update source.
+- **Anchor adapter targets sbender9 `anchoralarm` first** (decided 2026-11-22). Disarm maps to `raiseAnchor`.
+- **Dimmer channels carry a value form** (ratio 0..1, percent 0..100 or on/off), set on the settings page per channel.
+- **Heading source is configurable** (true or magnetic, default true), shown with `°T` or `°M`.
+- **Staleness age is measured from the knob's receive time**, not the server's timestamp.
+- **Setup AP closes once Wi-Fi works, API key is a fixed key set by the owner on the settings page.**
+- **Licence Apache-2.0.** Config export/import as JSON is planned after the MVP.
 - **Configurable HID profile, default dial.**
 - **Looser boot targets (4 s / 10 s)** because the device is always on, not cold-booted per use.
 
@@ -222,17 +230,16 @@ Everything else is ephemeral.
 3. Anchor alarm: the espOS cockpit docs target `hoeken/hoekens-anchor-alarm` (PUT `null` on `navigation.anchor.position`
    raises, PUT `navigation.anchor.maxRadius` sets scope, dropping at the current fix needs a plugin change). Which plugin
    do we drive? Previously researched: sbender9 `anchoralarm`. Is the `anchoralarm` plugin the target? How are its alarms acknowledged, and does disarm equal `raiseAnchor`?
-4. How is firmware updated if not over the air from a server? USB flashing is assumed for now. Does the
-   partition table still keep a second app slot? espOS ships signed OTA with rollback and a manifest served from a plugin
-   or server option. Decide whether we keep OTA disabled, or only allow a manually posted URL.
+4. RESOLVED 2026-11-22: firmware updates over USB in the MVP, OTA and a signed firmware repository post-MVP. The two-slot table,
+   rollback and signing key stay (ARCHITECTURE.md section 8). Still open for later: where the update source lives.
 5. RESOLVED 2026-11-22: pairing overlap. The SignalK access request is the only pairing step, no plugin pairing code. Layout
    and channel config live on the knob's espOS settings page.
 6. RESOLVED 2026-11-22: the knob subscribes and does `PUT` with espOS's SignalK client for simple paths. There is no companion
    plugin in the MVP, so autopilot and anchor calls are made by the firmware too (section 6.1, questions 8 and 9).
-7. Can the encoder indev wake the dimmer? In the cockpit code LVGL's inactivity counter is reset by the touch indev. Our
-   encoder and button need to do the same.
-8. Can espOS's SignalK client make authenticated HTTP requests (autopilot v2 REST, anchor alarm `POST`s, notification
-   acknowledge), or do we use `esp_http_client` with the token espOS stores?
+7. RESOLVED in the design (ARCHITECTURE.md section 2.4): the input task stamps activity itself, the dimmer does not depend on
+   LVGL's inactivity counter. Still to confirm on the board (turn and push wake from dim).
+8. RESOLVED 2026-11-22: espOS provides `espos_sk_http` (GET/PUT/POST with the access token, scheme from the server, 401/403 fed back
+   to the token machine). Adapters use it from the actions task only, it blocks.
 9. Which permission does the device token get from the access request, and is it enough for `PUT` and the autopilot v2 and
    anchor alarm calls on a server with security on?
 10. Config backup and restore: can the espOS settings page export and import a knob's config, so a replaced knob or a second
