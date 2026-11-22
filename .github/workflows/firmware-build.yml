@@ -1,0 +1,46 @@
+name: Firmware build
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      # Keep in sync with spike/.idf-version and spike/README.md (ESP-IDF 6.1.x)
+      image: espressif/idf:v6.1.1
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate throwaway signing key
+        # espOS signs every image; CI uses a disposable key, never a real one.
+        working-directory: spike
+        run: |
+          . $IDF_PATH/export.sh
+          espsecure.py generate_signing_key --version 2 --scheme rsa3072 secure_boot_signing_key.pem
+
+      - name: Build
+        working-directory: spike
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          . $IDF_PATH/export.sh
+          idf.py -B "$RUNNER_TEMP/build" set-target esp32s3
+          idf.py -B "$RUNNER_TEMP/build" build
+
+      - name: Collect binaries
+        run: |
+          mkdir -p out
+          cp "$RUNNER_TEMP/build/knob_spike.bin" out/
+          cp "$RUNNER_TEMP/build/bootloader/bootloader.bin" out/ || true
+          cp "$RUNNER_TEMP/build/partition_table/partition-table.bin" out/ || true
+          cp "$RUNNER_TEMP/build/flasher_args.json" out/ || true
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: knob_spike-firmware-${{ github.sha }}
+          path: out/
+          if-no-files-found: error
