@@ -13,7 +13,7 @@
 // (from SignalK meta.timeout or a per-path default), 0 = never stale by age.
 #define MARINE_TICK_MIN_DELTA_DEG       0.5f     // compass tick ring repaints only after >= 0.5 deg of heading change
 #define MARINE_TICK_MIN_INTERVAL_MS     100U     // ... and at most 10 times a second
-#define MARINE_IDLE_DIM_TIME_MS         10000U   // 10 s idle -> dim backlight
+#define MARINE_IDLE_DIM_TIME_MS         30000U   // 30 s idle -> dim backlight
 #define MARINE_IDLE_DIM_LEVEL_PCT       10U      // 10 % backlight when dimmed
 #define MARINE_IDLE_OFF_TIME_MS         600000U  // 10 min idle -> 0 % backlight (unless AP engaged or Alarm active)
 #define MARINE_FACTORY_RESET_HOLD_MS    5000U    // 5 s continuous hold to trigger factory reset
@@ -102,6 +102,12 @@ static bool dimmer_pending_sent = false;
 static uint8_t dimmer_pending_level = 0;
 static uint8_t dimmer_pending_preset = 0;
 static uint32_t dimmer_pending_deadline_ms = 0;
+// A switched-off group that remembers its level: the first turn click only switches it back on (swallowed, no level
+// change). The latch stays set until the server shows the group on, or the confirm timeout passes, so a quick second click
+// cannot send a second toggle or change the level before the switch-on has landed.
+static bool dimmer_wake_active = false;
+static uint8_t dimmer_wake_group = 0;
+static uint32_t dimmer_wake_deadline_ms = 0;
 
 static uint32_t last_input_ms = 0;
 static uint8_t current_backlight_pct = 100;
@@ -215,8 +221,12 @@ static lv_obj_t *sys_arc_prog;
 // booting. The picture has its own progress bar baked in. The live bar below is drawn over that bar's inside (x 62..176,
 // y 206..214 in the 240 x 240 picture) so the progress shown is real.
 extern const lv_image_dsc_t marine_splash_img;
-#define SPLASH_BAR_X 62
-#define SPLASH_BAR_Y 206
+// The picture is baked 1 px right and down with the area outside the glass blacked out (tools/png2lvgl.py). Its circle spans x 0..237 and y 0..239 inside the 240 x 240 PNG, one pixel up
+// and left of the glass centre. Everything on the splash shares this offset, so the live bar stays aligned.
+#define SPLASH_OFF_X 1
+#define SPLASH_OFF_Y 1
+#define SPLASH_BAR_X (62 + SPLASH_OFF_X)
+#define SPLASH_BAR_Y (206 + SPLASH_OFF_Y)
 #define SPLASH_BAR_W 115
 #define SPLASH_BAR_H 9
 static lv_obj_t *sys_splash;
@@ -1053,6 +1063,16 @@ static void dimmer_on_input(marine_semantic_input_t ev, int32_t val) {
     }
 
     if (ev == MARINE_INPUT_TURN) {
+        const marine_dimmer_group_t *grp = &snap.dimmer_groups[dimmer_selected_group];
+        if (dimmer_wake_active && dimmer_wake_group == dimmer_selected_group) return; // switch-on in flight, swallow
+        if (!dimmer_pending_active && !grp->on && grp->level_pct > 0) {
+            // Off with a saved dim level: this click only turns the light back on, it does not change the level.
+            dimmer_wake_active = true;
+            dimmer_wake_group = dimmer_selected_group;
+            dimmer_wake_deadline_ms = snap.now_ms + MARINE_PENDING_CONFIRM_TIMEOUT;
+            emit_action(MARINE_MODE_DIMMER, MARINE_ACT_DIMMER_TOGGLE_POWER, dimmer_selected_group, 0);
+            return;
+        }
         uint8_t base = dimmer_pending_active ? dimmer_pending_level : snap.dimmer_groups[dimmer_selected_group].level_pct;
         int next_lvl = (int)base + (val * 5);
         if (next_lvl < 0) next_lvl = 0;
@@ -1480,7 +1500,7 @@ static void build_overlays_and_system(void) {
     // Boot splash on top of everything else on this screen, hidden unless the system screen is BOOT.
     sys_splash = lv_image_create(scr_system);
     lv_image_set_src(sys_splash, &marine_splash_img);
-    lv_obj_set_pos(sys_splash, 0, 0);
+    lv_obj_set_pos(sys_splash, 0, 0); // the 1 px shift is baked into splash_img.c (tools/png2lvgl.py --shift 1,1 --circle 118.5)
     lv_obj_remove_flag(sys_splash, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_add_flag(sys_splash, LV_OBJ_FLAG_HIDDEN);
 
@@ -1533,6 +1553,7 @@ static void cancel_transients(void) {
     ap_pending_sent = false;
     dimmer_pending_active = false;
     dimmer_pending_sent = false;
+    dimmer_wake_active = false;
     anchor_preview_active = false;
 }
 
@@ -1999,6 +2020,12 @@ void marine_ui_tick(uint32_t now_ms) {
         }
     }
 
+    // 3a. Switch-on latch: release when the server shows the group on, or after the confirm timeout
+    if (dimmer_wake_active) {
+        bool on_now = dimmer_wake_group < snap.dimmer_group_count && snap.dimmer_groups[dimmer_wake_group].on;
+        if (on_now || now_ms >= dimmer_wake_deadline_ms) dimmer_wake_active = false;
+    }
+
     // 3. Dimmer buffered pending level/preset commit
     if (dimmer_pending_active) {
         if (!dimmer_pending_sent && now_ms >= dimmer_pending_deadline_ms) {
@@ -2055,7 +2082,7 @@ void marine_ui_tick(uint32_t now_ms) {
     // 5b. Staleness is time-based: re-evaluate every tick, a silent link never calls marine_ui_apply_snapshot()
     update_stale_overlay();
 
-    // 6. Idle backlight dimming (10 s -> 10 %, 10 min -> 0 % unless AP engaged or Alarm active)
+    // 6. Idle backlight dimming (30 s -> 10 %, 10 min -> 0 % unless AP engaged or Alarm active)
     uint32_t idle_ms = now_ms - last_input_ms;
     bool keep_awake = snap.ap_engaged || (snap.active_alarm != MARINE_ALARM_NONE);
     uint8_t target_bl = 100;
@@ -2066,4 +2093,8 @@ void marine_ui_tick(uint32_t now_ms) {
         current_backlight_pct = target_bl;
         emit_action(active_mode, MARINE_ACT_POWER_SET_BACKLIGHT, target_bl, 0);
     }
+}
+
+marine_ui_mode_t marine_ui_get_active_mode(void) {
+    return active_mode;
 }

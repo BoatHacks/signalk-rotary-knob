@@ -130,10 +130,7 @@ static void demo_task(void *arg)
         if (!s_stream_down) s_snap.last_data_ms = now;
         s_snap.usb_host_enumerated = usb_dev_mounted();
 
-        /* Steady state colour: green autopilot engaged, cyan anchor armed (dim). */
-        if (s_snap.ap_engaged) knob_power_led_state(0, 40, 0);
-        else if (s_snap.anchor_armed) knob_power_led_state(0, 20, 40);
-        else knob_power_led_state(0, 0, 0);
+        knob_power_apply_snapshot(&s_snap, marine_ui_get_active_mode());
 
         lv_port_lock();
         marine_ui_apply_snapshot(&s_snap);

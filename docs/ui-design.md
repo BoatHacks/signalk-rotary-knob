@@ -72,6 +72,9 @@ All anchor changes need only the one confirm press (SPEC section 2). Alarm logic
 - Turn: level of the shown channel group in 5 % steps.
 - Single press: next channel group, in the order set in the knob's config.
 - Long press: toggle the group off or on (restores the previous level).
+- Turning an off group that remembers its level: the first click only switches the light back on at that level and does not
+  change it. Further clicks are ignored until the server shows the group on (or 3 s pass), then turning changes the level
+  as usual. An off group with no remembered level (0 %) takes the turn as a normal level change.
 - The ring shows the level, a row of dots shows which group is selected. Touch may also set the level.
 - Look: tick ring in light grey, an amber level arc around the ring, large level numeral in the centre, the group name in a
   pill, a dot row with "GROUP n OF m", curved hint text along the bottom (`TURN: LEVEL · PRESS: NEXT`).
@@ -172,7 +175,7 @@ palette.
 
 ## 6. Power, dimming and wake
 
-- Idle dim after 10 s to 10 %. Both values are configurable in the knob's settings because 10 % may be hard to read in direct sun.
+- Idle dim after 30 s to 10 %. Both values are configurable in the knob's settings because 10 % may be hard to read in direct sun.
 - While the autopilot is engaged or an alarm is active the backlight never goes below the dim level. After a long idle in
   standby with no alarm it may go fully off (backlight 0), the timeout is configurable.
 - Wake: the first input is **acted on** when the backlight is above 0. When the backlight is 0 the first input only wakes the
@@ -329,7 +332,7 @@ The proposal's registry pattern (one descriptor per mode: build, refresh and inp
 
 1. Behaviour of turn in autopilot standby (nothing, or scroll modes).
 2. Exact engage confirm turn (direction, timeout) and the prompt wording.
-3. Dim defaults: 10 s and 10 % are the starting point, check in sun and at night.
+3. Dim defaults: 30 s and 10 % are the starting point, check in sun and at night.
 4. Source paths for rudder, depth, voltage, GPS fix and autopilot mode **(verify)**.
 5. Alarm acknowledge path **(verify)**.
 6. How the anchor "move drop point here" maps to the anchor plugin (SPEC open question 3).

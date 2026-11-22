@@ -16,6 +16,11 @@ static volatile knob_led_alarm_t s_alarm;
 static volatile uint8_t s_state_r, s_state_g, s_state_b;
 static volatile bool s_night;
 
+/* Steering indicator kind, set by knob_power_apply_snapshot. At night only these are shown (steady colours are off). */
+enum { STEER_NONE = 0, STEER_PORT, STEER_STBD, STEER_YELLOW, STEER_BLUE };
+static volatile uint8_t s_steer;
+static volatile uint32_t s_oncourse_since_ms; /* when the indicator last changed to yellow or blue */
+
 void knob_power_set_backlight(uint8_t percent)
 {
     if (percent > 100) percent = 100;
@@ -47,7 +52,24 @@ static void led_task(void *arg)
             break;
         }
         default:
-            if (!s_night) { r = s_state_r; g = s_state_g; b = s_state_b; }
+            if (!s_night) {
+                r = s_state_r; g = s_state_g; b = s_state_b;
+            } else if (s_steer == STEER_PORT) {
+                r = LED_MAX;                          /* night: red and green stay on while steering */
+            } else if (s_steer == STEER_STBD) {
+                g = LED_MAX;
+            } else if (s_steer == STEER_YELLOW || s_steer == STEER_BLUE) {
+                /* On course (yellow engaged, blue standby): shown for KNOB_LED_NIGHT_FADE_HOLD_MS after the change to
+                 * it, then fades linearly to off over KNOB_LED_NIGHT_FADE_MS. */
+                uint32_t el = t - s_oncourse_since_ms;
+                uint32_t permille = 1000;
+                if (el >= KNOB_LED_NIGHT_FADE_HOLD_MS) {
+                    uint32_t f = el - KNOB_LED_NIGHT_FADE_HOLD_MS;
+                    permille = f >= KNOB_LED_NIGHT_FADE_MS ? 0 : 1000 - (1000 * f) / KNOB_LED_NIGHT_FADE_MS;
+                }
+                if (s_steer == STEER_YELLOW) { r = (uint8_t)(64 * permille / 1000); g = (uint8_t)(40 * permille / 1000); }
+                else b = (uint8_t)(64 * permille / 1000);
+            }
             break;
         }
         for (int i = 0; i < BOARD_LED_COUNT; i++) board_led_set(i, r, g, b);
@@ -61,4 +83,45 @@ void knob_power_init(void)
     board_led_init();
     xTaskCreate(led_task, "leds", 3072, NULL, 3, NULL);
     ESP_LOGI(TAG, "LED task up");
+}
+
+/* --- Steady colour from the state ------------------------------------------------------------------------------ */
+#include <math.h>
+
+static bool value_stale(uint32_t now, uint32_t updated, uint32_t timeout)
+{
+    return timeout != 0 && (updated == 0 || now - updated > timeout);
+}
+
+void knob_power_apply_snapshot(const marine_ui_snapshot_t *s, marine_ui_mode_t active_mode)
+{
+    static bool on_course;
+    uint8_t r = 0, g = 0, b = 0;
+    uint8_t steer = STEER_NONE;
+
+    if (active_mode == MARINE_MODE_AUTOPILOT) {
+        /* Steering indicator on the autopilot screen, engaged or in standby. Standby uses the set target. */
+        bool stale = value_stale(s->now_ms, s->heading_updated_ms, s->heading_timeout_ms) ||
+                     value_stale(s->now_ms, s->cts_updated_ms, s->cts_timeout_ms);
+        if (stale) {
+            on_course = false;
+            if (s->ap_engaged) { r = 40; g = 24; b = 0; } /* dim amber: no usable course error */
+        } else {
+            float err = fmodf(s->cts_deg - s->heading_deg + 540.0f, 360.0f) - 180.0f; /* negative: turn to port */
+            float a = fabsf(err);
+            if (on_course ? a > KNOB_LED_ON_COURSE_LEAVE_DEG : a <= KNOB_LED_ON_COURSE_ENTER_DEG) on_course = !on_course;
+            if (on_course && s->ap_engaged) { r = 64; g = 40; b = 0; steer = STEER_YELLOW; }
+            else if (on_course) { b = 64; steer = STEER_BLUE; }
+            else if (err < 0) { r = 64; steer = STEER_PORT; }
+            else { g = 64; steer = STEER_STBD; }
+        }
+    } else {
+        on_course = false;
+        if (s->ap_engaged) g = 40;
+        else if (s->anchor_armed) { g = 20; b = 40; }
+    }
+    bool oncourse_kind = steer == STEER_YELLOW || steer == STEER_BLUE;
+    if (oncourse_kind && s_steer != steer) s_oncourse_since_ms = (uint32_t)(esp_timer_get_time() / 1000);
+    s_steer = steer;
+    knob_power_led_state(r, g, b);
 }

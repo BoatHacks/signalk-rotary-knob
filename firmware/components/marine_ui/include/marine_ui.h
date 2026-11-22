@@ -218,6 +218,11 @@ void marine_ui_feed_touch(int16_t x, int16_t y, bool pressed);
  */
 void marine_ui_tick(uint32_t now_ms);
 
+/**
+ * @brief The mode whose screen is currently active (not the mode ring preview). Safe to read without the LVGL lock.
+ */
+marine_ui_mode_t marine_ui_get_active_mode(void);
+
 #ifdef __cplusplus
 }
 #endif

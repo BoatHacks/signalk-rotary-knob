@@ -4,8 +4,12 @@
 
 Standard library only. Transparent pixels are composited over black, which is what a round display shows outside the glass.
 
-    python tools/png2lvgl.py firmware/assets/splash.png firmware/components/marine_ui/splash_img.c marine_splash_img
+    python tools/png2lvgl.py firmware/assets/splash.png firmware/components/marine_ui/splash_img.c marine_splash_img         --shift 1,1 --circle 118.5
     python tools/png2lvgl.py --probe image.png X0 Y0 X1 Y1     # print the RGB values of a pixel row/area (layout work)
+
+--shift DX,DY   move the picture by whole pixels (the gap is filled black).
+--circle R      paint everything farther than R pixels from the screen centre black, so a square picture with a white
+                background shows no white rim on a round glass. The centre is (w-1)/2, (h-1)/2.
 """
 import struct
 import sys
@@ -69,8 +73,31 @@ def main():
         for y in range(y0, y1 + 1):
             print(y, " ".join("%02x%02x%02x" % px[y][x] for x in range(x0, x1 + 1)))
         return
-    src, dst, name = sys.argv[1:4]
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    opts = {}
+    argv = sys.argv[1:]
+    for i, a in enumerate(argv):
+        if a in ("--shift", "--circle"):
+            opts[a] = argv[i + 1]
+            args = [x for x in args if x != argv[i + 1]]
+    src, dst, name = args[:3]
     w, h, px = read_png(src)
+    if "--shift" in opts:
+        dx, dy = map(int, opts["--shift"].split(","))
+        shifted = [[(0, 0, 0)] * w for _ in range(h)]
+        for y in range(h):
+            for x in range(w):
+                nx, ny = x + dx, y + dy
+                if 0 <= nx < w and 0 <= ny < h:
+                    shifted[ny][nx] = px[y][x]
+        px = shifted
+    if "--circle" in opts:
+        r2 = float(opts["--circle"]) ** 2
+        cx, cy = (w - 1) / 2.0, (h - 1) / 2.0
+        for y in range(h):
+            for x in range(w):
+                if (x - cx) ** 2 + (y - cy) ** 2 > r2:
+                    px[y][x] = (0, 0, 0)
     out = []
     for line in px:
         for r, g, b in line:

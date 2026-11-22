@@ -6,6 +6,7 @@
 #include "esp_timer.h"
 #include "espos.h"
 #include "espos_sk.h"
+#include "esp_heap_caps.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "input.h"
@@ -44,6 +45,11 @@ void app_main(void)
     ESP_LOGI(TAG, "espos_start returned at %lu ms", ms());
 
     for (;;) {
+        static int n;
+        if ((n++ % 5) == 0) {
+            ESP_LOGI(TAG, "heap internal free %u min %u, psram free %u", (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
+                     (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL), (unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
+        }
         espos_sk_publish_number(PATH, 293.65);
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
