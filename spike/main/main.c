@@ -8,6 +8,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "lv_port.h"
+#include "usb_dev.h"
 
 static const char *TAG = "knob_spike";
 
@@ -20,6 +21,7 @@ void app_main(void)
     board_power_on();
     board_display_init(); /* raw test pattern, shown until LVGL draws its first frame */
     board_input_init();
+    usb_dev_init(); /* spike question 8: composite USB, logs move to the CDC port */
     ESP_LOGI(TAG, "raw first frame done at %lld ms", esp_timer_get_time() / 1000);
 
     lv_port_init();
@@ -29,7 +31,12 @@ void app_main(void)
     ESP_ERROR_CHECK(espos_start(NULL));
     ESP_LOGI(TAG, "espos_start returned at %lld ms", esp_timer_get_time() / 1000);
 
+    bool usb_seen = false;
     for (;;) {
+        if (!usb_seen && usb_dev_mounted()) {
+            usb_seen = true;
+            ESP_LOGI(TAG, "USB mounted by host at %lld ms", esp_timer_get_time() / 1000);
+        }
         espos_sk_publish_number(PATH, 293.65);
         vTaskDelay(pdMS_TO_TICKS(1000));
     }

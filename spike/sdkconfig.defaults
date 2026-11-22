@@ -59,8 +59,12 @@ CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
 # and says so.
 CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
 
-# Spike: the CrowPanel 1.28 console is the native USB-Serial/JTAG on the FPC USB cable.
-CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+
+# Spike: TinyUSB owns the native USB pins (CDC + HID), so the USB-Serial/JTAG console is off and logs go to the CDC port.
+CONFIG_ESP_CONSOLE_NONE=y
+CONFIG_TINYUSB_CDC_ENABLED=y
+CONFIG_TINYUSB_CDC_COUNT=1
+CONFIG_TINYUSB_HID_COUNT=1
 CONFIG_LWIP_DHCP_GET_NTP_SRV=y
 
 # LVGL 9.3 for the knob UI: RGB565 to match the GC9A01, the Montserrat 28 font used by the test screen, and the

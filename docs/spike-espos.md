@@ -74,7 +74,21 @@ Hardware findings:
 - A touch that lands on a clickable widget behaves like a press on it. Make widgets that only the encoder should drive
   non-clickable (the encoder path does not check the flag).
 
-Still not tested: 8 (USB composite alongside Wi-Fi), Wi-Fi join and SignalK token, boot time to a connected stream.
+Fourth round (USB composite, esp_tinyusb 2.4.0, `spike/main/usb_dev.c`):
+
+| # | Question | Result |
+|---|---|---|
+| 8 | CDC + HID enumerate on the FPC/MX1.25 USB cable? | **Yes.** Windows shows one composite device with a CDC serial port and a HID consumer-control device. The display, encoder, dimmer and espOS run together with it. The HID descriptor is only a consumer-control placeholder: no HID report has been sent to the host yet, and the "dial" profile is not built. |
+| 8 | Does espOS stay happy? | Not confirmed. The app ran for minutes without a reboot, but no espOS log lines were seen after USB came up and the setup access point was not visible in the test PC's Wi-Fi scan. The Wi-Fi step has to settle this. |
+
+Findings that affect the spec and architecture:
+- **TinyUSB takes the native USB pins from USB-Serial/JTAG.** The USB-Serial/JTAG console, the ROM log and the auto-reset into download mode disappear while it runs. Logs have to go to the CDC port (`tinyusb_console_init`), and boot messages before the host opens the port are lost. Logs only flow while a host has the port open with DTR set.
+- **Reflashing needs a way back into the ROM bootloader.** The spike reboots into download mode when the CDC port is opened at 1200 baud (sets the force-download bit, then restarts). Verified: the board reappeared as a ROM device, esptool talked to it, and it returned to the app on reset. The BOOT button is the fallback. The product firmware needs the same trick or a reachable BOOT button.
+- The USB identity changes the COM port (USB-Serial/JTAG, composite and ROM download are three different devices). Tooling must not assume one port.
+- The spike uses the Espressif VID with a throwaway PID. A shipped knob needs its own VID/PID.
+- Image is now 1.77 MB, about 73% of an app slot still free.
+
+Still not tested: Wi-Fi join and SignalK token, boot time to a connected stream, sending HID reports.
 
 Findings that affect the spec:
 - Build needs the espOS signing key (`espsecure generate-signing-key`, kept out of git) even with OTA unused.
