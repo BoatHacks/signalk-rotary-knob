@@ -138,8 +138,22 @@ phrases it as how long a consumer waits for a new value, so we use the 1.5.0 mea
   controls (the mode ring still works). HID has none.
 - Stream down or no link: the full stale overlay as before (`LINK LOST`, last data age).
 
-Before the link is up, a short status screen shows Wi-Fi and pairing progress. First-time setup shows the portal instructions
-on the knob.
+### Boot, setup and pairing screens
+
+Same style as the mode screens (dimmed tick ring, curved labels, bold type). Implemented in `ui/marine_ui_v5` as the system
+screens.
+
+| Screen | Shows |
+|---|---|
+| Boot | Name and a progress arc, no input needed |
+| Wi-Fi setup portal | `JOIN WI-FI`, the setup network name in a pill (an example, the real name comes from espOS), `THEN OPEN THE SETUP PAGE`, curved `SETUP ONLY`. Wi-Fi only, no pairing code |
+| Connecting | Three steps with drawn status marks: Wi-Fi, server, link (done = green disc with a check, current = cyan ring, pending = grey ring) |
+| Waiting for approval | `APPROVE KNOB IN SIGNALK ADMIN UI` and the device name. First connect only |
+| Cannot connect | `NO SERVER`, `WI-FI OK`, retrying, controls off. This is the state before the first link, not the stale overlay |
+| Reset setup | Red progress arc that fills over the full 5 s hold, release to cancel, `CLEARS WI-FI AND PAIRING`. The hold is made at power-up (proposed) |
+
+Before the link is up the knob shows these instead of a mode screen. A night palette variant uses the same layout in the red
+palette.
 
 ## 5. Alarm behaviour
 
@@ -322,8 +336,7 @@ The proposal's registry pattern (one descriptor per mode: build, refresh and inp
 7. Whether touch dimmer control is worth the ghost-touch risk.
 8. Rendering method for dynamic curved text (section 8): `lv_arclabel`, a PSRAM canvas helper, or flat fallback, plus the
    measured frame time and PSRAM cost.
-9. Mock screens still missing in the new style: night palette, boot and pairing. Dimmer (on, off) and HID (connected, no host)
-   were drawn and approved in conversation.
+9. Boot, pairing, dimmer and HID screens exist in the v5 prototype. Still to review there: the night palette on every screen.
 10. HID after a host dropout: stays on the no-host screen and waits for the user (as agreed). Revisit auto-resume if it is
     annoying in practice, for example when the host PC reboots.
 11. Later: show a configured SignalK path on the HID screen (for example a value the user picks in the knob's settings).

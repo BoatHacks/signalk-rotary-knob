@@ -136,9 +136,11 @@ layer (section 6.1).
 ## 7. User Interface
 
 - 240x240 round, readable in direct sun and at night (night palette, red-shifted, dim mode).
-- Dial turns the focused value, press confirms or toggles focus, long press opens the mode ring,
-  touch swipe also switches modes.
-- 5 LEDs: ring feedback, for example autopilot engaged, anchor armed, alarm flashing red.
+- The full UI design is in [docs/ui-design.md](docs/ui-design.md). Summary: encoder first. Turn adjusts, single press
+  (about 300 ms window) confirms or steps, **double press opens the mode ring**, long press is for state changes. Touch is
+  secondary: never for autopilot or anchor, ignored within 50 px of the centre.
+- 5 LEDs: alarm all red flashing, stale amber pulse, steady state colour (autopilot engaged, anchor armed), slow red pulse
+  after an acknowledged alarm, turn feedback (off in night mode).
 - One glanceable home per mode, no menu diving at the helm.
 
 ## 8. Persistence

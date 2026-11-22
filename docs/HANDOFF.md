@@ -7,8 +7,9 @@ details, because the repo may become public. Anything of that kind lives outside
 ## What this is
 
 Firmware for the Elecrow CrowPanel 1.28" rotary display (ESP32-S3, round 240x240 touch screen, endless encoder with
-push button, 5 RGB LEDs) as a helm-side SignalK control surface: autopilot, dimmer and anchor alarm. A companion
-SignalK server plugin owns pairing, layouts and path mapping. Part of the BoatHacks SignalK plugin suite.
+push button, 5 RGB LEDs) as a helm-side SignalK control surface: autopilot, dimmer and anchor alarm. The knob talks to the
+SignalK server directly, there is no companion plugin in the MVP (decided 2026-11-22, see SPEC.md section 12). Part of the
+BoatHacks SignalK suite.
 
 ## Read these first
 
@@ -17,6 +18,8 @@ SignalK server plugin owns pairing, layouts and path mapping. Part of the BoatHa
 | [SPEC.md](../SPEC.md) | Draft 1 of the spec: purpose, rules, state model, API sketch, MVP, design decisions, open questions (section 13) |
 | [docs/hardware.md](hardware.md) | Board specs and the verified pin map, plus bench questions |
 | [docs/spike-espos.md](spike-espos.md) | The espOS feasibility spike: questions, steps and results so far |
+| [docs/ui-design.md](ui-design.md) | The agreed UI design: input vocabulary, modes, alarm and stale rules, power and LEDs, visual style tokens, open items |
+| `ui/marine_ui_v5/` | LVGL 9.3 UI component and Canvas prototype that implement the UI design. Not compiled or run on hardware yet, see its HANDOFF.md |
 | `spike/` | The spike project (throwaway): espOS 0.32.0 plus raw display/encoder/touch bring-up |
 
 `ARCHITECTURE.md` has **not** been written on purpose. It waits for the spike outcome.
@@ -25,19 +28,28 @@ SignalK server plugin owns pairing, layouts and path mapping. Part of the BoatHa
 
 - SignalK control surface for autopilot, dimmer and anchor alarm. Autopilot via the SignalK v2 autopilot API, so any
   autopilot with a provider plugin works.
-- Wi-Fi through a companion plugin, plus USB-HID as a selectable mode (one transport per mode, Wi-Fi stays up in HID mode).
-  HID profile is configurable, default a HID dial.
-- Plain WebSocket on the boat LAN, authenticated by a pairing token. No TLS.
+- Wi-Fi straight to the SignalK server (no companion plugin in the MVP), plus USB-HID as a selectable mode (one transport per
+  mode, Wi-Fi stays up in HID mode). HID is listed in the mode ring only while a USB host has enumerated the knob. HID profile
+  is configurable, default a HID dial.
+- One credential: the SignalK access-request token (approved once in the server's admin UI), no separate pairing code. Plain
+  WebSocket and HTTP on the boat LAN, no TLS.
+- Layout, dimmer channels (name plus path), steps, timeouts, dim levels and HID profile are configured on the knob's own espOS
+  settings page, stored in NVS.
+- Staleness is per value, using the SignalK `meta.timeout` of the key when the server has one (docs/ui-design.md section 4).
 - Always powered, so a dim mode is needed. Dim after idle, never fully off while the autopilot is engaged or an alarm is
   active, and follow `environment.mode` (`"day"`/`"night"`). Default to Day until the first value.
 - Boot targets: last screen within 4 s, ONLINE within 10 s.
-- Engage the autopilot with a long press plus a confirm turn. Anchor changes need only a press to confirm.
-- First Wi-Fi credentials through a captive portal.
-- Firmware is **not** pulled from the companion plugin. Flashing is over USB.
+- Engage the autopilot with a long press plus a confirm turn. Anchor changes need only a press to confirm. Double press opens
+  the mode ring. Touch is secondary and never changes autopilot or anchor state.
+- A drag or GPS alarm takes over the screen, a press acknowledges it, then the knob returns to the previous mode with a
+  persistent red ring until the server clears the alarm.
+- First Wi-Fi credentials through a captive portal (Wi-Fi only, pairing is the SignalK access request).
+- Firmware is **not** pulled from a server or plugin. Flashing is over USB.
 - ESP-IDF, not Arduino. Build on espOS with our own knob app, borrowing ideas and code (Apache-2.0, 2.x line only) from
   `dirkwa/espos-p4-cockpit` (display/touch HAL split, idle dimmer, day/night state). The cockpit's touch-first JSON Layout
   Player is out of the MVP.
-- The companion plugin stays as specced even though espOS's own SignalK client could talk to the server directly.
+- The knob uses espOS's SignalK client directly for stream, `PUT` and the access request. Autopilot v2 and anchor alarm
+  calls are made by the firmware (adapter layer), a plugin may return later.
 
 ## Where the spike stands
 
@@ -77,9 +89,10 @@ SignalK stream connected.
 
 The live list is SPEC.md section 13. At time of writing: night/day publisher on the boat, dimmer path convention, which
 anchor alarm plugin to drive (espOS docs target `hoeken/hoekens-anchor-alarm`, early research used sbender9's
-`anchoralarm`), what to do about espOS's signed OTA (left on by default, nothing points it at an update source),
-overlap between espOS's access-request pairing and our plugin's pairing, whether simple paths use espOS's SignalK client
-directly, whether the encoder can wake the dimmer.
+`anchoralarm`), what to do about espOS's signed OTA (left on by default, nothing points it at an update source), whether
+espOS's client can make authenticated HTTP calls, which permission the device token gets, config backup and restore, which of
+the boat's paths carry `meta.timeout`, whether the encoder can wake the dimmer. The pairing overlap and the plugin question
+are resolved (no plugin, one token). UI open items are in docs/ui-design.md section 10.
 
 Also undecided: the repo has no licence file yet. The spike reuses Apache-2.0 files from espOS and keeps their headers.
 
