@@ -67,3 +67,16 @@ CONFIG_LWIP_DHCP_GET_NTP_SRV=y
 # builtin allocator (64 KB default is plenty for one screen).
 CONFIG_LV_COLOR_DEPTH_16=y
 CONFIG_LV_FONT_MONTSERRAT_28=y
+
+# PSRAM: with LVGL in internal RAM only, espos_sk_start() fails with ESP_ERR_NO_MEM and the board boot-loops.
+# The CrowPanel has 8 MB octal PSRAM. Allocations over 4 KB go there, small ones stay in internal RAM.
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_MODE_OCT=y
+CONFIG_SPIRAM_SPEED_80M=y
+CONFIG_SPIRAM_USE_MALLOC=y
+CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=4096
+# LVGL takes its heap from malloc (so it can use PSRAM) instead of a fixed 64 KB internal pool, and does not
+# compile its example code.
+CONFIG_LV_USE_CLIB_MALLOC=y
+# CONFIG_LV_USE_BUILTIN_MALLOC is not set
+# CONFIG_LV_BUILD_EXAMPLES is not set

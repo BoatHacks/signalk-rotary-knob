@@ -57,6 +57,13 @@ dependencies:
       registry_url: https://components.espressif.com
       type: service
     version: 1.23.1
+  lvgl/lvgl:
+    component_hash: b702d642e03e95928046d5c6726558e6444e112420c77efa5fdb6650b0a13c5d
+    dependencies: []
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 9.3.0
   signalk-espos/espos_config:
     component_hash: e12e64866af3c4fcda0e3bcbc3393cf4550303f6883a8623765b39a435c9645f
     dependencies:
@@ -356,9 +363,10 @@ dependencies:
 direct_dependencies:
 - espressif/esp_lcd_gc9a01
 - idf
+- lvgl/lvgl
 - signalk-espos/espos_core
 - signalk-espos/espos_ota
 - signalk-espos/espos_sk
-manifest_hash: bdd6766e75cd1a6ac2d63b8fd2a0a52d83b521ce5a424780e60da2194cabb094
+manifest_hash: 66d40f82b4a919891ca4905e4a1224c87f4e054b2a2de9a4ad5520393f45dd9c
 target: esp32s3
 version: 3.0.0

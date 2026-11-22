@@ -134,6 +134,8 @@ void board_display_init(void)
     ESP_ERROR_CHECK(esp_lcd_panel_reset(s_panel));
     ESP_ERROR_CHECK(esp_lcd_panel_init(s_panel));
     ESP_ERROR_CHECK(esp_lcd_panel_invert_color(s_panel, true)); /* Elecrow: panelConfig.invert = true */
+    /* Seen on the device: the image is mirrored left-right. Flip x. The touch x axis may need the same flip. */
+    ESP_ERROR_CHECK(esp_lcd_panel_mirror(s_panel, true, false));
 
     /* Orientation test pattern: top red, right green, bottom blue, left yellow, black centre. */
     fill_rect(0, 0, BOARD_LCD_W, BOARD_LCD_H, COL_BLACK);
