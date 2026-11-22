@@ -1,0 +1,364 @@
+dependencies:
+  espressif/cjson:
+    component_hash: e788323270d90738662d66fffa910bfe1fba019bba087f01557e70c40485b469
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=5.0'
+    source:
+      registry_url: https://components.espressif.com
+      type: service
+    version: 1.7.19~2
+  espressif/cmake_utilities:
+    component_hash: 351350613ceafba240b761b4ea991e0f231ac7a9f59a9ee901f751bddc0bb18f
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=4.1'
+    source:
+      registry_url: https://components.espressif.com
+      type: service
+    version: 0.5.3
+  espressif/esp_lcd_gc9a01:
+    component_hash: e60bc2b5649c7679bd010797a875ae64b2a57cf9cdbd6a2bf7a0ade66913edc0
+    dependencies:
+    - name: espressif/cmake_utilities
+      registry_url: https://components.espressif.com
+      require: private
+      version: 0.*
+    - name: idf
+      require: private
+      version: '>=4.4'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 2.0.4
+  espressif/mdns:
+    component_hash: 2fa43caa78cc170842255bc7bf71f306bc815cae12e9496bfb12372423019ac7
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=5.0'
+    source:
+      registry_url: https://components.espressif.com
+      type: service
+    version: 1.15.1
+  idf:
+    source:
+      type: idf
+    version: 6.1.1
+  joltwallet/littlefs:
+    component_hash: e1a0f4a6adf821759cb34703a91107bbdce5d7ff6f4728f40ab012bb87842974
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=5.0'
+    source:
+      registry_url: https://components.espressif.com
+      type: service
+    version: 1.23.1
+  signalk-espos/espos_config:
+    component_hash: e12e64866af3c4fcda0e3bcbc3393cf4550303f6883a8623765b39a435c9645f
+    dependencies:
+    - name: espressif/cjson
+      registry_url: https://components.espressif.com
+      require: private
+      version: ==1.7.19~2
+    - name: idf
+      require: private
+      version: '>=6.1.0,<6.2.0'
+    - name: signalk-espos/espos_health
+      registry_url: https://components.espressif.com
+      require: private
+      version: ^0.32.0
+    source:
+      registry_url: https://components.espressif.com
+      type: service
+    version: 0.32.0
+  signalk-espos/espos_core:
+    component_hash: b68e8acffad31bc14a48ade76e215ab4521ead333805ed11c9dc76dd50aff2a9
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=6.1.0,<6.2.0'
+    - name: signalk-espos/espos_config
+      registry_url: https://components.espressif.com
+      require: private
+      version: ^0.32.0
+    - name: signalk-espos/espos_event
+      registry_url: https://components.espressif.com
+      require: private
+      version: ^0.32.0
+    - name: signalk-espos/espos_health
+      registry_url: https://components.espressif.com
+      require: private
+      version: ^0.32.0
+    - name: signalk-espos/espos_httpd
+      registry_url: https://components.espressif.com
+      require: private
+      version: ^0.32.0
+    - name: signalk-espos/espos_log
+      registry_url: https://components.espressif.com
+      require: private
+      version: ^0.32.0
+    - name: signalk-espos/espos_net
+      registry_url: https://components.espressif.com
+      require: private
+      version: ^0.32.0
+    - name: signalk-espos/espos_time
+      registry_url: https://components.espressif.com
+      require: private
+      version: ^0.32.0
+    - name: signalk-espos/espos_wifi
+      registry_url: https://components.espressif.com
+      require: private
+      rules:
+      - if: target not in [esp32h2, esp32h21, esp32h4]
+      version: ^0.32.0
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 0.32.0
+  signalk-espos/espos_event:
+    component_hash: 9d99db90233d55996553cd86c51a4ef9b6e1067ae4e44a77ff329da1496d3abf
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=6.1.0,<6.2.0'
+    source:
+      registry_url: https://components.espressif.com
+      type: service
+    version: 0.32.0
+  signalk-espos/espos_health:
+    component_hash: 53b76562fac0d336fa345cd6a695e6d222efc08f1a53d5f6e20ed2d6ba8d36d5
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=6.1.0,<6.2.0'
+    source:
+      registry_url: https://components.espressif.com
+      type: service
+    version: 0.32.0
+  signalk-espos/espos_httpd:
+    component_hash: 9df39d7e5c23a038640c8345f4804a5cbddaa9e60287f20358fd580d6db78ace
+    dependencies:
+    - name: espressif/cjson
+      registry_url: https://components.espressif.com
+      require: private
+      version: ==1.7.19~2
+    - name: idf
+      require: private
+      version: '>=6.1.0,<6.2.0'
+    - name: joltwallet/littlefs
+      registry_url: https://components.espressif.com
+      require: private
+      rules:
+      - if: target != linux
+      version: ==1.23.1
+    - name: signalk-espos/espos_config
+      registry_url: https://components.espressif.com
+      require: private
+      version: ^0.32.0
+    - name: signalk-espos/espos_event
+      registry_url: https://components.espressif.com
+      require: private
+      version: ^0.32.0
+    - name: signalk-espos/espos_health
+      registry_url: https://components.espressif.com
+      require: private
+      version: ^0.32.0
+    - name: signalk-espos/espos_log
+      registry_url: https://components.espressif.com
+      require: private
+      version: ^0.32.0
+    source:
+      registry_url: https://components.espressif.com
+      type: service
+    version: 0.32.0
+  signalk-espos/espos_log:
+    component_hash: 342e744cd06d33badb87d52f9b9253a89568d58cfed5aa2b51df965915d36517
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=6.1.0,<6.2.0'
+    source:
+      registry_url: https://components.espressif.com
+      type: service
+    version: 0.32.0
+  signalk-espos/espos_net:
+    component_hash: ce6267a8fe21506484eb1b5f8a55529b2409a8fec49b10046f1f5829424686a3
+    dependencies:
+    - name: espressif/cjson
+      registry_url: https://components.espressif.com
+      require: private
+      version: ==1.7.19~2
+    - name: espressif/mdns
+      registry_url: https://components.espressif.com
+      require: private
+      rules:
+      - if: target != linux
+      version: ==1.15.1
+    - name: idf
+      require: private
+      version: '>=6.1.0,<6.2.0'
+    - name: signalk-espos/espos_config
+      registry_url: https://components.espressif.com
+      require: private
+      version: ^0.32.0
+    - name: signalk-espos/espos_event
+      registry_url: https://components.espressif.com
+      require: private
+      version: ^0.32.0
+    - name: signalk-espos/espos_httpd
+      registry_url: https://components.espressif.com
+      require: private
+      version: ^0.32.0
+    source:
+      registry_url: https://components.espressif.com
+      type: service
+    version: 0.32.0
+  signalk-espos/espos_ota:
+    component_hash: 8db3ee1e502abc2ae99aa8af92f926b862e72dde5a09cddac1cea53e18cbd157
+    dependencies:
+    - name: signalk-espos/espos_event
+      registry_url: https://components.espressif.com
+      require: private
+      version: ^0.32.0
+    - name: signalk-espos/espos_httpd
+      registry_url: https://components.espressif.com
+      require: private
+      version: ^0.32.0
+    - name: signalk-espos/espos_net
+      registry_url: https://components.espressif.com
+      require: private
+      version: ^0.32.0
+    - name: espressif/cjson
+      registry_url: https://components.espressif.com
+      require: private
+      version: ==1.7.19~2
+    - name: idf
+      require: private
+      version: '>=6.1.0,<6.2.0'
+    - name: signalk-espos/espos_config
+      registry_url: https://components.espressif.com
+      require: private
+      version: ^0.32.0
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 0.32.0
+  signalk-espos/espos_sk:
+    component_hash: a7424851a3c8048301cceea571e11a7d1d8a6b5262b2c6625531501e186aa35b
+    dependencies:
+    - name: espressif/cjson
+      registry_url: https://components.espressif.com
+      require: private
+      version: ==1.7.19~2
+    - name: idf
+      require: private
+      version: '>=6.1.0,<6.2.0'
+    - name: signalk-espos/espos_config
+      registry_url: https://components.espressif.com
+      require: private
+      version: ^0.32.0
+    - name: signalk-espos/espos_event
+      registry_url: https://components.espressif.com
+      require: private
+      version: ^0.32.0
+    - name: signalk-espos/espos_health
+      registry_url: https://components.espressif.com
+      require: private
+      version: ^0.32.0
+    - name: signalk-espos/espos_httpd
+      registry_url: https://components.espressif.com
+      require: private
+      version: ^0.32.0
+    - name: signalk-espos/espos_net
+      registry_url: https://components.espressif.com
+      require: private
+      version: ^0.32.0
+    - name: signalk-espos/espos_time
+      registry_url: https://components.espressif.com
+      require: private
+      version: ^0.32.0
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 0.32.0
+  signalk-espos/espos_time:
+    component_hash: a3878fba872368e1b4ee847d35a720384766cd5e73a275a079f4040052bce6f6
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=6.1.0,<6.2.0'
+    - name: signalk-espos/espos_config
+      registry_url: https://components.espressif.com
+      require: private
+      version: ^0.32.0
+    - name: signalk-espos/espos_event
+      registry_url: https://components.espressif.com
+      require: private
+      version: ^0.32.0
+    - name: signalk-espos/espos_httpd
+      registry_url: https://components.espressif.com
+      require: private
+      version: ^0.32.0
+    source:
+      registry_url: https://components.espressif.com
+      type: service
+    version: 0.32.0
+  signalk-espos/espos_wifi:
+    component_hash: c6ed2442454f03c3734c23761c342f3c2fbec6b68412e3946370d5d73e32b15c
+    dependencies:
+    - name: espressif/cjson
+      registry_url: https://components.espressif.com
+      require: private
+      version: ==1.7.19~2
+    - name: espressif/esp_hosted
+      registry_url: https://components.espressif.com
+      require: private
+      rules:
+      - if: target == esp32p4
+      version: ==3.1.0
+    - name: espressif/esp_wifi_remote
+      registry_url: https://components.espressif.com
+      require: private
+      rules:
+      - if: target == esp32p4
+      version: ==1.6.5
+    - name: idf
+      require: private
+      version: '>=6.1.0,<6.2.0'
+    - name: signalk-espos/espos_config
+      registry_url: https://components.espressif.com
+      require: private
+      version: ^0.32.0
+    - name: signalk-espos/espos_event
+      registry_url: https://components.espressif.com
+      require: private
+      version: ^0.32.0
+    - name: signalk-espos/espos_health
+      registry_url: https://components.espressif.com
+      require: private
+      version: ^0.32.0
+    - name: signalk-espos/espos_httpd
+      registry_url: https://components.espressif.com
+      require: private
+      version: ^0.32.0
+    - name: signalk-espos/espos_net
+      registry_url: https://components.espressif.com
+      require: private
+      version: ^0.32.0
+    source:
+      registry_url: https://components.espressif.com
+      type: service
+    version: 0.32.0
+direct_dependencies:
+- espressif/esp_lcd_gc9a01
+- idf
+- signalk-espos/espos_core
+- signalk-espos/espos_ota
+- signalk-espos/espos_sk
+manifest_hash: bdd6766e75cd1a6ac2d63b8fd2a0a52d83b521ce5a424780e60da2194cabb094
+target: esp32s3
+version: 3.0.0

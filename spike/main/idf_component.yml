@@ -1,0 +1,8 @@
+## Spike: espOS consumed from the component registry, as in espOS's own from_registry example
+## (override_path entries removed because there is no espOS checkout next to this project).
+dependencies:
+  idf: ">=6.1.0,<6.2.0"
+  signalk-espos/espos_core: "^0.32.0"
+  signalk-espos/espos_sk: "^0.32.0"
+  signalk-espos/espos_ota: "^0.32.0"
+  espressif/esp_lcd_gc9a01: "*"
