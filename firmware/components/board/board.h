@@ -1,4 +1,4 @@
-/* Spike: raw hardware bring-up for the Elecrow CrowPanel 1.28" rotary display (ESP32-S3).
+/* SPDX-License-Identifier: Apache-2.0
  * Pins from docs/hardware.md, checked against Elecrow's Arduino examples. */
 #pragma once
 
@@ -66,6 +66,10 @@ void board_display_draw(int x1, int y1, int x2, int y2, const void *rgb565_swapp
 #ifndef BOARD_TOUCH_DEADZONE_RADIUS
 #define BOARD_TOUCH_DEADZONE_RADIUS 50
 #endif
+#define BOARD_LED_COUNT 5
+void board_led_init(void);
+void board_led_set(int index, uint8_t r, uint8_t g, uint8_t b); /* buffered, call board_led_show() */
+void board_led_show(void);
 bool board_button_pressed(void);
 bool board_touch_read(uint16_t *x, uint16_t *y); /* true while a finger is down */
 bool board_touch_present(void);

@@ -17,7 +17,7 @@
 # check it -- run the build without those lines and the lint prints the list.
 cmake_minimum_required(VERSION 3.22)
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
-project(knob_spike)
+project(knob)
 
 # The web UI bundle -> the LittleFS "storage" partition, written by
 # `idf.py flash`. Defined by espos_httpd's project_include.cmake, so it is

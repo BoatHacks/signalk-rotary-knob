@@ -1,5 +1,5 @@
-/* Spike: USB composite device (CDC + HID) on the native USB pins. Throwaway code.
- * Question 8 of docs/spike-espos.md: does it enumerate on the FPC USB cable while Wi-Fi/espOS run? */
+/* SPDX-License-Identifier: Apache-2.0
+ * USB composite device (CDC + HID) on the native USB pins. Question 8 of docs/spike-espos.md. */
 #include "usb_dev.h"
 
 #include "class/hid/hid_device.h"
@@ -13,6 +13,7 @@
 #include "tinyusb_default_config.h"
 
 static const char *TAG = "usb_dev";
+static usb_dev_rx_cb_t s_rx_cb;
 
 enum { ITF_NUM_CDC = 0, ITF_NUM_CDC_DATA, ITF_NUM_HID, ITF_NUM_TOTAL };
 enum { STR_LANG = 0, STR_MANUF, STR_PRODUCT, STR_SERIAL, STR_CDC, STR_HID };
@@ -89,6 +90,18 @@ static void on_line_coding(int itf, cdcacm_event_t *event)
     }
 }
 
+static void on_rx(int itf, cdcacm_event_t *event)
+{
+    (void)event;
+    uint8_t buf[32];
+    size_t n = 0;
+    if (tinyusb_cdcacm_read((tinyusb_cdcacm_itf_t)itf, buf, sizeof(buf), &n) == ESP_OK && s_rx_cb) {
+        for (size_t i = 0; i < n; i++) s_rx_cb((char)buf[i]);
+    }
+}
+
+void usb_dev_set_rx_cb(usb_dev_rx_cb_t cb) { s_rx_cb = cb; }
+
 void usb_dev_init(void)
 {
     tinyusb_config_t cfg = TINYUSB_DEFAULT_CONFIG();
@@ -100,6 +113,7 @@ void usb_dev_init(void)
 
     tinyusb_config_cdcacm_t cdc = {
         .cdc_port = TINYUSB_CDC_ACM_0,
+        .callback_rx = on_rx,
         .callback_line_coding_changed = on_line_coding,
     };
     ESP_ERROR_CHECK(tinyusb_cdcacm_init(&cdc));

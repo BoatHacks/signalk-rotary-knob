@@ -211,6 +211,18 @@ static lv_obj_t *sys_lbl_line1;
 static lv_obj_t *sys_lbl_line2;
 static lv_obj_t *sys_arc_prog;
 
+// Boot splash: a full-screen RGB565 picture (splash_img.c, from firmware/assets/splash.png) covers the system screen while
+// booting. The picture has its own progress bar baked in. The live bar below is drawn over that bar's inside (x 62..176,
+// y 206..214 in the 240 x 240 picture) so the progress shown is real.
+extern const lv_image_dsc_t marine_splash_img;
+#define SPLASH_BAR_X 62
+#define SPLASH_BAR_Y 206
+#define SPLASH_BAR_W 115
+#define SPLASH_BAR_H 9
+static lv_obj_t *sys_splash;
+static lv_obj_t *sys_splash_track;
+static lv_obj_t *sys_splash_fill;
+
 // Shared Scratch Glyph Canvas for Tangent Rotation (24x24 ARGB8888 in PSRAM)
 #define GLYPH_TMP_SIZE 24
 #define GLYPH_TMP_BYTES (GLYPH_TMP_SIZE * GLYPH_TMP_SIZE * 4)
@@ -1464,6 +1476,47 @@ static void build_overlays_and_system(void) {
     sys_lbl_line2 = lv_label_create(scr_system);
     lv_obj_set_style_text_font(sys_lbl_line2, &lv_font_montserrat_12, 0);
     lv_obj_align(sys_lbl_line2, LV_ALIGN_CENTER, 0, 34);
+
+    // Boot splash on top of everything else on this screen, hidden unless the system screen is BOOT.
+    sys_splash = lv_image_create(scr_system);
+    lv_image_set_src(sys_splash, &marine_splash_img);
+    lv_obj_set_pos(sys_splash, 0, 0);
+    lv_obj_remove_flag(sys_splash, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(sys_splash, LV_OBJ_FLAG_HIDDEN);
+
+    sys_splash_track = lv_obj_create(scr_system);
+    lv_obj_remove_style_all(sys_splash_track);
+    lv_obj_set_pos(sys_splash_track, SPLASH_BAR_X, SPLASH_BAR_Y);
+    lv_obj_set_size(sys_splash_track, SPLASH_BAR_W, SPLASH_BAR_H);
+    lv_obj_set_style_radius(sys_splash_track, SPLASH_BAR_H / 2, 0);
+    lv_obj_set_style_bg_color(sys_splash_track, lv_color_hex(0x012E68), 0);
+    lv_obj_set_style_bg_opa(sys_splash_track, LV_OPA_COVER, 0);
+    lv_obj_add_flag(sys_splash_track, LV_OBJ_FLAG_HIDDEN);
+
+    sys_splash_fill = lv_obj_create(scr_system);
+    lv_obj_remove_style_all(sys_splash_fill);
+    lv_obj_set_pos(sys_splash_fill, SPLASH_BAR_X, SPLASH_BAR_Y);
+    lv_obj_set_size(sys_splash_fill, 0, SPLASH_BAR_H);
+    lv_obj_set_style_radius(sys_splash_fill, SPLASH_BAR_H / 2, 0);
+    lv_obj_set_style_bg_color(sys_splash_fill, lv_color_hex(0xFEBF11), 0);
+    lv_obj_set_style_bg_opa(sys_splash_fill, LV_OPA_COVER, 0);
+    lv_obj_add_flag(sys_splash_fill, LV_OBJ_FLAG_HIDDEN);
+}
+
+// Show or hide the boot splash and set the live progress bar (0..100).
+static void sys_splash_show(bool show, uint8_t pct) {
+    if (!show) {
+        lv_obj_add_flag(sys_splash, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(sys_splash_track, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(sys_splash_fill, LV_OBJ_FLAG_HIDDEN);
+        return;
+    }
+    if (pct > 100) pct = 100;
+    lv_obj_remove_flag(sys_splash, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_remove_flag(sys_splash_track, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_remove_flag(sys_splash_fill, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_width(sys_splash_fill, (SPLASH_BAR_W * pct) / 100);
+    lv_obj_set_style_bg_color(sys_splash_fill, snap.night_palette ? COL_NIGHT_RED : lv_color_hex(0xFEBF11), 0);
 }
 
 // --- Transient previews and prompts are dropped when a mode goes stale or the mode changes ---
@@ -1856,6 +1909,7 @@ void marine_ui_apply_snapshot(const marine_ui_snapshot_t *snapshot) {
         lv_obj_add_flag(sys_pill_box, LV_OBJ_FLAG_HIDDEN);
         sys_set_steps(false, 0);
         lv_obj_add_flag(ovl_stale, LV_OBJ_FLAG_HIDDEN);
+        sys_splash_show(snap.system_screen == MARINE_SCREEN_BOOT, snap.boot_progress_pct);
 
         if (snap.system_screen == MARINE_SCREEN_BOOT) {
             update_curved_canvas(sys_canvas_top, sys_cache_top, "HELM DIAL", false, c_primary());

@@ -1,4 +1,5 @@
-/* Spike: raw hardware bring-up (power, GC9A01, backlight, PCNT encoder, touch). Throwaway code. */
+/* SPDX-License-Identifier: Apache-2.0
+ * Board support for the Elecrow CrowPanel 1.28" (power, GC9A01, backlight, PCNT encoder, CST816D, WS2812). */
 #include "board.h"
 
 #include <math.h>
@@ -260,3 +261,36 @@ int board_encoder_take_steps(void)
 }
 
 bool board_button_pressed(void) { return gpio_get_level(BOARD_PIN_ENC_SW) == 0; }
+
+/* --- Five WS2812 LEDs on GPIO48 ------------------------------------------------------------------------------- */
+#include "led_strip.h"
+
+static led_strip_handle_t s_strip;
+
+void board_led_init(void)
+{
+    led_strip_config_t strip = {
+        .strip_gpio_num = BOARD_PIN_LED_DATA,
+        .max_leds = BOARD_LED_COUNT,
+        .led_model = LED_MODEL_WS2812,
+        .color_component_format = LED_STRIP_COLOR_COMPONENT_FMT_GRB,
+        .flags = { .invert_out = false },
+    };
+    led_strip_rmt_config_t rmt = {
+        .clk_src = RMT_CLK_SRC_DEFAULT,
+        .resolution_hz = 10 * 1000 * 1000,
+        .flags = { .with_dma = false },
+    };
+    ESP_ERROR_CHECK(led_strip_new_rmt_device(&strip, &rmt, &s_strip));
+    led_strip_clear(s_strip);
+}
+
+void board_led_set(int index, uint8_t r, uint8_t g, uint8_t b)
+{
+    if (s_strip && index >= 0 && index < BOARD_LED_COUNT) led_strip_set_pixel(s_strip, (uint32_t)index, r, g, b);
+}
+
+void board_led_show(void)
+{
+    if (s_strip) led_strip_refresh(s_strip);
+}
