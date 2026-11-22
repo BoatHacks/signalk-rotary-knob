@@ -37,17 +37,27 @@ static void encoder_read_cb(lv_indev_t *indev, lv_indev_data_t *data)
 {
     data->enc_diff = (int16_t)board_encoder_take_steps();
     data->state = board_button_pressed() ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
+    /* Without this key LVGL never sends PRESSED/CLICKED to the focused widget: indev_encoder_proc() only does so for
+     * LV_KEY_ENTER. */
+    data->key = LV_KEY_ENTER;
 }
 
 static void touch_read_cb(lv_indev_t *indev, lv_indev_data_t *data)
 {
     static lv_point_t last;
+    static bool was_down;
     uint16_t x, y;
     if (board_touch_read(&x, &y)) {
-        last.x = x < BOARD_LCD_W ? x : BOARD_LCD_W - 1; /* mapping to screen axes is UNVERIFIED on the device */
-        last.y = y < BOARD_LCD_H ? y : BOARD_LCD_H - 1;
+        if (!was_down) ESP_LOGI(TAG, "touch raw x=%u y=%u", x, y);
+        was_down = true;
+        if (x > BOARD_LCD_W - 1) x = BOARD_LCD_W - 1;
+        if (y > BOARD_LCD_H - 1) y = BOARD_LCD_H - 1;
+        if (BOARD_TOUCH_SWAP_XY) { uint16_t t = x; x = y; y = t; }
+        last.x = BOARD_TOUCH_FLIP_X ? BOARD_LCD_W - 1 - x : x;
+        last.y = BOARD_TOUCH_FLIP_Y ? BOARD_LCD_H - 1 - y : y;
         data->state = LV_INDEV_STATE_PRESSED;
     } else {
+        was_down = false;
         data->state = LV_INDEV_STATE_RELEASED;
     }
     data->point = last;

@@ -51,9 +51,11 @@ Build and runtime on the real board, with espOS 0.32.0:
   x4 unit and push button initialise cleanly. First frame about 0.6 s after reset.
 - Display before network works (`espos_start()` runs after the panel is up).
 
-**Not verified by a person at the device yet:** that the test pattern shows the right colours and orientation, which way
-the encoder counts, edges per detent, button polarity, and touch coordinates. The expected behaviour is described in
-the spike notes.
+**Verified at the device:** orientation (after a left-right mirror), encoder direction and one step per click, touch coordinate
+mapping (from the log), idle dim. **Still to confirm:** that a push shows PRESSED and counts clicks on screen (the log shows the
+event after a fix), and that a turn or push wakes the dimmed screen (an earlier wake may have been a ghost touch). Also found: LVGL plus espOS boot-looped without PSRAM (fixed, PSRAM now on), a
+knob push reads as a touch near the centre (50 px dead zone for now, touch masking around pushes is a later item), and the
+touch controller reports out-of-range ghost touches (filtered). Details in the spike notes.
 
 **Not tested at all:** LVGL on this panel, the encoder as an LVGL input device with a focus group, dimmer wake from the
 encoder, USB composite (CDC + HID) alongside Wi-Fi, Wi-Fi join and SignalK access request, PSRAM headroom, boot time to

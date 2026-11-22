@@ -48,6 +48,24 @@ int  board_encoder_take_steps(void);       /* whole steps since the last call, c
 typedef void (*board_flush_done_cb_t)(void *ctx);
 void board_display_set_flush_cb(board_flush_done_cb_t cb, void *ctx);
 void board_display_draw(int x1, int y1, int x2, int y2, const void *rgb565_swapped);
+/* Touch axes to screen axes. UNVERIFIED on the device: the display is mirrored left-right in the driver, the touch
+ * controller may need the same flip. The raw values are logged on each touch ("touch raw x=.. y=.."). Apply in the
+ * order swap, then flip. Raw range is assumed 0..239 on both axes. */
+#ifndef BOARD_TOUCH_SWAP_XY
+#define BOARD_TOUCH_SWAP_XY 0
+#endif
+#ifndef BOARD_TOUCH_FLIP_X
+#define BOARD_TOUCH_FLIP_X 0
+#endif
+#ifndef BOARD_TOUCH_FLIP_Y
+#define BOARD_TOUCH_FLIP_Y 0
+#endif
+/* Pushing the knob presses the glass: the push read as a touch at about (138,111) on the device. Touches inside this
+ * radius (pixels, around the screen centre) are ignored. 50 is a guess, UNVERIFIED. Set 0 to disable the dead zone.
+ * Masking touches around button pushes is a later alternative (see SPEC.md post-MVP). */
+#ifndef BOARD_TOUCH_DEADZONE_RADIUS
+#define BOARD_TOUCH_DEADZONE_RADIUS 50
+#endif
 bool board_button_pressed(void);
 bool board_touch_read(uint16_t *x, uint16_t *y); /* true while a finger is down */
 bool board_touch_present(void);

@@ -111,6 +111,10 @@ void app_ui_init(void)
     lv_obj_center(s_arc);
     lv_arc_set_range(s_arc, 0, 100);
     lv_arc_set_value(s_arc, 50);
+    /* Not clickable: finger presses must pass through to the screen (they used to hit the arc, which showed PRESSED
+     * and kept the dot handler from ever seeing the touch). LVGL only hit-tests CLICKABLE widgets for pointer input,
+     * while the encoder sends its events straight to the focused widget, so the knob still drives the arc. */
+    lv_obj_remove_flag(s_arc, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_event_cb(s_arc, on_arc_event, LV_EVENT_ALL, NULL);
     lv_group_add_obj(lv_port_group(), s_arc);
     lv_group_set_editing(lv_port_group(), true); /* rotation changes the value straight away, no push needed first */

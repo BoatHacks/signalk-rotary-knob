@@ -54,7 +54,27 @@ The test pattern should show: top band red, right green, bottom blue, left yello
 the centre as the dial turns (24 steps per lap, red while pressed) and a centre box that turns red on press. If colours
 look swapped or inverted, flip `rgb_ele_order` or the invert call in `board_display_init()`.
 
-Not tested yet: LVGL on this panel, encoder as LVGL indev, 8 (USB composite), Wi-Fi join and SignalK token.
+Third round (LVGL 9.3 port, PSRAM, on the device with a person present):
+
+| # | Question | Result |
+|---|---|---|
+| 5 | Encoder as LVGL indev, dimmer wake | Turn direction and one value step per click were confirmed by a person. Idle dim after 10 s works. A push reaches the widget (`button down`/`button up` in the log) only after a fix: the encoder read callback must set `data->key = LV_KEY_ENTER`, otherwise LVGL never sends PRESSED/CLICKED to the focused widget. The push fix was seen in the log, not yet confirmed on screen. **Wake from dim by a turn or push is not yet confirmed**: the "return from idle" seen earlier may have been a ghost touch (see below). |
+| 4 | Display orientation | Needed a left-right mirror (`esp_lcd_panel_mirror(panel, true, false)`). Colours and the red-top/green-right/blue-bottom/yellow-left orientation are right after that. |
+| 4 | Touch | Mapping already matches the mirrored picture with no flip: centre about (120,118), top edge y=13, right edge x=230. |
+| 7 | Memory | **Without PSRAM, LVGL plus espOS boot-looped** (`espos_sk_start(): ESP_ERR_NO_MEM`, internal RAM exhausted by LVGL's 64 KB pool and two 19 KB DMA draw buffers). Fixed with 8 MB octal PSRAM at 80 MHz, LVGL on `malloc`, allocations over 4 KB in PSRAM. Boots stably, health watchdog normal. |
+| 6 | Timing | PSRAM memory test costs about 0.43 s of boot (`CONFIG_SPIRAM_MEMTEST=n` would save it). LVGL screen is up about 0.37 s after `app_main`. |
+
+Hardware findings:
+- **A knob push reads as a touch.** It presses the glass: about (138,111), about 230 ms before the button switch closes and
+  about 70 ms after it opens. Handled for now with a 50 px dead zone around the centre. Masking touches around pushes is on the
+  later list (SPEC.md post-MVP).
+- **The CST816D reports ghost touches** such as `x=64 y=3840` about every 16 s while the backlight is dimmed. They are far out of
+  range and used to wake the dimmer, so the driver now drops out-of-range reports. Whether auto-sleep or calibration causes
+  them is not investigated.
+- A touch that lands on a clickable widget behaves like a press on it. Make widgets that only the encoder should drive
+  non-clickable (the encoder path does not check the flag).
+
+Still not tested: 8 (USB composite alongside Wi-Fi), Wi-Fi join and SignalK token, boot time to a connected stream.
 
 Findings that affect the spec:
 - Build needs the espOS signing key (`espsecure generate-signing-key`, kept out of git) even with OTA unused.

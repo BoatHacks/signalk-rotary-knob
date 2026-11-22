@@ -189,8 +189,20 @@ bool board_touch_read(uint16_t *x, uint16_t *y)
     uint8_t reg = 0x01, d[6] = { 0 };
     if (i2c_master_transmit_receive(s_tp, &reg, 1, d, sizeof d, 20) != ESP_OK) return false;
     if (d[1] == 0) return false; /* finger count */
-    *x = ((d[2] & 0x0F) << 8) | d[3];
-    *y = ((d[4] & 0x0F) << 8) | d[5];
+    uint16_t rx = ((d[2] & 0x0F) << 8) | d[3];
+    uint16_t ry = ((d[4] & 0x0F) << 8) | d[5];
+    /* The CST816D reports ghost touches such as x=64 y=3840 (about every 16 s while the backlight is dimmed). They
+     * are far outside the 240x240 panel and woke the idle dimmer, so drop anything out of range. */
+    if (rx >= BOARD_LCD_W || ry >= BOARD_LCD_H) {
+        static uint32_t ghosts;
+        if ((ghosts++ % 20) == 0) ESP_LOGW(TAG, "ignoring out-of-range touch x=%u y=%u (%lu so far)", rx, ry, (unsigned long)ghosts);
+        return false;
+    }
+    int dx = (int)rx - BOARD_LCD_W / 2, dy = (int)ry - BOARD_LCD_H / 2;
+    if (BOARD_TOUCH_DEADZONE_RADIUS > 0 && dx * dx + dy * dy < BOARD_TOUCH_DEADZONE_RADIUS * BOARD_TOUCH_DEADZONE_RADIUS)
+        return false; /* a knob push lands here, see board.h */
+    *x = rx;
+    *y = ry;
     return true;
 }
 
