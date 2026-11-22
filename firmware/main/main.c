@@ -46,9 +46,26 @@ void app_main(void)
 
     for (;;) {
         static int n;
+        lv_port_diag_t ld;
+        int phase;
+        uint32_t loop_age, apply_age;
+        lv_port_get_diag(&ld);
+        demo_model_get_diag(&phase, &loop_age, &apply_age);
         if ((n++ % 5) == 0) {
             ESP_LOGI(TAG, "heap internal free %u min %u, psram free %u", (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
                      (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL), (unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
+            ESP_LOGI(TAG, "stack headroom bytes: lvgl %u input %u demo %u leds %u, main %u",
+                     (unsigned)uxTaskGetStackHighWaterMark(xTaskGetHandle("lvgl")),
+                     (unsigned)uxTaskGetStackHighWaterMark(xTaskGetHandle("input")),
+                     (unsigned)uxTaskGetStackHighWaterMark(xTaskGetHandle("demo")),
+                     (unsigned)uxTaskGetStackHighWaterMark(xTaskGetHandle("leds")),
+                     (unsigned)uxTaskGetStackHighWaterMark(NULL));
+        }
+        /* Stall watch: report once a second while the LVGL lock is held for long or the demo task stops looping. */
+        if (ld.held_ms > 1500 || ld.in_handler_ms > 1500 || loop_age > 1500) {
+            ESP_LOGW(TAG, "STALL lock holder=%s held=%lu ms, lvgl in handler %lu ms, demo phase=%d loop_age=%lu apply_age=%lu",
+                     ld.holder, (unsigned long)ld.held_ms, (unsigned long)ld.in_handler_ms, phase,
+                     (unsigned long)loop_age, (unsigned long)apply_age);
         }
         espos_sk_publish_number(PATH, 293.65);
         vTaskDelay(pdMS_TO_TICKS(1000));

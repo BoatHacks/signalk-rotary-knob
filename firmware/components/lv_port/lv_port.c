@@ -16,6 +16,9 @@ static const char *TAG = "lv_port";
 #define DRAW_BUF_ROWS 40 /* partial render: 240 x 40 x 2 bytes = 19 KB per buffer, two buffers */
 
 static SemaphoreHandle_t s_lock;
+static volatile int s_depth;            /* recursion depth, only touched by the holder */
+static volatile uint32_t s_taken_ms;    /* when the holder took the lock, 0 when free */
+static volatile uint32_t s_handler_ms;  /* when the LVGL task entered lv_timer_handler, 0 when outside */
 static lv_display_t *s_disp;
 
 static uint32_t tick_ms(void) { return (uint32_t)(esp_timer_get_time() / 1000); }
@@ -34,16 +37,42 @@ static void lvgl_task(void *arg)
 {
     for (;;) {
         lv_port_lock();
+        s_handler_ms = tick_ms() ? tick_ms() : 1;
         uint32_t wait = lv_timer_handler();
+        s_handler_ms = 0;
         lv_port_unlock();
         if (wait < 5) wait = 5;
         if (wait > 30) wait = 30;
-        vTaskDelay(pdMS_TO_TICKS(wait));
+        /* The FreeRTOS tick is 10 ms (CONFIG_FREERTOS_HZ=100), so pdMS_TO_TICKS(5) is 0 and vTaskDelay(0) does not sleep.
+         * With an animation running (the acknowledged-alarm ring) LVGL asks for 5 ms every time, so this task spun,
+         * retook the lock straight after releasing it, and starved every lower priority task that needs the lock (the demo
+         * model never applied another snapshot). Always sleep at least one tick. */
+        TickType_t ticks = pdMS_TO_TICKS(wait);
+        if (ticks < 1) ticks = 1;
+        vTaskDelay(ticks);
     }
 }
 
-void lv_port_lock(void) { xSemaphoreTakeRecursive(s_lock, portMAX_DELAY); }
-void lv_port_unlock(void) { xSemaphoreGiveRecursive(s_lock); }
+void lv_port_lock(void)
+{
+    xSemaphoreTakeRecursive(s_lock, portMAX_DELAY);
+    if (++s_depth == 1) s_taken_ms = tick_ms() ? tick_ms() : 1;
+}
+
+void lv_port_unlock(void)
+{
+    if (--s_depth == 0) s_taken_ms = 0;
+    xSemaphoreGiveRecursive(s_lock);
+}
+
+void lv_port_get_diag(lv_port_diag_t *d)
+{
+    TaskHandle_t h = xSemaphoreGetMutexHolder(s_lock);
+    uint32_t now = tick_ms(), taken = s_taken_ms, hs = s_handler_ms;
+    d->holder = h ? pcTaskGetName(h) : "none";
+    d->held_ms = (h && taken) ? now - taken : 0;
+    d->in_handler_ms = hs ? now - hs : 0;
+}
 
 void lv_port_init(void)
 {

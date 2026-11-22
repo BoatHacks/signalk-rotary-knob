@@ -20,6 +20,18 @@ static marine_ui_snapshot_t s_snap;
 static volatile bool s_stream_down, s_heading_frozen;
 static volatile int s_alarm_req = -1; /* -1 none pending, else marine_alarm_type_t */
 static volatile int s_night_toggle;
+static volatile int s_phase;
+static volatile uint32_t s_loop_ms, s_apply_done_ms;
+
+static uint32_t ms_now(void) { return (uint32_t)(esp_timer_get_time() / 1000); }
+
+void demo_model_get_diag(int *phase, uint32_t *loop_age_ms, uint32_t *apply_age_ms)
+{
+    uint32_t n = ms_now();
+    *phase = s_phase;
+    *loop_age_ms = n - s_loop_ms;
+    *apply_age_ms = n - s_apply_done_ms;
+}
 
 void demo_model_action_cb(const marine_ui_action_t *act, void *ctx)
 {
@@ -88,6 +100,8 @@ static void demo_task(void *arg)
     float h = s_snap.heading_deg;
     for (;;) {
         marine_ui_action_t a;
+        s_loop_ms = ms_now();
+        s_phase = 1;
         while (xQueueReceive(s_q, &a, 0) == pdTRUE) apply_action(&a);
 
         uint32_t now = (uint32_t)(esp_timer_get_time() / 1000);
@@ -132,9 +146,13 @@ static void demo_task(void *arg)
 
         knob_power_apply_snapshot(&s_snap, marine_ui_get_active_mode());
 
+        s_phase = 2;
         lv_port_lock();
+        s_phase = 3;
         marine_ui_apply_snapshot(&s_snap);
         lv_port_unlock();
+        s_apply_done_ms = ms_now();
+        s_phase = 4;
         vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
