@@ -2424,6 +2424,10 @@ void marine_ui_feed_touch(int16_t x, int16_t y, bool pressed) {
         return;
     }
 
+    // Every touch wakes from the dim level and keeps the screen awake, in any mode. The backlight is above 0 here, so the
+    // touch may also act.
+    note_user_activity(false);
+
     // Restricted to a single harmless role: step to next Dimmer group when in Dimmer mode
     if (snap.system_screen == MARINE_SCREEN_OPERATIONAL &&
         !is_full_alarm_blocking() &&
@@ -2431,7 +2435,6 @@ void marine_ui_feed_touch(int16_t x, int16_t y, bool pressed) {
         current_stale() == STALE_NONE &&
         active_mode == MARINE_MODE_DIMMER &&
         !snap.dimmer_use_rgbw_variant) {
-        if (!note_user_activity(false)) return;
         dimmer_on_input(MARINE_INPUT_SINGLE_PRESS, 0);
     }
 }

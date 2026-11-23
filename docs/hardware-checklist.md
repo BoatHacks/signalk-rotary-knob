@@ -40,20 +40,20 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 
 | Item | Status | Date | Commit | Notes |
 |---|---|---|---|---|
-| Allow control off after the update (new key, default off), refusal screen on anchor and autopilot | open | | | |
-| Allow control on through the config API: `CONTROL ON` notice 3 s, log line with the source | open | | | also from the settings page |
-| Allow control stays as set after a reboot | open | | | |
+| Allow control off after the update (new key, default off), refusal screen on anchor and autopilot | open | 2026-11-23 | fce9406 | off after the update ok (status API). Refusal screen not tried yet |
+| Allow control on through the config API: `CONTROL ON` notice 3 s, log line with the source | ok | 2026-11-23 | fce9406 | also from the settings page, log `ALLOW CONTROL ON (web page or API)` |
+| Allow control stays as set after a reboot | ok | 2026-11-23 | fce9406 | |
 | Serial `l` flips it for the session only, not stored | open | | | |
-| A press dismisses the notice, a turn does not | open | | | |
+| A press dismisses the notice, a turn does not | ok | 2026-11-23 | fce9406 | the turn moved the anchor radius preview under the notice |
 | Notice in the night palette, hidden by an alarm | open | | | |
-| Live reload: dim time and anchor radius apply without a restart | open | | | |
-| Partial config write, a value out of range gives 400 with the key | open | | | |
-| Export and import of the whole config | open | | | |
-| `PUT /api/v1/knob/mode` switches the screen and is stored as the last mode | open | | | |
+| Live reload: dim time and anchor radius apply without a restart | ok | 2026-11-23 | fce9406 | dim after 5 s and off after 1 min took effect at once. Anchor radius default not watched |
+| Partial config write, a value out of range gives 400 with the key | ok | 2026-11-23 | fce9406 | `knob.dim_after_s` 2: 400 `out of range [5,3600]` |
+| Export and import of the whole config | ok | 2026-11-23 | fce9406 | secrets come out masked, importing the same document changes nothing |
+| `PUT /api/v1/knob/mode` switches the screen and is stored as the last mode | ok | 2026-11-23 | fce9406 | bad name 400, without the JSON content type 415 |
 | Mode switch during an alarm: the alarm stays on top | open | | | bench alarm `a` |
-| `hid` without a USB host gives 409 | open | | | |
-| `GET /api/v1/knob/status` fields | open | | | |
-| All of it 401 without the key when one is set | open | | | |
+| `hid` without a USB host gives 409 | open | | | needs the knob on a charger, a PC on the cable is a host |
+| `GET /api/v1/knob/status` fields | ok | 2026-11-23 | fce9406 | |
+| All of it 401 without the key when one is set | ok | 2026-11-23 | fce9406 | status, mode, config, mode PUT |
 | Factory reset clears allow control | open | | | destructive, with the next fresh setup |
 
 ## Lights
@@ -101,10 +101,10 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 | Item | Status | Date | Commit | Notes |
 |---|---|---|---|---|
 | Idle dim after 30 s, off after 10 min, input wakes | open | | | |
-| Screen off: a touch anywhere (centre included) wakes it and does nothing else | open | | | Tobi's request 2026-11-23 |
-| Screen off: a knob push only wakes, no click and no long press | open | | | the push touches the glass first |
-| Screen dimmed: a touch wakes, in LIGHTS outside the centre it also steps the channel | open | | | |
-| A finger left on the glass counts once | open | | | it stepped the channel on every poll before |
+| Screen off: a touch anywhere (centre included) wakes it and does nothing else | ok | 2026-11-23 | 8bf8ce4 | centre and edge, on the anchor screen |
+| Screen off: a knob push only wakes, no click and no long press | ok | 2026-11-23 | 8bf8ce4 | the push touches the glass first |
+| Screen dimmed: a touch wakes, in LIGHTS outside the centre it also steps the channel | ok | 2026-11-23 | this commit | wakes on the anchor screen. Failed on 8bf8ce4, where only LIGHTS woke from dim. The channel step is not visible with one channel |
+| A finger left on the glass counts once | open | 2026-11-23 | 8bf8ce4 | the screen stays awake under a resting finger (10 s, centre), probably fresh touch-downs from the controller. Counting once is not visible with one light channel |
 | Night palette from `environment.mode` and the `n` override | ok | 2026-11-23 | be65d7f | override cycled auto, night, day |
 | USB-HID mode shows in the ring when a USB host is on the cable | open | | | |
 | Entering USB-HID mode switches the port to HID, leaving switches back to serial | open | | | |
