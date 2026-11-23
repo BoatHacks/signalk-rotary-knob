@@ -10,7 +10,7 @@ espOS's existing config API, the knob adds live reload, a mode endpoint and a st
 
 ## What espOS already gives
 Read from `espos_httpd/src/api_config.c` and `espos_config.h` (espOS 0.32):
-- `GET /api/v1/config?ns=knob` and `PUT /api/v1/config` (whole device without `?ns`), protected by the API key.
+- `GET /api/v1/config?ns=knob` and `PUT /api/v1/config` (whole device without `?ns`), protected by the API key when one is set (optional, decided 2026-11-23).
 - `PUT` takes a partial document: keys not present stay as they are. Every key is validated against the descriptor
   (`knob_config/config/knob.json`: type, range, length, enum). A bad key gives 400 with the offending `ns.key` and a reason.
   The reply lists the changed keys and `restart_required` (per key, from the descriptor).

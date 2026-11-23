@@ -90,7 +90,9 @@ work. Values the boat does not publish show `---`.
 
 - **Settings page.** Open `http://<knob name>.local` in a browser on the same network. The *Rotary knob* section has the autopilot id,
   the heading reference, the default anchor radius, the idle dim time, the dim level, the time until the backlight goes off, and six
-  light channels. Changes apply after a restart.
+  light channels. Changes apply after a restart. The page is open to anyone on the boat network. If you want a password, set an
+  API key in the *HTTP server* section (*Generate* makes one), the page then asks for it. If the knob loses its network for 90
+  seconds it opens its setup network again, which you can give a password in the *WiFi* section (*Access point password*).
 - **Live control.** For safety the autopilot and anchor commands are ignored after every start. Send the single character `l` over the
   USB serial port to switch live control on (and again to switch it off). It does not survive a restart. **(an on-device way to
   enable it is planned)**

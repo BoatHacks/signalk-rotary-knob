@@ -234,17 +234,19 @@ Everything else is ephemeral.
   dimmers stay supported for other boats. Each channel's form (on/off or level) is part of the channel config.
 - **Heading source is configurable** (true or magnetic, default true), shown with `°T` or `°M`.
 - **Staleness age is measured from the knob's receive time**, not the server's timestamp.
-- **Setup AP closes once Wi-Fi works, API key is a fixed key set by the owner on the settings page.**
+- **Setup AP closes once Wi-Fi works. The API key is optional** (decided 2026-11-23, replaces "a fixed key set by the owner"):
+  a boat's instrument Wi-Fi counts as a trusted network, so the settings page and the REST API are open by default. An owner who
+  wants a key sets `httpd.api_key` on the settings page, then every call needs it.
 - **Licence Apache-2.0.** Config export/import as JSON is planned after the MVP.
 - **Configurable HID profile, default dial.**
 - **Looser boot targets (10 s for the last screen and ONLINE)** because the device is always on, not cold-booted per use. The
   splash with its phases until the token is verified reads better than a mode screen under an overlay (2026-11-23).
-- **Config API is espOS's own** (decided 2026-11-23, #3). `GET` and `PUT /api/v1/config?ns=knob` with the API key, validated
+- **Config API is espOS's own** (decided 2026-11-23, #3). `GET` and `PUT /api/v1/config?ns=knob` (with the API key when one is set), validated
   against the descriptor, partial updates, `restart_required` in the reply. The whole-device export (secrets left out) is the
   backup and restore format. The knob adds live reload, `GET`/`PUT /api/v1/knob/mode` and a read-only `GET /api/v1/knob/status`.
 - **Allow control is a stored per-knob setting** (decided 2026-11-23, #3 and #5, replaces the bench latch "live control", which
   was off at every boot and only switched by the serial command `l`). Config key `knob.allow_control`, default off. It can be
-  switched on and off through the config API with the API key. When it goes on from the web page or the API, the knob shows
+  switched on and off through the config API (with the API key when one is set). When it goes on from the web page or the API, the knob shows
   a short `CONTROL ON` notice. There is no permanent indicator: the refusal screen says when it is off.
 - **Demo mode** (decided 2026-11-23, #4): simulated data, no SignalK client, Wi-Fi and the settings page stay up. Stored in the
   config (survives a reboot), off by default, cleared by a factory reset.

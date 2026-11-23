@@ -62,7 +62,8 @@ Part of the BoatHacks SignalK suite.
    drop and raise. Verify that the drag alarm acknowledges through the Notifications API.
 3. The stream drop after boot is worked around with `time.sk_fallback` off. The real fix (espOS sending per-path unsubscribes that
    signalk-server rejects) is to be investigated later.
-4. Hardening before any unattended use: close the setup access point once Wi-Fi works, set the API key, check that the
+4. Hardening before any unattended use: the setup access point closes once Wi-Fi works, the API key is optional (decided
+   2026-11-23, the instrument Wi-Fi is trusted), check that the
    portal can take the key with the Wi-Fi credentials.
 5. USB-HID dial mode, config export and import (espOS already exports its config as JSON), the open issues for the manual, the
    REST API, demo mode and an on-device settings screen.
@@ -79,8 +80,9 @@ is shared.
 - signalk-server only accepts "unsubscribe all" on the stream and closes it on a per-path unsubscribe. espOS sends one when its
   SignalK fallback clock is no longer needed, so set `time.sk_fallback` off on every knob. The knob must not call
   `espos_sk_unsubscribe` itself either.
-- The setup portal is an **open** access point and the REST API has no key until `httpd.api_key` is set. Do not leave a knob
-  running unattended in that state.
+- The setup portal is an **open** access point and the REST API has no key until `httpd.api_key` is set. The key is optional by
+  decision, but the access point comes back after 90 s without Wi-Fi, so set `wifi.portal_psk` on a knob that may run without
+  its network in a crowded place.
 - The build requires an app signing key (`espsecure generate-signing-key --version 2 --scheme rsa3072`). Keep it out of git
   (`*.pem` is ignored). A lost key means a USB reflash.
 - **Reflashing:** the knob's USB port is the chip's USB-Serial/JTAG port, so `idf.py flash` resets into the bootloader by

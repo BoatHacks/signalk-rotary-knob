@@ -26,7 +26,7 @@ Someone who has not used the knob sets it up and uses each mode from the manual 
 None.
 
 ## Steps
-- [ ] Setup section with the API key, after the hardening plan.
+- [ ] Setup section with the optional API key and the portal password, after the hardening plan.
 - [ ] Autopilot and anchor sections, after the live control trials.
 - [ ] Settings screen and demo mode, after #5 and #4.
 - [ ] Screenshots and photos.
