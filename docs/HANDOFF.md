@@ -19,6 +19,7 @@ Part of the BoatHacks SignalK suite.
 | [ARCHITECTURE.md](../ARCHITECTURE.md) | Components, tasks, data flow, security, deployment, the espOS gate table and the implementation order (section 9) |
 | [docs/ui-design.md](ui-design.md) | The agreed UI: input vocabulary, modes, alarm and stale rules, power and LEDs, style tokens |
 | [docs/hardware.md](hardware.md) | Board specs and the verified pin map |
+| [docs/manual.md](manual.md) | User manual, draft 1: first setup, controls, modes, alarms, settings, troubleshooting |
 | [docs/spike-espos.md](spike-espos.md) | The espOS feasibility spike: results and the decision (espOS as base, gated) |
 | `firmware/` | The firmware: `main/` plus components (board, lv_port, input, knob_net, knob_model, knob_actions, knob_logic, knob_config, knob_power, knob_usb, marine_ui) |
 | `ui/marine_ui_v5/prototype/` | Browser prototype of the UI, the design reference |
