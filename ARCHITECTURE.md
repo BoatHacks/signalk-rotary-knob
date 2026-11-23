@@ -191,7 +191,8 @@ Spike measurements: app_main at 0.33 s, first frame 0.6 s, LVGL up 0.37 s after 
 ## 6. Security Considerations
 
 - Trust model: a closed boat LAN, the device holds one credential (the SignalK token) in NVS. Nothing else is secret.
-- **Token permission:** the access request grants whatever the server's admin approves. The adapters need write access for
+- **Token permission:** the access request grants whatever the server's admin approves. `readwrite` is the narrowest level that
+  allows writes (SPEC question 9), finer limits are server ACLs. The adapters need write access for
   `PUT` and the autopilot and anchor calls. If the server grants read-only the knob must show an error, not fail silently
   (SPEC question 9).
 - **Setup portal is an open AP and espOS's REST API has no key until `httpd.api_key` is set.** Decided 2026-11-23: the API key is

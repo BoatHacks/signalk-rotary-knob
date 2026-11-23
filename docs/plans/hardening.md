@@ -32,8 +32,9 @@ setup AP is gone while connected, the USB IDs show the new values in the device 
       a key still to try.
 - [x] Verify the setup AP closes (log `portal down` right after the join).
 - [ ] USB VID/PID.
-- [ ] Token permission check.
-- [ ] Update ARCHITECTURE.md section 6 and the manual's setup section.
+- [x] Token permission check: `readwrite` is the narrowest level that allows `PUT` and the v2 calls, read from the
+      signalk-server source on the boat (2026-11-23). Server ACLs can narrow it per path, that is server setup.
+- [x] Update ARCHITECTURE.md section 6 and the manual's settings section (optional key, portal password).
 
 ## Files
 `firmware/sdkconfig.defaults` (or a product profile), `firmware/components/knob_usb/usb_dev.c`, `ARCHITECTURE.md`,

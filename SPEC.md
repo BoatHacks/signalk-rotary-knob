@@ -279,8 +279,10 @@ Everything else is ephemeral.
    LVGL's inactivity counter. Still to confirm on the board (turn and push wake from dim).
 8. RESOLVED 2026-11-22: espOS provides `espos_sk_http` (GET/PUT/POST with the access token, scheme from the server, 401/403 fed back
    to the token machine). Adapters use it from the actions task only, it blocks.
-9. Which permission does the device token get from the access request, and is it enough for `PUT` and the autopilot v2 and
-   anchor alarm calls on a server with security on?
+9. RESOLVED 2026-11-23: the token gets what the admin approves, one of `readonly`, `readwrite` and `admin` (the only levels
+   signalk-server 2.37 knows). Every write, `PUT` and v2 API call checks for `readwrite` or `admin`, so `readwrite` is the
+   narrowest token that works. Finer limits are the server's ACLs (read, write or put per path and subject), set up on the
+   server if wanted, nothing on the knob. Still open: whether the autopilot and anchor calls pass with it (live control trials).
 10. RESOLVED 2026-11-23: config backup and restore is espOS's `GET` and `PUT /api/v1/config` (whole device, secrets left out,
     versioned per namespace). See section 12 and docs/plans/issue-3-rest-api.md.
 11. Staleness: which of the boat's paths carry `meta.timeout`, and does the server enforce it (the signalk-server stale-data
