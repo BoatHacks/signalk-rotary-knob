@@ -144,7 +144,13 @@ layer (section 6.1).
 - **Autopilot (v2 API)**, base `/signalk/v2/api/vessels/self/autopilots/{id}` (`_default` for the default device):
   `GET` status (`state`, `mode`, `target` in radians, `engaged`), `POST engage`, `POST disengage`,
   `PUT state`, `PUT mode`, `PUT target` and `PUT target/adjust` with `{"value": -2, "units": "deg"}`.
-  Deltas arrive on `steering.autopilot.*`. An unreachable device reports `off-line`.
+  Deltas arrive on `steering.autopilot.*`. An unreachable device reports `off-line`. What the knob sends (#7): engage is
+  `PUT state {"value":"auto"}` (never `POST engage`, which resumes the last engaged state), the pilot dialog's modes are
+  `PUT state` with `auto`, `wind` or `route`, standby is `POST disengage`, tacks are `POST tack/port` and `tack/starboard`, and a
+  target change is a series of `PUT target/adjust` with +10, -10, +1 and -1 degrees from the pilot's current target
+  (`raymarineST` refuses the absolute `PUT target`). Wind and route screens read `environment.wind.angleApparent`,
+  `steering.autopilot.target.windAngleApparent` and `navigation.course.calcValues.crossTrackError`, `.bearingTrue`,
+  `.distance` and `navigation.course.nextPoint`.
 - **Anchor alarm** (`hoekens-anchor-alarm`, the plugin installed on the boat, decided 2026-11-23). REST under
   `/plugins/hoekens-anchor-alarm/`, needs a `readwrite` token (the knob's token qualifies): `POST dropAnchor`
   `{position:{latitude,longitude}, zone:{type:"circle", radius}}` (arm, the boat must be inside the zone), `POST setZone`

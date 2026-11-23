@@ -294,3 +294,13 @@ int knob_xte_steer(float xte_m, float on_track_m)
     if (fabsf(xte_m) <= on_track_m) return 0;
     return xte_m > 0 ? -1 : 1;
 }
+
+int knob_adjust_steps(int from_deg, int to_deg, int *out, int max)
+{
+    int d = ((to_deg - from_deg) % 360 + 540) % 360 - 180; /* -180..179 */
+    int n = 0, sign = d < 0 ? -1 : 1;
+    d = d < 0 ? -d : d;
+    while (d >= 10 && n < max) { out[n++] = 10 * sign; d -= 10; }
+    while (d >= 1 && n < max) { out[n++] = sign; d -= 1; }
+    return n;
+}

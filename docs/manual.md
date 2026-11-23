@@ -39,9 +39,18 @@ the knob (unplugged, Wi-Fi gone) never changes the autopilot or the anchor.
 ### Autopilot
 The screen shows the heading in large digits with its reference (`T` true or `M` magnetic, chosen in the settings), a ring of heading
 ticks, and the course to steer (`CTS`).
-- **Engage:** a long press opens the confirm prompt, then turn right within 5 seconds to confirm.
-- **Change the target (while engaged):** turn. A pause of about 0.4 s sends it. A single press switches the step between 1 and 10 degrees.
-- **Standby:** a long press while engaged.
+- **Engage:** a long press opens the confirm prompt, then turn right within 5 seconds to confirm. Engage is always compass
+  steering, whatever the pilot did last.
+- **Change the target (compass, while engaged):** turn. A pause of about 0.4 s sends it. A single press switches the step between
+  1 and 10 degrees.
+- **Pilot dialog (while engaged):** a long press opens it with `STANDBY` highlighted, so a long press and one press is standby.
+  Turn to choose `COMPASS`, `WIND` or `ROUTE`, or `TACK PORT` and `TACK STARBOARD` (in compass and wind), and press. A tack then
+  asks for one click towards the tack side within 5 seconds. Even when the pilot's data is missing the dialog opens, with
+  `STANDBY` only.
+- **Wind:** the apparent wind angle large with `P` or `S`, the pilot's target in amber, a cyan line for the wind. The wind
+  target is set on the pilot itself for now (`ADJUST ON PILOT`).
+- **Route:** the distance off the track large, `STEER LEFT` or `STEER RIGHT` with a bar, bearing and distance to the next
+  waypoint. Turning does nothing.
 - The LEDs show the steering error while this screen is open: **red** means turn to port, **green** to starboard, **yellow** on course
   while engaged, **blue** on course in standby. On course means within 2 degrees (it stays on course until the error passes 3).
   At night the on-course colour fades out after 2 seconds, red and green stay.

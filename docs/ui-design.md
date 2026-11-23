@@ -77,6 +77,15 @@ standby always engages compass.
   `steer left`, a steer bar like the rudder bar (fill from the centre towards the side to steer), heading and `HOLD: PILOT` on
   the bottom arc. Turn does nothing.
 - Curved text on the bottom arc is concentric with the rim, like all curved labels (section 8).
+- Built 2026-11-23 as variants of the compass screen's labels: the header line says `WIND · AWA` or `ROUTE · TO <waypoint>`,
+  the large number is the AWA or the XTE, the pill says the mode, the route's steer bar is the rudder bar. The waypoint shows as
+  `WAYPOINT` until a name source is found. Engaged compass says `COMPASS · STEP n°` in the pill.
+- With the pilot's data stale the dialog still opens with a long press, but only offers `STANDBY` and `CANCEL`. The dialog
+  closes after 5 s without input, on a long or double press, or when the pilot goes to standby by itself.
+- The engage prompt reads `TURN RIGHT TO ENGAGE COMPASS`, the tack prompt `TURN LEFT TO TACK PORT` or `TURN RIGHT TO TACK
+  STARBOARD`, both with the 5 s countdown arc.
+- LEDs: the steering indicator follows the error of the mode: compass the target minus the heading, wind the AWA against its
+  target, route the side to steer from the XTE (10 m counts as on track).
 
 ### 3.2 Anchor
 

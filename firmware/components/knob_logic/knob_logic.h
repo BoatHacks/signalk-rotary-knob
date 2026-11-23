@@ -93,6 +93,10 @@ const char *knob_ap_state_name(knob_ap_state_t s);
 typedef enum { KNOB_PL_STANDBY = 0, KNOB_PL_COMPASS, KNOB_PL_WIND, KNOB_PL_ROUTE, KNOB_PL_TACK_PORT, KNOB_PL_TACK_STBD, KNOB_PL_CANCEL } knob_pilot_line_t;
 int knob_pilot_lines(knob_ap_state_t current, knob_pilot_line_t *out, int max);
 
+/* A target change split into the steps the pilot's keys know (+10, -10, +1, -1), tens first, the shorter way round:
+ * from 350 to 5 is +10 +1 +1 +1 +1 +1. Returns the count, at most max (the rest is dropped). */
+int knob_adjust_steps(int from_deg, int to_deg, int *out, int max);
+
 /* Apparent wind angle in degrees, negative to port: the absolute angle 0..180 and the side, 'P' or 'S' ('S' for 0 and 180). */
 int knob_wind_abs(float awa_deg, char *side);
 /* Which way to steer for a cross-track error in metres (SignalK: positive = right of the track, steer left): -1 left, +1 right,

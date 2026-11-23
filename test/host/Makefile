@@ -4,7 +4,7 @@
 #
 # Needs a host C compiler (gcc or clang) and Unity (unity.c, unity.h, unity_internals.h). Unity ships with ESP-IDF at
 # $(IDF_PATH)/components/unity/unity/src and with PlatformIO in its tool-unity package. Not part of the firmware build.
-# Last run 2026-11-23 on gcc 14 (aarch64 Debian): 27 tests, 0 failures.
+# Last run 2026-11-23 on gcc 14 (aarch64 Debian): 28 tests, 0 failures.
 CC ?= gcc
 UNITY_DIR ?= $(IDF_PATH)/components/unity/unity/src
 LOGIC := ../../firmware/components/knob_logic

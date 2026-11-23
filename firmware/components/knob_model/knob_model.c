@@ -723,6 +723,8 @@ static void hook_get_view(knob_actions_view_t *v)
     v->lat = s_m.lat;
     v->lon = s_m.lon;
     v->pos_ms = s_m.pos_ms;
+    v->ap_has_target = s_m.ap_known && s_m.ap_has_target;
+    v->ap_target_deg = (float)(s_m.ap_target_rad * 57.29577951308232);
     v->zone_names_wanted = false;
     for (int i = 0; i < MARINE_MAX_VOL_ZONES && i < 4; i++) {
         memcpy(v->zone_id[i], s_m.zone[i].id, sizeof(v->zone_id[i]));

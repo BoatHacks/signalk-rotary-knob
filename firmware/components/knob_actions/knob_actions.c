@@ -195,11 +195,21 @@ static void ap_action(const marine_ui_action_t *a)
         snprintf(path, sizeof(path), AP_BASE "%s/disengage", id);
         rest("POST", path, NULL);
         break;
-    case MARINE_ACT_AP_SET_CTS:
-        snprintf(body, sizeof(body), "{\"value\":%ld,\"units\":\"deg\"}", (long)a->value);
-        snprintf(path, sizeof(path), AP_BASE "%s/target", id);
-        rest("PUT", path, body);
+    case MARINE_ACT_AP_SET_CTS: {
+        /* raymarineST refuses the absolute PUT target (it checks a mode it never sets) and takes target/adjust only as the
+         * pilot's own key steps, so the change goes out as +10, -10, +1 and -1 from the pilot's current target. */
+        knob_actions_view_t v;
+        s_hooks->get_view(&v);
+        if (!v.ap_has_target) { ESP_LOGW(TAG, "target change: the pilot's target is not known, ignored"); break; }
+        int steps[40];
+        int n = knob_adjust_steps((int)lroundf(v.ap_target_deg), (int)a->value, steps, 40);
+        snprintf(path, sizeof(path), AP_BASE "%s/target/adjust", id);
+        for (int i = 0; i < n; i++) {
+            snprintf(body, sizeof(body), "{\"value\":%d,\"units\":\"deg\"}", steps[i]);
+            if (!rest("PUT", path, body)) break;
+        }
         break;
+    }
     default: break;
     }
     ap_poll(); /* show the new state without waiting for the next poll */

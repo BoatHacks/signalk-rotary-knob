@@ -417,6 +417,25 @@ static void test_wind_and_xte(void)
     TEST_ASSERT_EQUAL_INT(KNOB_CONFIRM_WAITING, knob_confirm_step(0, 100, 5000, KNOB_CONFIRM_EV_TURN, -(1)));
 }
 
+static void test_adjust_steps(void)
+{
+    int s[32];
+    int n = knob_adjust_steps(100, 123, s, 32);
+    TEST_ASSERT_EQUAL_INT(5, n);
+    TEST_ASSERT_EQUAL_INT(10, s[0]);
+    TEST_ASSERT_EQUAL_INT(10, s[1]);
+    TEST_ASSERT_EQUAL_INT(1, s[2]);
+    n = knob_adjust_steps(350, 5, s, 32);          /* across north, the short way */
+    TEST_ASSERT_EQUAL_INT(6, n);
+    TEST_ASSERT_EQUAL_INT(10, s[0]);
+    TEST_ASSERT_EQUAL_INT(1, s[5]);
+    n = knob_adjust_steps(5, 350, s, 32);
+    TEST_ASSERT_EQUAL_INT(-10, s[0]);
+    TEST_ASSERT_EQUAL_INT(-1, s[5]);
+    TEST_ASSERT_EQUAL_INT(0, knob_adjust_steps(90, 90, s, 32));
+    TEST_ASSERT_EQUAL_INT(3, knob_adjust_steps(0, 90, s, 3)); /* capped */
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -447,5 +466,6 @@ int main(void)
     RUN_TEST(test_ap_states);
     RUN_TEST(test_pilot_lines);
     RUN_TEST(test_wind_and_xte);
+    RUN_TEST(test_adjust_steps);
     return UNITY_END();
 }

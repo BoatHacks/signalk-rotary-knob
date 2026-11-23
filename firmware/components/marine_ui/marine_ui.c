@@ -96,6 +96,12 @@ static int32_t ap_pending_cts = 0;
 static uint32_t ap_pending_deadline_ms = 0;
 static bool ap_confirm_open = false;
 static uint32_t ap_confirm_deadline_ms = 0;
+static int ap_confirm_dir = 0;            // 0 engage (turn right), -1 tack port (turn left), +1 tack starboard (turn right)
+// Pilot dialog (#7): long press while engaged. STANDBY first and focused, the other modes, the tacks, CANCEL.
+static bool pilot_open = false;
+static uint8_t pilot_idx = 0, pilot_count = 0;
+static knob_pilot_line_t pilot_lines[7];
+static uint32_t pilot_opened_ms = 0;
 
 static bool anchor_preview_active = false;
 static uint16_t anchor_preview_radius = 35;
@@ -233,6 +239,11 @@ static char alm_cache_bot[48] = {0};
 static lv_obj_t *stale_lbl_age;
 static lv_obj_t *ap_confirm_arc;
 static lv_obj_t *ap_confirm_lbl_sec;
+static lv_obj_t *ap_confirm_lbl_title;
+static lv_obj_t *ovl_pilot, *pilot_title, *pilot_pill, *pilot_hint, *pilot_items[7];
+static lv_obj_t *ap_lbl_hdr;      // HEADING, WIND · AWA, ROUTE · TO ...
+static lv_obj_t *ap_wind_line;    // apparent wind from the centre (wind mode)
+static lv_point_precise_t ap_wind_pts[2];
 static lv_obj_t *anc_menu_items[3];
 static lv_obj_t *anc_menu_title, *anc_menu_info, *anc_menu_pill, *anc_menu_hint;
 static lv_obj_t *anc_res_arc, *anc_res_icon, *anc_res_t, *anc_res_s1, *anc_res_s2;
@@ -289,6 +300,9 @@ static uint8_t *s_glyph_tmp_buf = NULL;
 static lv_draw_buf_t s_glyph_draw_buf;
 
 // --- Forward Declarations ---
+static lv_obj_t* anc_make_label(lv_obj_t *scr, const lv_font_t *font, int y_off);
+static void ap_refresh_wind(void);
+static void ap_refresh_route(void);
 static lv_obj_t* build_ap_screen(void);
 static void ap_on_input(marine_semantic_input_t ev, int32_t val);
 static void ap_refresh(void);
@@ -387,6 +401,11 @@ static const char *essential_stale_reason(void) {
     case MARINE_MODE_AUTOPILOT:
         if (value_is_stale(snap.ap_state_updated_ms, snap.ap_state_timeout_ms)) return "NO AP STATE";
         if (value_is_stale(snap.heading_updated_ms, snap.heading_timeout_ms)) return "NO HEADING";
+        if (snap.ap_engaged && snap.ap_state == KNOB_AP_WIND &&
+            (snap.wind_updated_ms == 0 || value_is_stale(snap.wind_updated_ms, snap.wind_timeout_ms))) return "NO WIND";
+        if (snap.ap_engaged && snap.ap_state == KNOB_AP_ROUTE &&
+            (snap.route_updated_ms == 0 || value_is_stale(snap.route_updated_ms, snap.route_timeout_ms))) return "NO ROUTE";
+        if (snap.ap_engaged && (snap.ap_state == KNOB_AP_WIND || snap.ap_state == KNOB_AP_ROUTE)) return NULL;
         if (value_is_stale(snap.cts_updated_ms, snap.cts_timeout_ms)) return "NO TARGET";
         return NULL;
     case MARINE_MODE_ANCHOR_WATCH:
@@ -889,11 +908,19 @@ static lv_obj_t* build_ap_screen(void) {
     lv_obj_set_style_border_width(ap_cts_bug, 0, 0);
     lv_obj_set_style_bg_color(ap_cts_bug, COL_CYAN, 0);
 
-    lv_obj_t *lbl_hdr = lv_label_create(scr);
-    lv_label_set_text(lbl_hdr, "HEADING");
-    lv_obj_set_style_text_font(lbl_hdr, &lv_font_montserrat_12, 0);
-    lv_obj_set_style_text_color(lbl_hdr, COL_TEXT_MUTED, 0);
-    lv_obj_align(lbl_hdr, LV_ALIGN_TOP_MID, 0, 26);
+    ap_wind_line = lv_line_create(scr);
+    ap_wind_pts[0].x = 120; ap_wind_pts[0].y = 120;
+    ap_wind_pts[1].x = 120; ap_wind_pts[1].y = 20;
+    lv_line_set_points(ap_wind_line, ap_wind_pts, 2);
+    lv_obj_set_style_line_width(ap_wind_line, 3, 0);
+    lv_obj_set_style_line_rounded(ap_wind_line, true, 0);
+    lv_obj_add_flag(ap_wind_line, LV_OBJ_FLAG_HIDDEN);
+
+    ap_lbl_hdr = lv_label_create(scr);
+    lv_label_set_text(ap_lbl_hdr, "HEADING");
+    lv_obj_set_style_text_font(ap_lbl_hdr, &lv_font_montserrat_12, 0);
+    lv_obj_set_style_text_color(ap_lbl_hdr, COL_TEXT_MUTED, 0);
+    lv_obj_align(ap_lbl_hdr, LV_ALIGN_TOP_MID, 0, 26);
 
     ap_lbl_hdg = lv_label_create(scr);
     lv_label_set_text(ap_lbl_hdg, "---");
@@ -944,7 +971,16 @@ static lv_obj_t* build_ap_screen(void) {
     return scr;
 }
 
+static void pilot_open_dialog(bool stale_only);
+
+static bool ap_turn_allowed(void) {
+    // Compass takes target changes; wind only once the provider supports them (ADJUST ON PILOT); route never.
+    if (snap.ap_state == KNOB_AP_WIND) return snap.wind_adjust_supported;
+    return snap.ap_state != KNOB_AP_ROUTE;
+}
+
 static void ap_on_input(marine_semantic_input_t ev, int32_t val) {
+    if (ev == MARINE_INPUT_TURN && snap.ap_engaged && !ap_turn_allowed()) return;
     if (ev == MARINE_INPUT_TURN && snap.ap_engaged) {
         int32_t base = ap_pending_active ? ap_pending_cts : (int32_t)roundf(snap.cts_deg);
         ap_pending_cts = (int32_t)wrap_deg((float)(base + val * ap_step_deg));
@@ -958,14 +994,101 @@ static void ap_on_input(marine_semantic_input_t ev, int32_t val) {
     } else if (ev == MARINE_INPUT_LONG_PRESS) {
         if (!snap.ap_engaged) {
             ap_confirm_open = true;
+            ap_confirm_dir = 0;
             ap_confirm_deadline_ms = snap.now_ms + 5000;
+            lv_label_set_text(ap_confirm_lbl_title, "TURN RIGHT\nTO ENGAGE\nCOMPASS");
             lv_obj_remove_flag(ovl_ap_confirm, LV_OBJ_FLAG_HIDDEN);
         } else {
             ap_pending_active = false;
             ap_pending_sent = false;
-            emit_action(MARINE_MODE_AUTOPILOT, MARINE_ACT_AP_STANDBY, 1, 0);
+            pilot_open_dialog(false);   // STANDBY first and focused: long press and one press is standby
         }
     }
+}
+
+// A dot on the rim at an angle relative to the bow (0 = ahead, negative to port).
+static void ap_place_bug(float rel_deg, lv_color_t col) {
+    float rad = (rel_deg - 90.0f) * (float)(M_PI / 180.0);
+    lv_obj_set_pos(ap_cts_bug, 120 + (int)(cosf(rad) * 108.0f) - 5, 120 + (int)(sinf(rad) * 108.0f) - 5);
+    lv_obj_set_style_bg_color(ap_cts_bug, col, 0);
+}
+
+// Wind (agreed mockup, ui-design 3.1): AWA large with P or S, the target in amber, the error and the heading, a cyan line from
+// the centre for the AWA, an amber dot on the rim for the target.
+static void ap_refresh_wind(void) {
+    char buf[48], side, tside;
+    int awa = knob_wind_abs(snap.wind_awa_deg, &side);
+    lv_label_set_text(ap_lbl_hdr, "WIND \xC2\xB7 AWA");
+    snprintf(buf, sizeof(buf), "%d° %c", awa, side);
+    lv_label_set_text(ap_lbl_hdg, buf);
+    lv_obj_set_style_text_color(ap_lbl_hdg, c_text(), 0);
+    lv_label_set_text(ap_lbl_mode, "WIND");
+    lv_obj_set_style_text_color(ap_lbl_mode, c_primary(), 0);
+    lv_obj_set_style_border_color(ap_pill_mode, c_primary(), 0);
+    if (snap.wind_target_valid) {
+        int tgt = knob_wind_abs(snap.wind_target_deg, &tside);
+        snprintf(buf, sizeof(buf), "TGT %d° %c", tgt, tside);
+        lv_label_set_text(ap_lbl_cts, buf);
+        int off = (int)roundf(fabsf(knob_course_error(snap.wind_awa_deg, snap.wind_target_deg)));
+        snprintf(buf, sizeof(buf), "%d° OFF \xC2\xB7 HDG %03d°", off, (int)roundf(wrap_deg(snap.heading_deg)));
+        ap_place_bug(snap.wind_target_deg, c_amber());
+        lv_obj_remove_flag(ap_cts_bug, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_label_set_text(ap_lbl_cts, "TGT ---");
+        snprintf(buf, sizeof(buf), "HDG %03d°", (int)roundf(wrap_deg(snap.heading_deg)));
+        lv_obj_add_flag(ap_cts_bug, LV_OBJ_FLAG_HIDDEN);
+    }
+    lv_obj_set_style_text_color(ap_lbl_cts, c_amber(), 0);
+    lv_label_set_text(ap_lbl_delta, buf);
+    lv_obj_set_style_text_color(ap_lbl_delta, c_muted(), 0);
+    float rad = (snap.wind_awa_deg - 90.0f) * (float)(M_PI / 180.0);
+    ap_wind_pts[1].x = 120 + cosf(rad) * 100.0f;
+    ap_wind_pts[1].y = 120 + sinf(rad) * 100.0f;
+    lv_line_set_points(ap_wind_line, ap_wind_pts, 2);
+    lv_obj_set_style_line_color(ap_wind_line, c_primary(), 0);
+    lv_obj_remove_flag(ap_wind_line, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ap_rudder_fill, LV_OBJ_FLAG_HIDDEN);
+    if (snap.wind_adjust_supported) snprintf(buf, sizeof(buf), "STEP %d° \xC2\xB7 HOLD: PILOT", ap_step_deg);
+    else snprintf(buf, sizeof(buf), "ADJUST ON PILOT");
+    lv_label_set_text(ap_lbl_telem, buf);
+    lv_obj_set_style_text_color(ap_lbl_telem, c_muted(), 0);
+}
+
+// Route (agreed mockup): the next waypoint, XTE large with the side to steer, a steer bar like the rudder bar (filled from the
+// centre towards the side to steer), bearing, distance and heading. Turning does nothing.
+static void ap_refresh_route(void) {
+    char buf[48];
+    lv_obj_add_flag(ap_wind_line, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ap_cts_bug, LV_OBJ_FLAG_HIDDEN);
+    snprintf(buf, sizeof(buf), "ROUTE \xC2\xB7 TO %s", snap.route_wpt[0] ? snap.route_wpt : "---");
+    lv_label_set_text(ap_lbl_hdr, buf);
+    float xte_nm = fabsf(snap.route_xte_m) / 1852.0f;
+    snprintf(buf, sizeof(buf), xte_nm < 10.0f ? "%.2fnm" : "%.0fnm", xte_nm);
+    lv_label_set_text(ap_lbl_hdg, buf);
+    lv_obj_set_style_text_color(ap_lbl_hdg, c_text(), 0);
+    lv_label_set_text(ap_lbl_mode, "ROUTE");
+    lv_obj_set_style_text_color(ap_lbl_mode, c_primary(), 0);
+    lv_obj_set_style_border_color(ap_pill_mode, c_primary(), 0);
+    snprintf(buf, sizeof(buf), "%03d° %.1fnm", (int)roundf(snap.route_brg_deg), snap.route_dist_nm);
+    lv_label_set_text(ap_lbl_cts, buf);
+    lv_obj_set_style_text_color(ap_lbl_cts, c_primary(), 0);
+    int steer = knob_xte_steer(snap.route_xte_m, 10.0f);
+    lv_label_set_text(ap_lbl_delta, steer > 0 ? "STEER RIGHT" : steer < 0 ? "STEER LEFT" : "ON TRACK");
+    lv_obj_set_style_text_color(ap_lbl_delta, steer ? c_amber() : c_muted(), 0);
+    if (steer == 0) {
+        lv_obj_add_flag(ap_rudder_fill, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        int bw = (int)(xte_nm / 0.25f * 54.0f);   // full bar at a quarter mile off the track
+        if (bw < 3) bw = 3;
+        if (bw > 54) bw = 54;
+        lv_obj_remove_flag(ap_rudder_fill, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_width(ap_rudder_fill, bw);
+        lv_obj_align(ap_rudder_fill, LV_ALIGN_CENTER, steer > 0 ? (bw / 2) : -(bw / 2), 0);
+        lv_obj_set_style_bg_color(ap_rudder_fill, snap.night_palette ? COL_NIGHT_RED : (steer > 0 ? COL_GREEN : COL_RED), 0);
+    }
+    snprintf(buf, sizeof(buf), "HDG %03d° \xC2\xB7 HOLD: PILOT", (int)roundf(wrap_deg(snap.heading_deg)));
+    lv_label_set_text(ap_lbl_telem, buf);
+    lv_obj_set_style_text_color(ap_lbl_telem, c_muted(), 0);
 }
 
 static void ap_refresh(void) {
@@ -984,11 +1107,17 @@ static void ap_refresh(void) {
         lv_label_set_text(ap_lbl_telem, "---m • ---V • ---");
         lv_obj_add_flag(ap_cts_bug, LV_OBJ_FLAG_HIDDEN);
         lv_obj_add_flag(ap_rudder_fill, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(ap_wind_line, LV_OBJ_FLAG_HIDDEN);
         return;
     }
 
     lv_obj_remove_flag(ap_cts_bug, LV_OBJ_FLAG_HIDDEN);
     lv_obj_remove_flag(ap_rudder_fill, LV_OBJ_FLAG_HIDDEN);
+
+    if (snap.ap_engaged && snap.ap_state == KNOB_AP_WIND) { ap_refresh_wind(); return; }
+    if (snap.ap_engaged && snap.ap_state == KNOB_AP_ROUTE) { ap_refresh_route(); return; }
+    lv_obj_add_flag(ap_wind_line, LV_OBJ_FLAG_HIDDEN);
+    lv_label_set_text(ap_lbl_hdr, "HEADING");
 
     snprintf(buf, sizeof(buf), "%03d°%s", (int)roundf(wrap_deg(snap.heading_deg)), heading_ref_str());
     lv_label_set_text(ap_lbl_hdg, buf);
@@ -1015,7 +1144,7 @@ static void ap_refresh(void) {
     lv_obj_set_style_text_color(ap_lbl_delta, c_muted(), 0);
 
     if (snap.ap_engaged) {
-        snprintf(buf, sizeof(buf), "AUTO • STEP %d°", ap_step_deg);
+        snprintf(buf, sizeof(buf), "COMPASS • STEP %d°", ap_step_deg);
         lv_label_set_text(ap_lbl_mode, buf);
         lv_obj_set_style_text_color(ap_lbl_mode, c_primary(), 0);
         lv_obj_set_style_border_color(ap_pill_mode, c_primary(), 0);
@@ -1891,12 +2020,31 @@ static void build_overlays_and_system(void) {
     lv_arc_set_range(ap_confirm_arc, 0, 5000);
     lv_obj_remove_style(ap_confirm_arc, NULL, LV_PART_KNOB);
 
-    lv_obj_t *apc_t = lv_label_create(ovl_ap_confirm);
-    lv_label_set_text(apc_t, "TURN RIGHT\nTO CONFIRM");
-    lv_obj_set_style_text_align(apc_t, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_set_style_text_font(apc_t, &lv_font_montserrat_14, 0);
-    lv_obj_set_style_text_color(apc_t, COL_CYAN, 0);
-    lv_obj_align(apc_t, LV_ALIGN_CENTER, 0, -6);
+    ap_confirm_lbl_title = lv_label_create(ovl_ap_confirm);
+    lv_label_set_text(ap_confirm_lbl_title, "TURN RIGHT\nTO CONFIRM");
+    lv_obj_set_style_text_align(ap_confirm_lbl_title, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_set_style_text_font(ap_confirm_lbl_title, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(ap_confirm_lbl_title, COL_CYAN, 0);
+    lv_obj_align(ap_confirm_lbl_title, LV_ALIGN_CENTER, 0, -10);
+
+    // Pilot dialog (#7), styled like the anchor dialog
+    ovl_pilot = lv_obj_create(lv_layer_top());
+    lv_obj_set_size(ovl_pilot, 240, 240);
+    lv_obj_center(ovl_pilot);
+    lv_obj_set_style_radius(ovl_pilot, LV_RADIUS_CIRCLE, 0);
+    lv_obj_set_style_bg_color(ovl_pilot, COL_BG, 0);
+    lv_obj_set_style_bg_opa(ovl_pilot, LV_OPA_90, 0);
+    lv_obj_set_style_border_width(ovl_pilot, 3, 0);
+    lv_obj_remove_flag(ovl_pilot, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(ovl_pilot, LV_OBJ_FLAG_HIDDEN);
+    pilot_title = anc_make_label(ovl_pilot, &lv_font_montserrat_12, -92);
+    pilot_pill = lv_obj_create(ovl_pilot);   // behind the item labels: created first
+    lv_obj_set_size(pilot_pill, 180, 24);
+    lv_obj_set_style_radius(pilot_pill, 12, 0);
+    lv_obj_set_style_border_width(pilot_pill, 0, 0);
+    lv_obj_remove_flag(pilot_pill, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+    for (int i = 0; i < 7; i++) pilot_items[i] = anc_make_label(ovl_pilot, &lv_font_montserrat_14, 0);
+    pilot_hint = anc_make_label(ovl_pilot, &lv_font_montserrat_12, 94);
 
     ap_confirm_lbl_sec = lv_label_create(ovl_ap_confirm);
     lv_obj_set_style_text_font(ap_confirm_lbl_sec, &lv_font_montserrat_12, 0);
@@ -2117,7 +2265,95 @@ static void sys_splash_show(bool show, uint8_t pct) {
 }
 
 // --- Transient previews and prompts are dropped when a mode goes stale or the mode changes ---
+static const char *pilot_line_text(knob_pilot_line_t l) {
+    switch (l) {
+    case KNOB_PL_STANDBY: return "STANDBY";
+    case KNOB_PL_COMPASS: return "COMPASS";
+    case KNOB_PL_WIND: return "WIND";
+    case KNOB_PL_ROUTE: return "ROUTE";
+    case KNOB_PL_TACK_PORT: return "TACK PORT";
+    case KNOB_PL_TACK_STBD: return "TACK STARBOARD";
+    default: return "CANCEL";
+    }
+}
+
+static void pilot_render(void) {
+    int top = -((int)pilot_count - 1) * 13;   // 26 px per line, centred
+    for (int i = 0; i < 7; i++) {
+        if (i >= pilot_count) { lv_obj_add_flag(pilot_items[i], LV_OBJ_FLAG_HIDDEN); continue; }
+        lv_obj_remove_flag(pilot_items[i], LV_OBJ_FLAG_HIDDEN);
+        lv_label_set_text(pilot_items[i], pilot_line_text(pilot_lines[i]));
+        bool sel = i == pilot_idx;
+        lv_obj_set_style_text_color(pilot_items[i], sel ? COL_BG : (pilot_lines[i] == KNOB_PL_CANCEL ? c_muted() : c_text()), 0);
+        lv_obj_align(pilot_items[i], LV_ALIGN_CENTER, 0, top + i * 26);
+    }
+    lv_obj_set_style_bg_color(pilot_pill, c_amber(), 0);
+    lv_obj_align(pilot_pill, LV_ALIGN_CENTER, 0, top + pilot_idx * 26);
+}
+
+static void pilot_close(void) {
+    if (!pilot_open) return;
+    pilot_open = false;
+    lv_obj_add_flag(ovl_pilot, LV_OBJ_FLAG_HIDDEN);
+}
+
+// Long press while engaged. With the pilot's data stale only STANDBY and CANCEL are offered (ui-design section 3.1).
+static void pilot_open_dialog(bool stale_only) {
+    static const char *const names[] = { "STANDBY", "COMPASS", "WIND", "ROUTE", "?" };
+    knob_ap_state_t st = snap.ap_state <= KNOB_AP_UNKNOWN ? (knob_ap_state_t)snap.ap_state : KNOB_AP_UNKNOWN;
+    if (stale_only) {
+        pilot_lines[0] = KNOB_PL_STANDBY;
+        pilot_lines[1] = KNOB_PL_CANCEL;
+        pilot_count = 2;
+    } else {
+        pilot_count = (uint8_t)knob_pilot_lines(st == KNOB_AP_UNKNOWN ? KNOB_AP_AUTO : st, pilot_lines, 7);
+    }
+    pilot_idx = 0;
+    pilot_opened_ms = snap.now_ms;
+    char b[32];
+    snprintf(b, sizeof(b), "PILOT \xC2\xB7 %s", names[st]);
+    lv_label_set_text(pilot_title, b);
+    lv_obj_set_style_text_color(pilot_title, c_amber(), 0);
+    lv_label_set_text(pilot_hint, "TURN \xE2\x80\xA2 PRESS");
+    lv_obj_set_style_text_color(pilot_hint, c_muted(), 0);
+    lv_obj_set_style_border_color(ovl_pilot, c_amber(), 0);
+    pilot_open = true;
+    pilot_render();
+    lv_obj_remove_flag(ovl_pilot, LV_OBJ_FLAG_HIDDEN);
+}
+
+// Input while the pilot dialog is open: turn chooses, press confirms, long press leaves.
+static void pilot_on_input(marine_semantic_input_t ev, int32_t val) {
+    pilot_opened_ms = snap.now_ms;
+    if (ev == MARINE_INPUT_TURN) {
+        pilot_idx = (uint8_t)knob_list_wrap(pilot_idx, val > 0 ? 1 : -1, pilot_count);
+        pilot_render();
+        return;
+    }
+    if (ev == MARINE_INPUT_LONG_PRESS || ev == MARINE_INPUT_DOUBLE_PRESS) { pilot_close(); return; }
+    if (ev != MARINE_INPUT_SINGLE_PRESS) return;
+    knob_pilot_line_t l = pilot_lines[pilot_idx];
+    pilot_close();
+    switch (l) {
+    case KNOB_PL_STANDBY: emit_action(MARINE_MODE_AUTOPILOT, MARINE_ACT_AP_STANDBY, 1, 0); break;
+    case KNOB_PL_COMPASS: emit_action(MARINE_MODE_AUTOPILOT, MARINE_ACT_AP_SET_STATE, KNOB_AP_AUTO, 0); break;
+    case KNOB_PL_WIND: emit_action(MARINE_MODE_AUTOPILOT, MARINE_ACT_AP_SET_STATE, KNOB_AP_WIND, 0); break;
+    case KNOB_PL_ROUTE: emit_action(MARINE_MODE_AUTOPILOT, MARINE_ACT_AP_SET_STATE, KNOB_AP_ROUTE, 0); break;
+    case KNOB_PL_TACK_PORT:
+    case KNOB_PL_TACK_STBD:
+        // A tack asks for the confirm turn towards its side within 5 s, like engage.
+        ap_confirm_dir = l == KNOB_PL_TACK_PORT ? -1 : 1;
+        ap_confirm_open = true;
+        ap_confirm_deadline_ms = snap.now_ms + 5000;
+        lv_label_set_text(ap_confirm_lbl_title, ap_confirm_dir < 0 ? "TURN LEFT\nTO TACK\nPORT" : "TURN RIGHT\nTO TACK\nSTARBOARD");
+        lv_obj_remove_flag(ovl_ap_confirm, LV_OBJ_FLAG_HIDDEN);
+        break;
+    default: break;
+    }
+}
+
 static void cancel_transients(void) {
+    pilot_close();
     if (ap_confirm_open) {
         ap_confirm_open = false;
         lv_obj_add_flag(ovl_ap_confirm, LV_OBJ_FLAG_HIDDEN);
@@ -2830,8 +3066,31 @@ static void dispatch_semantic(marine_semantic_input_t ev, int32_t val) {
         return;
     }
 
+    // The pilot dialog, and opening it with a long press while engaged, work while the pilot's data is stale: STANDBY must
+    // always be reachable (ui-design section 3.1). Stale data limits the dialog to STANDBY and CANCEL.
+    if (active_mode == MARINE_MODE_AUTOPILOT && pilot_open) {
+        pilot_on_input(ev, val);
+        return;
+    }
+    if (active_mode == MARINE_MODE_AUTOPILOT && snap.ap_engaged && ev == MARINE_INPUT_LONG_PRESS && !ap_confirm_open &&
+        current_stale() != STALE_NONE) {
+        pilot_open_dialog(true);
+        return;
+    }
+
     if (current_stale() != STALE_NONE) {
         return; // the active mode's own controls are off while its data is stale
+    }
+
+    if (ap_confirm_open && ap_confirm_dir != 0) {   // tack: one click towards the tack side
+        knob_confirm_ev_t ce = ev == MARINE_INPUT_TURN ? KNOB_CONFIRM_EV_TURN : KNOB_CONFIRM_EV_PRESS;
+        knob_confirm_t r = knob_confirm_step(ap_confirm_deadline_ms - 5000, snap.now_ms, 5000, ce, (int)val * ap_confirm_dir);
+        if (r == KNOB_CONFIRM_DONE) emit_action(MARINE_MODE_AUTOPILOT, MARINE_ACT_AP_TACK, ap_confirm_dir, 0);
+        if (r != KNOB_CONFIRM_WAITING) {
+            ap_confirm_open = false;
+            lv_obj_add_flag(ovl_ap_confirm, LV_OBJ_FLAG_HIDDEN);
+        }
+        return;
     }
 
     if (ap_confirm_open) {
@@ -3177,6 +3436,10 @@ void marine_ui_tick(uint32_t now_ms) {
     snap.now_ms = now_ms;
     settings_tick();
     volume_tick();
+    if (pilot_open && (now_ms - pilot_opened_ms >= 5000 || !snap.ap_engaged || active_mode != MARINE_MODE_AUTOPILOT ||
+                       is_full_alarm_blocking())) {
+        pilot_close();   // 5 s without input, or the pilot went to standby by itself, leaves the dialog
+    }
 
     if (ctl_notice_on && (now_ms >= ctl_notice_until_ms || is_full_alarm_blocking() ||
                           snap.system_screen != MARINE_SCREEN_OPERATIONAL)) {

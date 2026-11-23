@@ -125,13 +125,23 @@ void knob_power_apply_snapshot(const marine_ui_snapshot_t *s, marine_ui_mode_t a
 
     if (active_mode == MARINE_MODE_AUTOPILOT) {
         /* Steering indicator on the autopilot screen, engaged or in standby. Standby uses the set target. */
-        bool stale = knob_stale_by(s->now_ms, s->heading_updated_ms, s->heading_timeout_ms) ||
+        /* The error follows the pilot's state (#7): compass the target minus the heading, wind the apparent wind angle minus
+         * its target (a bigger starboard angle needs a turn to port), route the side to steer from the cross-track error. */
+        bool wind = s->ap_engaged && s->ap_state == KNOB_AP_WIND;
+        bool route = s->ap_engaged && s->ap_state == KNOB_AP_ROUTE;
+        bool stale;
+        if (wind) stale = knob_stale_by(s->now_ms, s->wind_updated_ms, s->wind_timeout_ms) || !s->wind_target_valid;
+        else if (route) stale = s->route_updated_ms == 0 || knob_stale_by(s->now_ms, s->route_updated_ms, s->route_timeout_ms);
+        else stale = knob_stale_by(s->now_ms, s->heading_updated_ms, s->heading_timeout_ms) ||
                      knob_stale_by(s->now_ms, s->cts_updated_ms, s->cts_timeout_ms);
         if (stale) {
             on_course = false;
             if (s->ap_engaged) { r = 40; g = 24; b = 0; } /* dim amber: no usable course error */
         } else {
-            float err = knob_course_error(s->cts_deg, s->heading_deg); /* negative: turn to port */
+            float err;                                                 /* negative: turn to port */
+            if (wind) err = knob_course_error(s->wind_awa_deg, s->wind_target_deg);
+            else if (route) err = (float)knob_xte_steer(s->route_xte_m, 10.0f) * 5.0f; /* 0 on track, else past the leave threshold */
+            else err = knob_course_error(s->cts_deg, s->heading_deg);
             knob_steer_t k = knob_steer_step(err, &on_course, KNOB_LED_ON_COURSE_ENTER_DEG, KNOB_LED_ON_COURSE_LEAVE_DEG);
             if (k == KNOB_STEER_ON_COURSE && s->ap_engaged) { r = 64; g = 40; b = 0; steer = STEER_YELLOW; }
             else if (k == KNOB_STEER_ON_COURSE) { b = 64; steer = STEER_BLUE; }

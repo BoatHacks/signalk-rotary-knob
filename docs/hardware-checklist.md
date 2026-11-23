@@ -118,7 +118,15 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 | With live control off an engage is refused and logged | ok | 2026-11-23 | be65d7f | log only, no screen feedback yet |
 | Engage: long press plus confirm turn | open | | | |
 | Target change, 1 and 10 degree steps, 0.4 s commit | open | | | |
-| Standby with a long press | open | | | |
+| Standby: long press opens the pilot dialog, one press on STANDBY | open | | | changed with #7 |
+| Engage sends `PUT state auto`, also after a wind or route session | open | | | |
+| Target change as `target/adjust` steps (+10, +1, ...), -1 and -10 arrive as such | open | | | the provider's rounding, see the trials plan |
+| Pilot dialog: COMPASS, WIND, ROUTE change the pilot's state | open | | | needs the pilot wired |
+| Tack port and starboard with the confirm turn towards the side | open | | | |
+| Wind screen: AWA with P/S, target, cyan line, `ADJUST ON PILOT`, turn does nothing | open | | | |
+| Route screen: XTE, steer side and bar, bearing and distance, turn does nothing | open | | | needs a course set |
+| Stale wind or route: `NO WIND` / `NO ROUTE`, the dialog still offers STANDBY | open | | | |
+| LEDs follow the wind error and the route's steer side | open | | | |
 | Steering LEDs: red, green, yellow, blue, night fade | open | | | |
 | Losing the knob does not change the pilot | open | | | unplug while engaged |
 

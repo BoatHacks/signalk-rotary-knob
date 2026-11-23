@@ -23,6 +23,8 @@
 typedef struct {
     int8_t light[8];        /* -1 unknown, 0 off, 1 on */
     char zone_id[4][24];    /* jukebox zone ids, target 1.. (empty = none) */
+    bool ap_has_target;     /* the pilot's current target, for target/adjust */
+    float ap_target_deg;
     bool zone_names_wanted; /* a zone id has no name yet */
     bool anchor_on;
     float anchor_max_m;     /* circle radius while armed */

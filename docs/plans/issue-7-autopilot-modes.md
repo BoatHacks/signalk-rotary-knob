@@ -79,15 +79,15 @@ key behaviour, and the course output reaching the pilot.
 - [x] Contract (`ap_state`, wind and route fields, `MARINE_ACT_AP_SET_STATE` and `_TACK`), knob_actions (`PUT state`, tack),
       knob_model (state from the poll, wind and course subscriptions, snapshot, demo). The waypoint shows as `WAYPOINT` until a
       name source is found (verify).
-- [ ] **Left (2026-11-23, session stopped at the usage limit):** marine_ui pilot dialog (long press while engaged, STANDBY
-      reachable while stale), tack confirm overlay, wind and route variants of the autopilot screen, `NO WIND` / `NO ROUTE`
-      stale reasons, knob_power indicator per mode, docs (ui-design 3.1, SPEC 6.3, manual, checklist). Until the dialog exists,
-      a long press while engaged still sends standby directly.
+- [x] marine_ui: pilot dialog (long press while engaged, STANDBY reachable while stale), tack confirm, wind and route variants of
+      the autopilot screen, `NO WIND` / `NO ROUTE`. knob_power: indicator per mode.
+- [x] Target changes as `target/adjust` steps (the absolute `PUT target` never works with this provider), with a host test.
+- [x] Docs: SPEC 6.3, ui-design 3.1, manual, hardware checklist.
 - [ ] Upstream issue and PR for `target/adjust` in `wind` and `setTarget` checking `state`.
 - [x] Mockups: wind screen, route screen, dialog (agreed 2026-11-23, ui-design.md section 3.1). Night palette at build time.
-- [ ] knob_model: wind, course and state subscriptions, snapshot fields. knob_actions: state, tack.
-- [ ] marine_ui: two screens and the dialog. knob_power: indicator source per mode.
-- [ ] SPEC 6.3 and 12, ui-design 3.1, hardware checklist, manual.
+- [x] knob_model: wind, course and state subscriptions, snapshot fields. knob_actions: state, tack.
+- [x] marine_ui: two screens and the dialog. knob_power: indicator source per mode.
+- [x] SPEC 6.3, ui-design 3.1, hardware checklist, manual.
 
 ## Files
 `firmware/components/knob_model/knob_model.c`, `firmware/components/knob_actions/knob_actions.c`,
