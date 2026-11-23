@@ -44,6 +44,8 @@ Read from `@signalk/signalk-autopilot` 2.6.0 on the boat server, details in issu
 ## Steps
 - [ ] Fix the internal RAM dip first (internal-ram-dip.md).
 - [ ] Bench: allow control off, all anchor choices and autopilot commands refused with the reason.
+- [ ] Wire the SeaTalk 1 pilot to the server (in and out) and add a connection that consumes `seatalkOut`. Until then no
+      autopilot command reaches the pilot.
 - [ ] Bench: does the pilot's state reach `steering.autopilot.state` on the server.
 - [ ] Bench: autopilot GET with the token (gate item).
 - [ ] Boat: anchor drop, move, radius, raise.

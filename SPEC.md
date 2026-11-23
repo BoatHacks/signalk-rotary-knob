@@ -249,6 +249,10 @@ Everything else is ephemeral.
   (ratio), play and pause through the plugin's control paths, zone names from its REST API. Knob: turn 2 %, press play or
   pause, hold next zone. The touch screen is a small player (previous, next, play or pause, zone), the outer arc is display
   only. No allow control needed.
+- **Autopilot wind and route modes, tack from the knob** (decided 2026-11-23, #7). Modes are the provider's states, changed
+  from a long-press dialog (`STANDBY` first and focused, then the other modes, tack port and starboard, cancel). Tack needs a
+  confirm turn. Engage always sends `PUT state auto`, never `POST engage`, because the provider's engage resumes the last
+  state. Wind target changes wait for an upstream fix to `signalk-autopilot`, until then wind mode is display only.
 - **The manual is `docs/manual.md`** (decided 2026-11-23, #2), linked from the README and the settings page.
 
 ## 13. Open Questions
@@ -303,5 +307,8 @@ through the knob. Answers for questions 1, 2, 3, 9 and 11:
   real alarm.
 - **`meta.timeout` (11):** none of the paths the knob needs (headings, switches, mode, GNSS) carries `meta.timeout`. Only the
   espOS device health paths do (25 s). So the per-path defaults in ARCHITECTURE.md section 3.1 are what applies.
+- **Pilot wiring (added later on 2026-11-23):** the pilot is a Raymarine SeaTalk 1 unit and is not wired to the server yet. The
+  `raymarineST` provider emits its datagrams on `seatalkOut`, which no data connection consumes, and no NMEA 0183 output
+  sends a route to the pilot. Autopilot commands therefore reach no pilot until that is set up (docs/plans/issue-7-autopilot-modes.md).
 - **Not on this boat:** no `environment.depth.*`, no steering paths. The depth and rudder telemetry on the autopilot screen
   will show `---` unless a source is added.
