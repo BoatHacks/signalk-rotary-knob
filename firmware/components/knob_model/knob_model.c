@@ -11,6 +11,8 @@
 #include "esp_timer.h"
 #include "espos_sk.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/idf_additions.h"
+#include "esp_heap_caps.h"
 #include "freertos/portmacro.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
@@ -347,7 +349,7 @@ static void build_snapshot(marine_ui_snapshot_t *s, uint32_t now)
     s->dimmer_updated_ms = m.light_ms;
     s->dimmer_timeout_ms = 0;
 
-    s->usb_host_enumerated = usb_dev_mounted();
+    s->usb_host_enumerated = usb_dev_host_present(); /* a host on the cable: the USB-HID mode is offered on the ring */
     s->hid_profile = knob_hid_profile();
     if (!s->device_name[0]) strncpy(s->device_name, ns.hostname, sizeof(s->device_name) - 1);
 }
@@ -360,7 +362,9 @@ static void model_task(void *arg)
         s_loop_ms = ms_now();
         s_phase = 1;
         build_snapshot(&snap, ms_now());
-        knob_power_apply_snapshot(&snap, marine_ui_get_active_mode());
+        marine_ui_mode_t mode = marine_ui_get_active_mode();
+        knob_power_apply_snapshot(&snap, mode);
+        usb_dev_set_hid(mode == MARINE_MODE_USB_HID); /* a HID device only while the USB-HID mode is on screen */
         s_phase = 2;
         lv_port_lock();
         s_phase = 3;
@@ -476,7 +480,7 @@ void knob_model_start(void)
     strcpy(s_cfg.autopilot_id, "raymarineST"); /* defaults until knob_model_subscribe() loads the settings */
     s_cfg.heading_true = true;
     s_cfg.anchor_radius_m = 35;
-    xTaskCreate(model_task, "model", 6144, NULL, 2, NULL);
+    xTaskCreateWithCaps(model_task, "model", 6144, NULL, 2, NULL, MALLOC_CAP_SPIRAM); /* stack in PSRAM: internal RAM is the scarce resource */
     knob_actions_start(&s_cfg, &s_hooks);
     ESP_LOGI(TAG, "model started, live control off");
 }

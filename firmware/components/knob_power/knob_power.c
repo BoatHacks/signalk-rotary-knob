@@ -7,6 +7,8 @@
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/idf_additions.h"
+#include "esp_heap_caps.h"
 #include "freertos/task.h"
 
 static const char *TAG = "knob_power";
@@ -79,7 +81,7 @@ static void led_task(void *arg)
 void knob_power_init(void)
 {
     board_led_init();
-    xTaskCreate(led_task, "leds", 3072, NULL, 3, NULL);
+    xTaskCreateWithCaps(led_task, "leds", 3072, NULL, 3, NULL, MALLOC_CAP_SPIRAM); /* stack in PSRAM: internal RAM is the scarce resource */
     ESP_LOGI(TAG, "LED task up");
 }
 

@@ -1,4 +1,8 @@
-# Plan: internal RAM dip at boot
+# Plan: internal RAM dip at boot (done 2026-11-23)
+
+**Done.** Cause: Wi-Fi and LWIP receive buffers and the knob's own task stacks in internal RAM. Fixed by allowing Wi-Fi and LWIP
+buffers in PSRAM and moving the task stacks (all but LVGL) to PSRAM. Low-water mark 39.8 KB, about 60 KB free. Kept as a record
+until the trials confirm it over a longer run, then delete.
 
 ## Overview
 Since commit 84adfd6 the boot log reports a lowest free internal RAM of 276 bytes (4,112 before, steady state about 32 KB).

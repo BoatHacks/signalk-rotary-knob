@@ -84,7 +84,14 @@ if ($rc -eq 0) {
     Write-Status "DONE build ok, $size"
     if ($Flash) {
         $rc = Invoke-Idf @('-p', $Port, 'flash') 'flash'
-        if ($rc -eq 0) { Write-Status "DONE flash ok on $Port" } else { Write-Status "DONE flash FAILED exit $rc, see $LogFile" }
+        if ($rc -eq 0) {
+            # A 1200 baud reboot leaves the chip's force-download flag set, and the normal reset after flashing keeps it in
+            # the bootloader. A watchdog reset clears the flag and starts the firmware.
+            $ErrorActionPreference = 'Continue'
+            & python -m esptool --chip esp32s3 -p $Port --after watchdog-reset read-mac 2>&1 | Add-Content -Path $LogFile
+            $ErrorActionPreference = 'Stop'
+            Write-Status "DONE flash ok on $Port, watchdog reset sent"
+        } else { Write-Status "DONE flash FAILED exit $rc, see $LogFile" }
     }
 } else {
     Write-Status "DONE build FAILED exit $rc, see $LogFile"

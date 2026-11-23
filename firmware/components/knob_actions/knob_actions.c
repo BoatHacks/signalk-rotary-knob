@@ -13,6 +13,8 @@
 #include "espos_sk.h"
 #include "espos_sk_http.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/idf_additions.h"
+#include "esp_heap_caps.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
 #include "knob_hid.h"
@@ -258,7 +260,7 @@ void knob_actions_start(const knob_cfg_t *cfg, const knob_actions_hooks_t *hooks
     s_hooks = hooks;
     s_q = xQueueCreate(16, sizeof(marine_ui_action_t));
     knob_hid_start();
-    xTaskCreate(worker_task, "skwork", 8192, NULL, 3, NULL);
+    xTaskCreateWithCaps(worker_task, "skwork", 8192, NULL, 3, NULL, MALLOC_CAP_SPIRAM); /* stack in PSRAM: internal RAM is the scarce resource */
 }
 
 void knob_actions_submit(const marine_ui_action_t *act)

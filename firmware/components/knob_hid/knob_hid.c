@@ -6,6 +6,8 @@
 #include "class/hid/hid_device.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/idf_additions.h"
+#include "esp_heap_caps.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
 #include "usb_dev.h"
@@ -85,7 +87,7 @@ static void hid_task(void *arg)
 void knob_hid_start(void)
 {
     s_q = xQueueCreate(16, sizeof(ev_t));
-    xTaskCreate(hid_task, "hid", 3072, NULL, 3, NULL);
+    xTaskCreateWithCaps(hid_task, "hid", 3072, NULL, 3, NULL, MALLOC_CAP_SPIRAM); /* stack in PSRAM: internal RAM is the scarce resource */
 }
 
 void knob_hid_turn(int delta)

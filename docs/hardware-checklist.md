@@ -11,13 +11,13 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 |---|---|---|---|---|
 | Display, encoder, push, touch dead zone, LEDs work | ok | 2026-11-22 | spike | |
 | Boots without a reboot loop, no health watchdog reset | ok | 2026-11-23 | 84adfd6 | |
-| Internal RAM low-water mark stays above 12 KB at boot | **fail** | 2026-11-23 | 84adfd6 | minimum 276 bytes since boot (4,112 before 84adfd6), see docs/plans/internal-ram-dip.md |
+| Internal RAM low-water mark stays above 12 KB at boot | ok | 2026-11-23 | 1500302 | 39.8 KB minimum, about 60 KB free, no restart in 64 s. Was 276 bytes and health restarts, cause: Wi-Fi buffers and task stacks in internal RAM |
 | Splash shows phase text and progress bar | ok | 2026-11-23 | 432c456 | |
 | Pairing screen shows straight text | open | | | knob already paired, needs a fresh pairing to see |
 | Online in under 10 s | ok | 2026-11-23 | 432c456 | 5.2 s |
 | Last screen in under 4 s | fail | 2026-11-23 | 432c456 | splash waits for the stream, decision open |
-| Stream stays up after boot | open | | | one drop and reconnect seen at 7.9 s |
-| Reflash: 1200 baud reboot into the bootloader | ok | 2026-11-23 | 84adfd6 | the board then stays in download mode after flashing, a watchdog reset (`esptool --after watchdog-reset`) starts the firmware |
+| Stream stays up after boot | ok | 2026-11-23 | 1500302 | stayed up for 64 s. The earlier drops came with the RAM starvation. Separate: espOS sends a single-path unsubscribe that this server rejects with an error |
+| Reflash over the USB-Serial/JTAG port, automatic reset | ok | 2026-11-23 | 1500302 | no 1200 baud reboot any more. Not possible while the USB-HID mode is on screen |
 | Survives reboot and reflash with the token | ok | 2026-11-23 | 432c456 | |
 
 ## Lights
@@ -66,6 +66,7 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 |---|---|---|---|---|
 | Idle dim after 30 s, off after 10 min, input wakes | open | | | |
 | Night palette from `environment.mode` and the `n` override | ok | 2026-11-23 | be65d7f | override cycled auto, night, day |
-| USB-HID mode shows in the ring when a host enumerates it | open | | | |
+| USB-HID mode shows in the ring when a USB host is on the cable | open | | | |
+| Entering USB-HID mode switches the port to HID, leaving switches back to serial | open | | | |
 | HID chartplotter, media and navigation profiles | open | | | |
 | Touch ghost filter drops phantom touches | ok | 2026-11-23 | be65d7f | one dropped in the log |

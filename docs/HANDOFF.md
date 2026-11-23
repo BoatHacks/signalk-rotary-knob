@@ -30,17 +30,18 @@ Part of the BoatHacks SignalK suite.
 
 ## Where it stands
 
-- **Hardware works** with the espOS base: display, encoder, touch (with a centre dead zone and ghost filter), LEDs, idle dim,
-  USB composite (CDC logs + HID descriptor, no HID reports sent yet).
+- **Hardware works** with the espOS base: display, encoder, touch (with a centre dead zone and ghost filter), LEDs, idle dim.
+  USB is the chip's USB-Serial/JTAG port (logs, bench commands, flashing). Only while the USB-HID mode is on screen does
+  TinyUSB take the port over as a HID-only device (switching not yet tried with a host).
 - **marine_ui runs on the panel** from a snapshot: boot splash with a live progress bar and phase text, autopilot, lights,
   anchor, mode ring, alarm screens, stale overlay, pairing and setup screens, steering LEDs, night palette.
 - **Wi-Fi and SignalK work against the real boat server.** The knob joins Wi-Fi, sends its access request, gets a readwrite
   token, opens the delta stream and survives reboots and reflashes. Online about 5 s after boot (target 10 s). An
   authenticated `PUT` to a relay was verified.
-- **knob_model, knob_config and the adapters are written but not yet compiled or run** (work in progress as of this
-  handoff): real subscriptions replace the old demo model, the lights adapter sends `PUT`s, the autopilot v2 and
-  hoekens-anchor-alarm adapters exist behind a live-control switch that is off at every boot (serial command `l`), and the
-  channel and option settings come from the espOS settings store (`config/knob.json`).
+- **knob_model, knob_config and the adapters run on the board.** Real subscriptions, the lights adapter (Relay 1 verified end
+  to end), the autopilot v2 and hoekens-anchor-alarm adapters behind a live-control switch that is off at every boot (serial
+  command `l`), settings from the espOS settings store (`config/knob.json`). Autopilot and anchor have not sent a real command
+  yet. What has been checked is in [hardware-checklist.md](hardware-checklist.md), open work in [plans/](plans/README.md).
 
 ## Decisions worth knowing (full list in SPEC.md section 12)
 
@@ -78,14 +79,17 @@ is shared.
   running unattended in that state.
 - The build requires an app signing key (`espsecure generate-signing-key --version 2 --scheme rsa3072`). Keep it out of git
   (`*.pem` is ignored). A lost key means a USB reflash.
-- **Reflashing:** TinyUSB owns the native USB pins at runtime, so the usual auto-reset into the bootloader is gone. Switching the
-  CDC port to 1200 baud reboots into the ROM bootloader (use the Windows `mode` command, opening the port at 1200 baud from a
-  script hung twice). The BOOT button plus RESET is the fallback, release BOOT afterwards. COM ports change between modes.
+- **Reflashing:** the knob's USB port is the chip's USB-Serial/JTAG port, so `idf.py flash` resets into the bootloader by
+  itself. Not while the USB-HID mode is on screen: TinyUSB owns the port then, leave the mode first or use BOOT plus RESET
+  (release BOOT afterwards). Firmware from before 2026-11-23 used a TinyUSB CDC port and the 1200 baud reboot, which leaves the
+  chip's force-download flag set: after flashing from that state, tap RESET (or send an esptool watchdog reset).
 - **FreeRTOS tick is 10 ms.** `pdMS_TO_TICKS(5)` is 0 and `vTaskDelay(0)` does not sleep. A task that does that starves
   everything of lower priority.
-- **Internal RAM is the scarce resource** (about 25 KB free at steady state). espOS's health watchdog reboots below 12 KB.
-  LVGL runs on a PSRAM allocator for that reason, keep it that way. The espOS publish buffer grows while no server is
-  reachable.
+- **Internal RAM is the scarce resource.** espOS and Wi-Fi take about 125 KB, espOS's health watchdog restarts after three
+  strikes of less than 12 KB free or a largest block under 8 KB. Kept in check by: LVGL on a PSRAM allocator, all of the knob's
+  own task stacks except LVGL's in PSRAM (`xTaskCreateWithCaps`), Wi-Fi and LWIP buffers allowed in PSRAM
+  (`CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP`). Result on 2026-11-23: about 60 KB free, low-water mark 39.8 KB. The boot log prints
+  the free RAM after each init step at 20 s and 60 s. The espOS publish buffer grows while no server is reachable.
 - The knob's own `POST /api/v1/system/reboot` needs a JSON content type, otherwise it answers 415.
 - Windows Defender Firewall blocks inbound connections to programs without a rule. A relay for the knob (home LAN to the boat
   over WireGuard) worked as an `ssh -L` forward but not as a Python script.

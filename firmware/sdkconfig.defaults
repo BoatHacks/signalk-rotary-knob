@@ -60,10 +60,10 @@ CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
 CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
 
 
-# Spike: TinyUSB owns the native USB pins (CDC + HID), so the USB-Serial/JTAG console is off and logs go to the CDC port.
-CONFIG_ESP_CONSOLE_NONE=y
-CONFIG_TINYUSB_CDC_ENABLED=y
-CONFIG_TINYUSB_CDC_COUNT=1
+# USB: the chip's USB-Serial/JTAG port is the console (logs from the first line, bench commands, automatic reset for
+# flashing). Only while the USB-HID mode is active, TinyUSB takes the port over as a HID-only device (knob_usb).
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+# CONFIG_TINYUSB_CDC_ENABLED is not set
 CONFIG_TINYUSB_HID_COUNT=1
 CONFIG_LWIP_DHCP_GET_NTP_SRV=y
 
@@ -82,6 +82,9 @@ CONFIG_SPIRAM_MODE_OCT=y
 CONFIG_SPIRAM_SPEED_80M=y
 CONFIG_SPIRAM_USE_MALLOC=y
 CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=4096
+# Wi-Fi and LWIP buffers in PSRAM: the first burst of the SignalK stream took internal RAM down to 748 bytes (boot log
+# 2026-11-23, docs/plans/internal-ram-dip.md), below the 12 KB at which espOS reboots.
+CONFIG_SPIRAM_TRY_ALLOCATE_WIFI_LWIP=y
 # LVGL takes its heap from malloc (so it can use PSRAM) instead of a fixed 64 KB internal pool, and does not
 # compile its example code.
 CONFIG_LV_USE_CUSTOM_MALLOC=y

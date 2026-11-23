@@ -8,6 +8,8 @@
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/idf_additions.h"
+#include "esp_heap_caps.h"
 #include "freertos/task.h"
 #include "lv_port.h"
 #include "marine_ui.h"
@@ -59,6 +61,6 @@ static void input_task(void *arg)
 
 void input_init(void)
 {
-    xTaskCreate(input_task, "input", 6144, NULL, 6, NULL);
+    xTaskCreateWithCaps(input_task, "input", 6144, NULL, 6, NULL, MALLOC_CAP_SPIRAM); /* stack in PSRAM: internal RAM is the scarce resource */
     ESP_LOGI(TAG, "input task up");
 }

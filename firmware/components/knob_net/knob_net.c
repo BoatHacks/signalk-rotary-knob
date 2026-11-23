@@ -9,6 +9,8 @@
 #include "espos_sk.h"
 #include "espos_wifi.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/idf_additions.h"
+#include "esp_heap_caps.h"
 #include "freertos/portmacro.h"
 #include "freertos/task.h"
 
@@ -112,5 +114,5 @@ void knob_net_get(knob_net_status_t *out)
 
 void knob_net_start(void)
 {
-    xTaskCreate(poll_task, "knob_net", 4096, NULL, 2, NULL);
+    xTaskCreateWithCaps(poll_task, "knob_net", 4096, NULL, 2, NULL, MALLOC_CAP_SPIRAM); /* stack in PSRAM: internal RAM is the scarce resource */
 }
