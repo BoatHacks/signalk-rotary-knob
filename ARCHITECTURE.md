@@ -114,8 +114,10 @@ Backlight level (`ACTIVE` 60 %, `DIM` 10 % defaults, configurable), idle timer f
 (`MARINE_ACT_ALARM_LED_PULSE` / `_SLOW_PULSE`, state colours, turn feedback, off in night mode) on a small timer task.
 
 ### 2.8 knob_usb and knob_hid
-TinyUSB composite (esp_tinyusb 2.x): CDC for logs and HID. `knob_hid` turns `MARINE_ACT_HID_TURN/PRESS/NEXT_PROFILE` into
-reports for the selected profile (chartplotter, media, navigation keys). Wi-Fi and the model keep running in HID mode so alarms
+TinyUSB composite (esp_tinyusb 2.x): CDC for logs and one HID interface with three reports (keyboard, mouse, consumer control).
+`knob_hid` turns `MARINE_ACT_HID_TURN/PRESS/NEXT_PROFILE` into reports for the selected profile: chartplotter (mouse wheel and
+left button), media (volume up and down, push is mute), navigation keys (left and right arrows, push is Enter). Reports go through a
+small queue and task, only while a host has enumerated the knob. Written 2026-11-23, compiled, **not tested against a host yet**. Wi-Fi and the model keep running in HID mode so alarms
 still reach screen and LEDs. `usb_host_enumerated` feeds the snapshot, and the HID entry in the mode ring appears only while a
 host has enumerated the knob. The 1200 baud open on the CDC port reboots into the ROM download mode for reflashing
 (verified in the spike).

@@ -15,6 +15,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
+#include "knob_hid.h"
 #include "knob_net.h"
 #include "knob_power.h"
 
@@ -216,7 +217,10 @@ static void handle_action(const marine_ui_action_t *a)
     case MARINE_ACT_ALARM_LED_PULSE: knob_power_led_alarm(a->value ? KNOB_LED_ALARM_FAST : KNOB_LED_ALARM_OFF); break;
     case MARINE_ACT_ALARM_LED_SLOW_PULSE: knob_power_led_alarm(a->value ? KNOB_LED_ALARM_SLOW : KNOB_LED_ALARM_OFF); break;
     case MARINE_ACT_SYS_FACTORY_RESET: ESP_LOGW(TAG, "factory reset requested (not wired yet)"); break;
-    default: break; /* HID actions: knob_hid does not exist yet */
+    case MARINE_ACT_HID_TURN: knob_hid_turn((int)a->value); break;
+    case MARINE_ACT_HID_PRESS: knob_hid_press(); break;
+    case MARINE_ACT_HID_NEXT_PROFILE: knob_hid_next_profile(); break;
+    default: break;
     }
 }
 
@@ -243,6 +247,7 @@ void knob_actions_start(const knob_cfg_t *cfg, const knob_actions_hooks_t *hooks
     s_cfg = cfg;
     s_hooks = hooks;
     s_q = xQueueCreate(16, sizeof(marine_ui_action_t));
+    knob_hid_start();
     xTaskCreate(worker_task, "skwork", 8192, NULL, 3, NULL);
 }
 

@@ -23,7 +23,13 @@ enum { STR_LANG = 0, STR_MANUF, STR_PRODUCT, STR_SERIAL, STR_CDC, STR_HID };
 #define EPNUM_CDC_IN    0x82
 #define EPNUM_HID       0x83
 
-static const uint8_t s_hid_report[] = { TUD_HID_REPORT_DESC_CONSUMER() };
+/* One HID interface with three reports: keyboard (arrow keys, enter), mouse (wheel and a button) and consumer control (volume,
+ * mute). knob_hid picks the one the selected profile needs. */
+static const uint8_t s_hid_report[] = {
+    TUD_HID_REPORT_DESC_KEYBOARD(HID_REPORT_ID(USB_HID_RID_KEYBOARD)),
+    TUD_HID_REPORT_DESC_MOUSE(HID_REPORT_ID(USB_HID_RID_MOUSE)),
+    TUD_HID_REPORT_DESC_CONSUMER(HID_REPORT_ID(USB_HID_RID_CONSUMER)),
+};
 
 #define CONFIG_TOTAL_LEN (TUD_CONFIG_DESC_LEN + TUD_CDC_DESC_LEN + TUD_HID_DESC_LEN)
 

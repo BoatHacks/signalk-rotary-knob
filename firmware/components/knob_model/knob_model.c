@@ -16,6 +16,7 @@
 #include "freertos/task.h"
 #include "knob_actions.h"
 #include "knob_config.h"
+#include "knob_hid.h"
 #include "knob_logic.h"
 #include "knob_net.h"
 #include "knob_power.h"
@@ -343,7 +344,7 @@ static void build_snapshot(marine_ui_snapshot_t *s, uint32_t now)
     s->dimmer_timeout_ms = 0;
 
     s->usb_host_enumerated = usb_dev_mounted();
-    s->hid_profile = HID_PROFILE_CHARTPLOTTER;
+    s->hid_profile = knob_hid_profile();
     if (!s->device_name[0]) strncpy(s->device_name, ns.hostname, sizeof(s->device_name) - 1);
 }
 
