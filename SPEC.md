@@ -44,6 +44,12 @@ own settings page. A plugin may be added later (section 6.1).
 - A stale connection must be visible. If the knob has no live link, controls are disabled and the screen
   says so. It must never show old autopilot or anchor data as if it were current.
 - Fail safe: losing the knob (unplugged, Wi-Fi gone) never changes autopilot or anchor state.
+- Allow control: autopilot and anchor commands only leave the knob while the stored per-knob setting **allow control** is on.
+  It is off on a fresh knob and after a factory reset, and stays as set across reboots. It is changed on the web settings page,
+  through the config API, or on the knob's settings screen (off to on needs a confirm turn). The serial command `l` flips it
+  for the running session only, as a bench override. Every change is logged with its source. A refused command shows the
+  refusal screen (`CONTROL IS OFF`, `NOTHING WAS CHANGED`) on the autopilot and the anchor screen alike. A knob with it off is
+  a view-only knob.
 
 ## 3. State / Lifecycle Model
 
@@ -230,6 +236,24 @@ Everything else is ephemeral.
 - **Licence Apache-2.0.** Config export/import as JSON is planned after the MVP.
 - **Configurable HID profile, default dial.**
 - **Looser boot targets (4 s / 10 s)** because the device is always on, not cold-booted per use.
+- **Config API is espOS's own** (decided 2026-11-23, #3). `GET` and `PUT /api/v1/config?ns=knob` with the API key, validated
+  against the descriptor, partial updates, `restart_required` in the reply. The whole-device export (secrets left out) is the
+  backup and restore format. The knob adds live reload, `GET`/`PUT /api/v1/knob/mode` and a read-only `GET /api/v1/knob/status`.
+- **Allow control is a stored per-knob setting** (decided 2026-11-23, #3 and #5, replaces the bench latch "live control", which
+  was off at every boot and only switched by the serial command `l`). Config key `knob.allow_control`, default off. It can be
+  switched on and off through the config API with the API key. When it goes on from the web page or the API, the knob shows
+  a short `CONTROL ON` notice. There is no permanent indicator: the refusal screen says when it is off.
+- **Demo mode** (decided 2026-11-23, #4): simulated data, no SignalK client, Wi-Fi and the settings page stay up. Stored in the
+  config (survives a reboot), off by default, cleared by a factory reset.
+- **VOLUME mode drives `signalk-jukebox`** (decided 2026-11-23, #6). Master volume and zone volumes through SignalK `PUT`
+  (ratio), play and pause through the plugin's control paths, zone names from its REST API. Knob: turn 2 %, press play or
+  pause, hold next zone. The touch screen is a small player (previous, next, play or pause, zone), the outer arc is display
+  only. No allow control needed.
+- **Autopilot wind and route modes, tack from the knob** (decided 2026-11-23, #7). Modes are the provider's states, changed
+  from a long-press dialog (`STANDBY` first and focused, then the other modes, tack port and starboard, cancel). Tack needs a
+  confirm turn. Engage always sends `PUT state auto`, never `POST engage`, because the provider's engage resumes the last
+  state. Wind target changes wait for an upstream fix to `signalk-autopilot`, until then wind mode is display only.
+- **The manual is `docs/manual.md`** (decided 2026-11-23, #2), linked from the README and the settings page.
 
 ## 13. Open Questions
 
@@ -252,8 +276,8 @@ Everything else is ephemeral.
    to the token machine). Adapters use it from the actions task only, it blocks.
 9. Which permission does the device token get from the access request, and is it enough for `PUT` and the autopilot v2 and
    anchor alarm calls on a server with security on?
-10. Config backup and restore: can the espOS settings page export and import a knob's config, so a replaced knob or a second
-    knob does not need re-entering everything?
+10. RESOLVED 2026-11-23: config backup and restore is espOS's `GET` and `PUT /api/v1/config` (whole device, secrets left out,
+    versioned per namespace). See section 12 and docs/plans/issue-3-rest-api.md.
 11. Staleness: which of the boat's paths carry `meta.timeout`, and does the server enforce it (the signalk-server stale-data
     work marks timed-out paths)? How does the knob read the meta (REST `.../meta` or `meta` deltas) and compute age against the
     server's clock when the server has no RTC?
@@ -283,5 +307,8 @@ through the knob. Answers for questions 1, 2, 3, 9 and 11:
   real alarm.
 - **`meta.timeout` (11):** none of the paths the knob needs (headings, switches, mode, GNSS) carries `meta.timeout`. Only the
   espOS device health paths do (25 s). So the per-path defaults in ARCHITECTURE.md section 3.1 are what applies.
+- **Pilot wiring (added later on 2026-11-23):** the pilot is a Raymarine SeaTalk 1 unit and is not wired to the server yet. The
+  `raymarineST` provider emits its datagrams on `seatalkOut`, which no data connection consumes, and no NMEA 0183 output
+  sends a route to the pilot. Autopilot commands therefore reach no pilot until that is set up (docs/plans/issue-7-autopilot-modes.md).
 - **Not on this boat:** no `environment.depth.*`, no steering paths. The depth and rudder telemetry on the autopilot screen
   will show `---` unless a source is added.

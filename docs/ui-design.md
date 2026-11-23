@@ -35,6 +35,8 @@ switcher, scaled to the number of visible modes (and the position text, for exam
 
 The HID mode is listed only while a USB host has enumerated the knob (section 3.4). Without a host it is hidden from the ring.
 
+The last slot is **Settings** (gear icon, section 3.5), hidden while an alarm is active.
+
 ## 3. Modes
 
 ### 3.1 Autopilot
@@ -46,13 +48,33 @@ knob's config **(verify)**.
 | State | Turn | Single press | Long press |
 |---|---|---|---|
 | Standby | Nothing (or scroll the mode, see open items) | Nothing | Start engage: prompt, then confirm turn |
-| Engaged | Change target by the current step (1 or 10 degrees) | Toggle step 1 / 10, shown on screen | Go to standby, no confirm (dropping to manual is the safe direction) |
+| Engaged | Change target by the current step (1 or 10 degrees) | Toggle step 1 / 10, shown on screen | Open the pilot dialog with `STANDBY` first and focused, so long press and one press is standby (decided 2026-11-23 with #7, replaces the direct standby). The dialog also lists the other pilot modes and tack, see docs/plans/issue-7-autopilot-modes.md |
 
 - Engage is a long press followed by a confirm turn, as in SPEC. The confirm turn direction and timeout (suggested: one click
   clockwise within 5 s) are to be fixed when building.
 - Target changes are sent after a short pause (suggested 400 ms) so a run of clicks is one request. The displayed target is the
   server's value, with the pending value drawn as a preview until it is confirmed.
 - No local "sync CTS to heading on engage". The server's autopilot API decides the target.
+- With allow control off (SPEC section 2) an engage, standby or target change is not sent. The screen shows the same refusal
+  as the anchor (section 3.2): red cross, `CONTROL IS OFF`, `NOTHING WAS CHANGED`, a press dismisses it. Decided 2026-11-23,
+  replaces dropping the command silently.
+
+#### Wind and route (agreed 2026-11-23 from mockups, #7)
+
+The pilot's other states, chosen from the pilot dialog while engaged (docs/plans/issue-7-autopilot-modes.md). Engage from
+standby always engages compass.
+
+- **Pilot dialog** (long press while engaged): top arc `PILOT · <current mode>`, lines `STANDBY` (first, focused, amber pill),
+  the other modes the pilot lists (`COMPASS`, `WIND`, `ROUTE`), `TACK PORT` and `TACK STARBOARD` (compass and wind only),
+  `CANCEL` muted. Turn chooses, one press confirms. A tack line then asks for a confirm turn towards the tack side within 5 s.
+- **Wind:** top arc `WIND · AWA`, apparent wind angle large with `P` or `S` (`118° P`), `TGT 120° P · 2° off` in amber under it,
+  heading small below. On the rim: the red lubber mark, a cyan line from the centre for the AWA and an amber dot for the target.
+  Turn adjusts the target by the step once the provider supports it, until then the bottom arc reads `ADJUST ON PILOT` and the
+  turn does nothing.
+- **Route:** top arc `ROUTE · TO <waypoint name>`, bearing and distance to it, XTE large (`0.08 nm`) with `steer right` or
+  `steer left`, a steer bar like the rudder bar (fill from the centre towards the side to steer), heading and `HOLD: PILOT` on
+  the bottom arc. Turn does nothing.
+- Curved text on the bottom arc is concentric with the rim, like all curved labels (section 8).
 
 ### 3.2 Anchor
 
@@ -79,7 +101,7 @@ Controls:
   one press confirms, a long press or 5 s without input leaves it. A radius turned to but not applied is the one used to drop.
 - After a choice the screen shows what is happening: an amber spinner (`DROPPING...`, `MOVING DROP POINT...`, `RAISING...`,
   `SETTING RADIUS...`) until the server confirms through the data stream, or a red cross with the reason and `NOTHING WAS CHANGED`
-  (`LIVE CONTROL IS OFF`, `NO LINK TO THE SERVER`, `NO POSITION FIX`, `THE SERVER REFUSED IT`, `NOT CONFIRMED` after 8 s). A press
+  (`CONTROL IS OFF`, `NO LINK TO THE SERVER`, `NO POSITION FIX`, `THE SERVER REFUSED IT`, `NOT CONFIRMED` after 8 s). A press
   dismisses it. The firmware reports the result in the snapshot (`action_result`, `action_result_seq`).
 - Alarm acknowledge: see section 5.
 
@@ -128,6 +150,58 @@ Look: tick ring, no gauge arc. A green `USB HID CONNECTED` label curves along th
 live action line shows the last action (`ZOOM IN (+)`) and `PRESS: ENTER`, and `HOLD: PROFILE` curves along the bottom. Without
 a host, everything greys out and the labels read `USB DISCONNECTED`, `NO USB HOST`, `SIGNALK LINK STILL UP` and
 `2x PRESS: MODES`. A later option is to show a configured SignalK path on the HID screen (open item 11).
+
+### 3.5 Settings
+
+Agreed 2026-11-23 from a mockup (#5, docs/plans/issue-5-settings-screen.md). Opened from the last slot of the mode ring, left
+with a double press. Only what a skipper changes at the helm, everything else stays on the web settings page.
+
+Look:
+- **List:** the focused item in a pill in the middle (name, value in the primary colour), the item before and after it in muted
+  text above and below, `SETTINGS · n OF m` on the top arc, `PRESS: EDIT · 2x: BACK` on the bottom arc.
+- **Editing:** the item name on the top arc, the new value large in amber on a 270 degree amber arc, `was 80 %` under it,
+  `PRESS: STORE · 2x: CANCEL` on the bottom arc. On/off and choice items show the word instead of the arc.
+- **Confirm turn** (allow control, off to on): cyan countdown arc, `Autopilot and anchor`, `TURN RIGHT`, `to allow`,
+  `5 s · ANY PRESS CANCELS`.
+- Night: the same layout in the red palette.
+
+| Input | List | Editing |
+|---|---|---|
+| Turn | Move | Change the value |
+| Single press | Edit (or open a read-only page) | Store |
+| Double press | Leave settings | Cancel the edit |
+| Long press | Not used | Not used |
+
+Items, in order: active brightness, dim after, dim level, off after, night mode (server, day, night), LEDs (on or off, all
+modes), heading reference (true or magnetic), HID profile, allow control, demo mode, setup access point, device info,
+SignalK, reset setup.
+
+- **Allow control:** off to on is a press and then one click right within 5 s. On to off is one press.
+- **LEDs off** turns off every LED in every mode, the alarm flash included: an alarm then shows on the screen only.
+- **Setup access point:** opens the espOS setup AP next to the current Wi-Fi so a phone reaches the settings page, nothing is
+  cleared. It closes after 10 minutes or when the item is left. It stays shut if the AP is disabled on the web page.
+- **Device info** and **SignalK** are read-only pages: firmware, Wi-Fi network and signal, IP, free RAM, uptime; server, link
+  state, token state, allow control.
+- **Reset setup** keeps the 5 s hold-to-confirm (section 4, boot screens).
+- Nothing here changes autopilot or anchor state or acknowledges an alarm. An alarm takes over the screen as everywhere.
+
+### 3.6 Volume
+
+Agreed 2026-11-23 from a mockup (#6, docs/plans/issue-6-volume-mode.md). Drives the `signalk-jukebox` plugin. Allow control is
+not needed.
+
+| Input | Meaning |
+|---|---|
+| Turn | Volume of the selected target, 2 % per click, sent after a 0.4 s pause |
+| Single press | Play or pause |
+| Long press | Next target: Master, then each zone |
+| Touch | Previous (left), next (right), play or pause (bottom), zone name (top, next target). Nothing in the 50 px centre, nothing on the outer arc |
+
+Look: the outer arc (270 degrees, cyan) shows the volume and nothing else. Inside: the target name at the top (`MASTER` or the
+zone name, with a small marker that it can be tapped), track name and artist under it, the volume number large in the centre,
+previous and next as round buttons left and right, play or pause as a round button at the bottom. A pending volume is drawn in
+amber until the server confirms it. Paused greys the arc. A zone that is not connected shows `ZONE OFFLINE`. A stale volume
+shows the stale overlay (`NO VOLUME`).
 
 ## 4. Link state and stale handling
 
@@ -211,7 +285,8 @@ palette.
 
 ## 7. LEDs
 
-Priority from highest: alarm, stale, state colour, turn feedback.
+Priority from highest: alarm, stale, state colour, turn feedback. Above all of them, the **LEDs off** setting (section 3.5)
+turns every LED off, the alarm included.
 
 - Alarm: all five red, flashing.
 - Stale: slow amber pulse.

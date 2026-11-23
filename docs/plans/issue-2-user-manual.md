@@ -18,14 +18,19 @@ photos and screenshots once the screens are checked on the panel.
 ## Test strategy
 Someone who has not used the knob sets it up and uses each mode from the manual alone.
 
+## Decisions
+- The manual lives in `docs/manual.md`, linked from the README and from the knob's settings page (decided 2026-11-23). No PDF
+  and no separate docs site for now.
+
 ## Open questions
-- Where the manual lives for users who never open the repo (a page in the BoatHacks docs, a PDF, the README).
+None.
 
 ## Steps
 - [ ] Setup section with the API key, after the hardening plan.
 - [ ] Autopilot and anchor sections, after the live control trials.
 - [ ] Settings screen and demo mode, after #5 and #4.
 - [ ] Screenshots and photos.
+- [ ] README and settings page link to the manual.
 - [ ] A read-through by someone new.
 
 ## Files

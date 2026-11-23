@@ -6,7 +6,7 @@ bench work, showing the knob away from the boat, and the manual's screenshots.
 
 ## Relevant SPEC / ARCHITECTURE sections
 - ARCHITECTURE.md section 2 (UI contract: snapshot in, actions out), 2.5 (knob_model).
-- SPEC section 2 (nothing leaves the device without live control).
+- SPEC section 2 (nothing leaves the device without allow control).
 
 ## Approach
 - The old `demo_model.c` from the bring-up is gone. Write a `knob_demo` component that produces the same
@@ -15,15 +15,18 @@ bench work, showing the knob away from the boat, and the manual's screenshots.
   relays that switch at once, voltage and depth that move a little.
 - Actions are applied locally. knob_actions is not started in demo mode, so nothing can reach a server.
 - Marked on screen: a small `DEMO` tag on every mode screen, and a distinct slow LED pattern.
-- Turned on from the settings page (and #3's API). Off by default, cleared by a factory reset. The serial bench commands
-  (`a`, `g`, `c`, `x`, `s`, `n`) work in demo mode too.
+- Turned on from the web settings page, the config API (#3) or the knob's settings screen (#5). Off by default, stored in the config so it survives a reboot, cleared by a
+  factory reset (decided 2026-11-23). The serial bench commands (`a`, `g`, `c`, `x`, `s`, `n`) work in demo mode too.
+- Network in demo mode: Wi-Fi and the settings page stay up so demo can be switched off from a phone, the SignalK client is
+  never started (decided 2026-11-23). With no Wi-Fi set up, the setup portal runs as usual and demo still works.
+- Allow control has no meaning in demo mode and is not needed for demo actions, since none leave the knob.
 
 ## Test strategy
 - Host tests for the simulation's pure parts if they grow logic (anchor swing, heading follow).
 - Hardware checklist: demo on and off from the settings page, no network traffic in demo mode (check the server's access log).
 
 ## Open questions
-- Does demo mode keep Wi-Fi up (for the settings page) or run fully offline?
+None.
 
 ## Steps
 - [ ] `knob_demo` component with the snapshot builder and local actions.
