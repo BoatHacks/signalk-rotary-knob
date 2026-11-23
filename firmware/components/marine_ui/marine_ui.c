@@ -181,12 +181,8 @@ static lv_obj_t *anc_ring_half, *anc_ring_prev, *anc_icon, *anc_trail[3];
 static lv_obj_t *anc_lbl_radius, *anc_lbl_dist, *anc_lbl_hint, *anc_lbl_big;
 static uint8_t *anc_icon_buf = NULL;
 static uint32_t anc_icon_col = 0xFFFFFFFFu;
-static lv_obj_t *anc_canvas_top;
-static lv_obj_t *anc_canvas_bot;
-static uint8_t *anc_buf_top = NULL;
-static uint8_t *anc_buf_bot = NULL;
-static char anc_cache_top[48] = {0};
-static char anc_cache_bot[48] = {0};
+static lv_obj_t *anc_lbl_state;   // top line, straight: RAISED, DROPPED, ANCHOR when stale
+static lv_obj_t *anc_lbl_telem;   // bottom line, straight: depth, voltage, GPS fix
 
 // Dimmer Widgets
 static lv_obj_t *dim_arc;
@@ -987,6 +983,12 @@ static lv_obj_t* anc_make_ring(lv_obj_t *scr, int diameter, bool filled, int bor
     return o;
 }
 
+// Sets text and colour only when they changed: the anchor screen refreshes several times a second.
+static void anc_set_line(lv_obj_t *l, const char *text, lv_color_t col) {
+    if (strcmp(lv_label_get_text(l), text) != 0) lv_label_set_text(l, text);
+    lv_obj_set_style_text_color(l, col, 0);
+}
+
 static lv_obj_t* anc_make_label(lv_obj_t *scr, const lv_font_t *font, int y_off) {
     lv_obj_t *l = lv_label_create(scr);
     lv_label_set_text(l, "");
@@ -1036,8 +1038,13 @@ static lv_obj_t* build_anchor_screen(void) {
     anc_lbl_hint = anc_make_label(scr, &lv_font_montserrat_12, 54);
     anc_lbl_big = anc_make_label(scr, &lv_font_montserrat_28, 38);
 
-    anc_canvas_top = create_curved_canvas(scr, LV_ALIGN_TOP_MID, &anc_buf_top);
-    anc_canvas_bot = create_curved_canvas(scr, LV_ALIGN_BOTTOM_MID, &anc_buf_bot);
+    // State and telemetry in straight lines just outside the watch circle (it spans y 48 to 192), 14 px (owner, 2026-11-23).
+    anc_lbl_state = anc_make_label(scr, &lv_font_montserrat_14, -98);
+    anc_lbl_telem = anc_make_label(scr, &lv_font_montserrat_14, 90);
+    lv_label_set_long_mode(anc_lbl_telem, LV_LABEL_LONG_MODE_DOTS);   // the round edge leaves about 160 px at y 210
+    lv_obj_set_width(anc_lbl_telem, 160);
+    lv_obj_set_style_text_align(anc_lbl_telem, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_align(anc_lbl_telem, LV_ALIGN_CENTER, 0, 90);
     return scr;
 }
 
@@ -1269,8 +1276,8 @@ static void anchor_refresh(void) {
         lv_obj_set_style_border_color(anc_ring, lv_color_hex(0x233856), 0);
         lv_obj_set_style_border_opa(anc_ring, LV_OPA_COVER, 0);
         anc_show(anc_ring_half, false);
-        update_curved_canvas(anc_canvas_top, anc_cache_top, "ANCHOR", false, c_muted());
-        update_curved_canvas(anc_canvas_bot, anc_cache_bot, "---", true, c_muted());
+        anc_set_line(anc_lbl_state, "ANCHOR", c_muted());
+        anc_set_line(anc_lbl_telem, "---", c_muted());
         return;
     }
     anc_show(anc_ring_half, true);
@@ -1363,8 +1370,8 @@ static void anchor_refresh(void) {
     }
 
     anchor_telemetry(bot_buf, sizeof(bot_buf), dbits);
-    update_curved_canvas(anc_canvas_top, anc_cache_top, top_buf, false, top_col);
-    update_curved_canvas(anc_canvas_bot, anc_cache_bot, bot_buf, true, c_muted());
+    anc_set_line(anc_lbl_state, top_buf, top_col);
+    anc_set_line(anc_lbl_telem, bot_buf, c_muted());
 }
 
 // --- Screen 3: Dimmer (Buffered pending value across rapid turns + 7-preset RGBW variant) ---

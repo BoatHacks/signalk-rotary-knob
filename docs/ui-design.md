@@ -81,7 +81,8 @@ standby always engages compass.
 The watch circle is the plot (design B, agreed 2026-11-23). Words: the anchor is **dropped** or **raised**, the autopilot is
 engaged or in standby, the two are never mixed.
 
-Screens (all text flat except the curved state line on top and the curved telemetry line at the bottom):
+Screens (all text flat; the state line on top and the telemetry line at the bottom are straight 14 px labels at y 22 and y 210,
+changed from curved 12 px on 2026-11-23 at the owner's request):
 - **Dropped:** cyan ring (the chosen radius, 72 px), a faint ring at 50 %, the anchor in the centre, the green boat dot at its
   bearing and distance, a short trail of earlier positions, the distance next to the dot, the radius under the top of the ring.
   Top line `DROPPED`.

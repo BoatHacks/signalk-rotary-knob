@@ -91,7 +91,7 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 | Move drop point here | open | | 84adfd6 | |
 | Raise anchor | open | | 84adfd6 | |
 | Radius change while dropped goes to the server | open | | 84adfd6 | |
-| Curved lines no longer clipped at the ends | open | | 84adfd6 | strips are 72 px tall |
+| State and telemetry lines straight and readable (14 px), inside the round edge | open | | | were curved 12 px, changed 2026-11-23 |
 | Drag alarm takes over the screen, LEDs flash, press acknowledges | open | | | bench alarm (`a`) ok on an earlier build, real alarm open |
 | Acknowledge reaches the server's Notifications API | open | | | |
 | GPS lost alarm while dropped | open | | | |
