@@ -1,0 +1,226 @@
+{
+ "namespace": "knob",
+ "version": 1,
+ "title": "Rotary knob",
+ "description": "What the knob controls and how. Changes apply after a restart.",
+ "keys": [
+  {
+   "name": "autopilot_id",
+   "type": "string",
+   "default": "raymarineST",
+   "maxLength": 31,
+   "title": "Autopilot id",
+   "description": "The autopilot in the SignalK v2 autopilot API, the id after /autopilots/ (not _default on this boat).",
+   "restart_required": true
+  },
+  {
+   "name": "heading_source",
+   "type": "string",
+   "default": "true",
+   "enum": [
+    "true",
+    "magnetic"
+   ],
+   "title": "Heading source",
+   "description": "navigation.headingTrue (shown as degrees true) or navigation.headingMagnetic (degrees magnetic).",
+   "restart_required": true
+  },
+  {
+   "name": "anchor_radius",
+   "type": "int",
+   "default": 35,
+   "min": 5,
+   "max": 500,
+   "unit": "m",
+   "title": "Default anchor radius",
+   "description": "The watch circle radius used when arming, until the dial changes it.",
+   "restart_required": true
+  },
+  {
+   "name": "light1_name",
+   "type": "string",
+   "default": "RELAY 1",
+   "maxLength": 15,
+   "pattern": "^[A-Za-z0-9 .-]*$",
+   "title": "Light 1 name",
+   "description": "Shown on the knob, upper case, up to 15 characters.",
+   "restart_required": true
+  },
+  {
+   "name": "light1_path",
+   "type": "string",
+   "default": "electrical.switches.bank.0.1.state",
+   "maxLength": 127,
+   "title": "Light 1 SignalK path",
+   "description": "Empty = channel not used. A relay path takes 1 or 0, a dimmer path a ratio 0 to 1.",
+   "restart_required": true
+  },
+  {
+   "name": "light1_form",
+   "type": "string",
+   "default": "onoff",
+   "enum": [
+    "onoff",
+    "level"
+   ],
+   "title": "Light 1 type",
+   "description": "onoff = a relay (turn right is on, left is off). level = a dimmer.",
+   "restart_required": true
+  },
+  {
+   "name": "light2_name",
+   "type": "string",
+   "default": "",
+   "maxLength": 15,
+   "pattern": "^[A-Za-z0-9 .-]*$",
+   "title": "Light 2 name",
+   "description": "Shown on the knob, upper case, up to 15 characters.",
+   "restart_required": true
+  },
+  {
+   "name": "light2_path",
+   "type": "string",
+   "default": "",
+   "maxLength": 127,
+   "title": "Light 2 SignalK path",
+   "description": "Empty = channel not used. A relay path takes 1 or 0, a dimmer path a ratio 0 to 1.",
+   "restart_required": true
+  },
+  {
+   "name": "light2_form",
+   "type": "string",
+   "default": "onoff",
+   "enum": [
+    "onoff",
+    "level"
+   ],
+   "title": "Light 2 type",
+   "description": "onoff = a relay (turn right is on, left is off). level = a dimmer.",
+   "restart_required": true
+  },
+  {
+   "name": "light3_name",
+   "type": "string",
+   "default": "",
+   "maxLength": 15,
+   "pattern": "^[A-Za-z0-9 .-]*$",
+   "title": "Light 3 name",
+   "description": "Shown on the knob, upper case, up to 15 characters.",
+   "restart_required": true
+  },
+  {
+   "name": "light3_path",
+   "type": "string",
+   "default": "",
+   "maxLength": 127,
+   "title": "Light 3 SignalK path",
+   "description": "Empty = channel not used. A relay path takes 1 or 0, a dimmer path a ratio 0 to 1.",
+   "restart_required": true
+  },
+  {
+   "name": "light3_form",
+   "type": "string",
+   "default": "onoff",
+   "enum": [
+    "onoff",
+    "level"
+   ],
+   "title": "Light 3 type",
+   "description": "onoff = a relay (turn right is on, left is off). level = a dimmer.",
+   "restart_required": true
+  },
+  {
+   "name": "light4_name",
+   "type": "string",
+   "default": "",
+   "maxLength": 15,
+   "pattern": "^[A-Za-z0-9 .-]*$",
+   "title": "Light 4 name",
+   "description": "Shown on the knob, upper case, up to 15 characters.",
+   "restart_required": true
+  },
+  {
+   "name": "light4_path",
+   "type": "string",
+   "default": "",
+   "maxLength": 127,
+   "title": "Light 4 SignalK path",
+   "description": "Empty = channel not used. A relay path takes 1 or 0, a dimmer path a ratio 0 to 1.",
+   "restart_required": true
+  },
+  {
+   "name": "light4_form",
+   "type": "string",
+   "default": "onoff",
+   "enum": [
+    "onoff",
+    "level"
+   ],
+   "title": "Light 4 type",
+   "description": "onoff = a relay (turn right is on, left is off). level = a dimmer.",
+   "restart_required": true
+  },
+  {
+   "name": "light5_name",
+   "type": "string",
+   "default": "",
+   "maxLength": 15,
+   "pattern": "^[A-Za-z0-9 .-]*$",
+   "title": "Light 5 name",
+   "description": "Shown on the knob, upper case, up to 15 characters.",
+   "restart_required": true
+  },
+  {
+   "name": "light5_path",
+   "type": "string",
+   "default": "",
+   "maxLength": 127,
+   "title": "Light 5 SignalK path",
+   "description": "Empty = channel not used. A relay path takes 1 or 0, a dimmer path a ratio 0 to 1.",
+   "restart_required": true
+  },
+  {
+   "name": "light5_form",
+   "type": "string",
+   "default": "onoff",
+   "enum": [
+    "onoff",
+    "level"
+   ],
+   "title": "Light 5 type",
+   "description": "onoff = a relay (turn right is on, left is off). level = a dimmer.",
+   "restart_required": true
+  },
+  {
+   "name": "light6_name",
+   "type": "string",
+   "default": "",
+   "maxLength": 15,
+   "pattern": "^[A-Za-z0-9 .-]*$",
+   "title": "Light 6 name",
+   "description": "Shown on the knob, upper case, up to 15 characters.",
+   "restart_required": true
+  },
+  {
+   "name": "light6_path",
+   "type": "string",
+   "default": "",
+   "maxLength": 127,
+   "title": "Light 6 SignalK path",
+   "description": "Empty = channel not used. A relay path takes 1 or 0, a dimmer path a ratio 0 to 1.",
+   "restart_required": true
+  },
+  {
+   "name": "light6_form",
+   "type": "string",
+   "default": "onoff",
+   "enum": [
+    "onoff",
+    "level"
+   ],
+   "title": "Light 6 type",
+   "description": "onoff = a relay (turn right is on, left is off). level = a dimmer.",
+   "restart_required": true
+  }
+ ]
+}

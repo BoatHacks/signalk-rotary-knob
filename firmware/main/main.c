@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: Apache-2.0
  * SignalK rotary knob firmware (bring-up stage): espOS plus the knob application. See ARCHITECTURE.md section 2.10. */
 #include "board.h"
-#include "demo_model.h"
+#include "knob_model.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "espos.h"
@@ -31,20 +31,21 @@ void app_main(void)
     board_input_init();
     knob_power_init();
     usb_dev_init();
-    usb_dev_set_rx_cb(demo_model_command);
+    usb_dev_set_rx_cb(knob_model_command);
     ESP_LOGI(TAG, "raw first frame done at %lu ms", ms());
 
     lv_port_init();
     lv_port_lock();
-    marine_ui_init(demo_model_action_cb, NULL);
+    marine_ui_init(knob_model_action_cb, NULL);
     lv_port_unlock();
-    demo_model_start();
+    knob_model_start();
     input_init();
     ESP_LOGI(TAG, "marine_ui up at %lu ms", ms());
 
     ESP_ERROR_CHECK(espos_start(NULL));
     ESP_LOGI(TAG, "espos_start returned at %lu ms", ms());
     knob_net_start();
+    knob_model_subscribe();
 
     for (;;) {
         static int n;
@@ -52,14 +53,15 @@ void app_main(void)
         int phase;
         uint32_t loop_age, apply_age;
         lv_port_get_diag(&ld);
-        demo_model_get_diag(&phase, &loop_age, &apply_age);
+        knob_model_get_diag(&phase, &loop_age, &apply_age);
         if ((n++ % 5) == 0) {
             ESP_LOGI(TAG, "heap internal free %u min %u, psram free %u", (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
                      (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL), (unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
-            ESP_LOGI(TAG, "stack headroom bytes: lvgl %u input %u demo %u leds %u, main %u",
+            ESP_LOGI(TAG, "stack headroom bytes: lvgl %u input %u model %u skwork %u leds %u, main %u",
                      (unsigned)uxTaskGetStackHighWaterMark(xTaskGetHandle("lvgl")),
                      (unsigned)uxTaskGetStackHighWaterMark(xTaskGetHandle("input")),
-                     (unsigned)uxTaskGetStackHighWaterMark(xTaskGetHandle("demo")),
+                     (unsigned)uxTaskGetStackHighWaterMark(xTaskGetHandle("model")),
+                     (unsigned)uxTaskGetStackHighWaterMark(xTaskGetHandle("skwork")),
                      (unsigned)uxTaskGetStackHighWaterMark(xTaskGetHandle("leds")),
                      (unsigned)uxTaskGetStackHighWaterMark(NULL));
         }

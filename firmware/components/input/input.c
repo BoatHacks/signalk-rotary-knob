@@ -59,6 +59,6 @@ static void input_task(void *arg)
 
 void input_init(void)
 {
-    xTaskCreate(input_task, "input", 4096, NULL, 6, NULL);
+    xTaskCreate(input_task, "input", 6144, NULL, 6, NULL);
     ESP_LOGI(TAG, "input task up");
 }
