@@ -183,6 +183,7 @@ typedef struct {
     uint8_t boot_progress_pct;   // 0..100
     uint8_t connect_step;        // 0 = Wi-Fi, 1 = Server, 2 = SignalK Link
     char boot_phase[16];         // text in the boot splash status bar, upper case, for example "WI-FI" or "SIGNALK"
+    char heading_ref;            // 'T' for true or 'M' for magnetic, shown after the heading degrees. 0 = no label
 } marine_ui_snapshot_t;
 
 /**
@@ -224,6 +225,13 @@ void marine_ui_tick(uint32_t now_ms);
  * @brief The mode whose screen is currently active (not the mode ring preview). Safe to read without the LVGL lock.
  */
 marine_ui_mode_t marine_ui_get_active_mode(void);
+
+/**
+ * @brief Idle power settings. After dim_after_ms without input the backlight drops to dim_pct. After off_after_ms it goes to
+ *        0 % unless the autopilot is engaged or an alarm is active (0 = never fully off). Defaults: 30 s, 10 %, 10 min.
+ *        Call under the LVGL port lock, or before the first snapshot.
+ */
+void marine_ui_set_power(uint32_t dim_after_ms, uint8_t dim_pct, uint32_t off_after_ms);
 
 #ifdef __cplusplus
 }

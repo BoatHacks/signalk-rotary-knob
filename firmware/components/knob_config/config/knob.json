@@ -37,6 +37,39 @@
    "restart_required": true
   },
   {
+   "name": "dim_after_s",
+   "type": "int",
+   "default": 30,
+   "min": 5,
+   "max": 3600,
+   "unit": "s",
+   "title": "Dim after idle",
+   "description": "Seconds without input before the backlight drops to the dim level.",
+   "restart_required": true
+  },
+  {
+   "name": "dim_level_pct",
+   "type": "int",
+   "default": 10,
+   "min": 1,
+   "max": 100,
+   "unit": "%",
+   "title": "Dim level",
+   "description": "Backlight when dimmed. 10 % can be hard to read in direct sun.",
+   "restart_required": true
+  },
+  {
+   "name": "off_after_min",
+   "type": "int",
+   "default": 10,
+   "min": 0,
+   "max": 240,
+   "unit": "min",
+   "title": "Backlight off after idle",
+   "description": "Minutes of idle before the backlight goes fully off, except while the autopilot is engaged or an alarm is active. 0 = never.",
+   "restart_required": true
+  },
+  {
    "name": "light1_name",
    "type": "string",
    "default": "RELAY 1",

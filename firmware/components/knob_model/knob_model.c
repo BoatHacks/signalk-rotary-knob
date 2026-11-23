@@ -43,6 +43,8 @@ static knob_cfg_t s_cfg;
 #define T_ANCHOR  10000
 
 #define AP_POLL_MS 2000
+#define T_GPS_LOST   30000  /* armed anchor and no position update for this long: GPS lost alarm */
+#define T_BOOT_GRACE 45000  /* no GPS lost alarm in the first seconds after boot */
 
 /* ------------------------------------------------------------------------------------------------------------------
  * State, written by the stream callback and the worker, read by the model task. One short critical section each.
@@ -66,6 +68,9 @@ typedef struct {
     double ap_target_rad;
     uint32_t ap_ms;
     uint32_t last_rx_ms;
+    /* Stale timeouts in ms. Defaults from the T_* constants, replaced by the key's meta.timeout (seconds) when the server
+     * publishes one. 0 = never stale by age. */
+    uint32_t to_heading_true, to_heading_mag, to_anchor;
 } model_t;
 
 static portMUX_TYPE s_mux = portMUX_INITIALIZER_UNLOCKED;
@@ -138,7 +143,20 @@ static bool obj_str(const char *j, const char *key, char *out, size_t n)
 static void on_update(const espos_sk_update_t *u, void *arg)
 {
     (void)arg;
-    if (!u->path || !u->value_json) return; /* meta items are not used */
+    if (!u->path) return;
+    if (u->meta_json) { /* a meta item: only the timeout is used */
+        double t;
+        if (obj_num(u->meta_json, "timeout", &t) && t >= 0) {
+            uint32_t ms_to = (uint32_t)(t * 1000.0);
+            portENTER_CRITICAL(&s_mux);
+            if (!strcmp(u->path, "navigation.headingTrue")) s_m.to_heading_true = ms_to;
+            else if (!strcmp(u->path, "navigation.headingMagnetic")) s_m.to_heading_mag = ms_to;
+            else if (!strncmp(u->path, "navigation.anchor.", 18)) s_m.to_anchor = ms_to;
+            portEXIT_CRITICAL(&s_mux);
+        }
+        return;
+    }
+    if (!u->value_json) return;
     const char *p = u->path, *v = u->value_json;
     uint32_t now = ms_now();
     double d;
@@ -302,17 +320,18 @@ static void build_snapshot(marine_ui_snapshot_t *s, uint32_t now)
     s->last_data_ms = m.last_rx_ms;
 
     /* Heading: true by default, magnetic as the fallback. */
-    bool true_ok = m.heading_true_ms != 0 && !stale_by(now, m.heading_true_ms, T_HEADING);
-    bool mag_ok = m.heading_mag_ms != 0 && !stale_by(now, m.heading_mag_ms, T_HEADING);
+    bool true_ok = m.heading_true_ms != 0 && !stale_by(now, m.heading_true_ms, m.to_heading_true);
+    bool mag_ok = m.heading_mag_ms != 0 && !stale_by(now, m.heading_mag_ms, m.to_heading_mag);
     bool use_true = s_cfg.heading_true ? (true_ok || !mag_ok) : (!mag_ok && true_ok ? true : false);
     double hd = use_true ? m.heading_true : m.heading_mag;
     uint32_t hms = use_true ? m.heading_true_ms : m.heading_mag_ms;
     hd *= RAD2DEG;
     if (hd < 0) hd += 360.0;
     if (hd >= 360.0) hd -= 360.0;
+    s->heading_ref = use_true ? 'T' : 'M';
     s->heading_deg = (float)hd;
     s->heading_updated_ms = hms;
-    s->heading_timeout_ms = T_HEADING;
+    s->heading_timeout_ms = use_true ? m.to_heading_true : m.to_heading_mag;
 
     /* Autopilot: from the REST poll. In standby with no target the dial starts from the current heading. */
     s->ap_engaged = m.ap_known && m.ap_engaged;
@@ -340,12 +359,18 @@ static void build_snapshot(marine_ui_snapshot_t *s, uint32_t now)
     if (br < 0) br += 360.0;
     s->anchor_bearing_deg = (float)br;
     s->anchor_updated_ms = m.anchor_on ? m.anchor_ms : now;
-    s->anchor_timeout_ms = m.anchor_on ? T_ANCHOR : 0;
+    s->anchor_timeout_ms = m.anchor_on ? m.to_anchor : 0;
 
     /* Alarm: the plugin's notification, or an injected one (bench). */
     marine_alarm_type_t alarm = MARINE_ALARM_NONE;
     if (!strcmp(m.alarm_state, "alarm") || !strcmp(m.alarm_state, "emergency")) alarm = MARINE_ALARM_ANCHOR_DRAG;
     if (s_alarm_inject) alarm = (marine_alarm_type_t)s_alarm_inject;
+    /* GPS lost: the anchor watch is armed but the position has gone stale or the fix is gone. Not within the first 45 s after
+     * boot, the subscriptions need a moment. A drag alarm takes precedence. */
+    if (alarm == MARINE_ALARM_NONE && m.anchor_on && now > T_BOOT_GRACE &&
+        (!m.pos_valid || now - m.pos_ms > T_GPS_LOST || (m.gps_known && !m.gps_fix))) {
+        alarm = MARINE_ALARM_GPS_LOST;
+    }
     if (alarm == MARINE_ALARM_NONE) s_ack_latch = false;
     s->active_alarm = alarm;
     s->alarm_acknowledged = alarm != MARINE_ALARM_NONE && s_ack_latch;
@@ -646,6 +671,8 @@ void knob_model_start(void)
 {
     memset(&s_m, 0, sizeof(s_m));
     for (int i = 0; i < 8; i++) s_m.light[i] = -1;
+    s_m.to_heading_true = s_m.to_heading_mag = T_HEADING;
+    s_m.to_anchor = T_ANCHOR;
     strcpy(s_cfg.autopilot_id, "raymarineST"); /* defaults until knob_model_subscribe() loads the settings */
     s_cfg.heading_true = true;
     s_cfg.anchor_radius_m = 35;
@@ -664,6 +691,9 @@ void knob_model_subscribe(void)
     s_cfg = cfg;
     portEXIT_CRITICAL(&s_mux);
     s_radius_pref = s_cfg.anchor_radius_m;
+    lv_port_lock();
+    marine_ui_set_power(cfg.dim_after_ms, cfg.dim_level_pct, cfg.off_after_ms);
+    lv_port_unlock();
     subscribe_all();
     ESP_LOGI(TAG, "subscribed, %d light channel(s), autopilot '%s'", N_LIGHTS, s_cfg.autopilot_id);
 }

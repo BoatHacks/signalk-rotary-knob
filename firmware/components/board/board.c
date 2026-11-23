@@ -196,7 +196,7 @@ bool board_touch_read(uint16_t *x, uint16_t *y)
      * are far outside the 240x240 panel and woke the idle dimmer, so drop anything out of range. */
     if (rx >= BOARD_LCD_W || ry >= BOARD_LCD_H) {
         static uint32_t ghosts;
-        if ((ghosts++ % 20) == 0) ESP_LOGW(TAG, "ignoring out-of-range touch x=%u y=%u (%lu so far)", rx, ry, (unsigned long)ghosts);
+        if ((ghosts++ % 500) == 0) ESP_LOGW(TAG, "ignoring out-of-range touch x=%u y=%u (%lu so far)", rx, ry, (unsigned long)ghosts);
         return false;
     }
     int dx = (int)rx - BOARD_LCD_W / 2, dy = (int)ry - BOARD_LCD_H / 2;

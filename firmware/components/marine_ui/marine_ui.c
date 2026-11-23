@@ -16,6 +16,10 @@
 #define MARINE_IDLE_DIM_TIME_MS         30000U   // 30 s idle -> dim backlight
 #define MARINE_IDLE_DIM_LEVEL_PCT       10U      // 10 % backlight when dimmed
 #define MARINE_IDLE_OFF_TIME_MS         600000U  // 10 min idle -> 0 % backlight (unless AP engaged or Alarm active)
+// The three above are the defaults. The firmware sets the real values from its settings with marine_ui_set_power().
+static uint32_t idle_dim_ms = MARINE_IDLE_DIM_TIME_MS;
+static uint32_t idle_off_ms = MARINE_IDLE_OFF_TIME_MS;   // 0 = never fully off
+static uint8_t idle_dim_pct = (uint8_t)MARINE_IDLE_DIM_LEVEL_PCT;
 #define MARINE_FACTORY_RESET_HOLD_MS    5000U    // 5 s continuous hold to trigger factory reset
 #define MARINE_PENDING_CONFIRM_TIMEOUT  3000U    // 3 s max hold on pending value awaiting server confirm
 
@@ -288,6 +292,10 @@ static float wrap_deg(float d) {
     return d;
 }
 
+// "T" or "M" after the heading degrees, "" when the firmware gives no reference
+static const char *heading_ref_str(void) {
+    return snap.heading_ref == 'T' ? "T" : (snap.heading_ref == 'M' ? "M" : "");
+}
 static lv_color_t c_primary(void) { return snap.night_palette ? COL_NIGHT_RED : COL_CYAN; }
 static lv_color_t c_text(void)    { return snap.night_palette ? COL_NIGHT_RED : COL_TEXT_MAIN; }
 static lv_color_t c_muted(void)   { return snap.night_palette ? COL_NIGHT_DIM : COL_TEXT_MUTED; }
@@ -649,7 +657,7 @@ static bool note_user_activity(bool is_alarm_ack) {
 static void refresh_mode_ring_center_preview(void) {
     char top_b[24], mid_b[24], bot_b[24];
     if (active_mode == MARINE_MODE_AUTOPILOT) {
-        snprintf(top_b, sizeof(top_b), "%03d°", (int)roundf(wrap_deg(snap.heading_deg)));
+        snprintf(top_b, sizeof(top_b), "%03d°%s", (int)roundf(wrap_deg(snap.heading_deg)), heading_ref_str());
         snprintf(mid_b, sizeof(mid_b), "%s", snap.ap_engaged ? "AUTO" : "STANDBY");
         snprintf(bot_b, sizeof(bot_b), "CTS %03d°", (int)roundf(wrap_deg(snap.cts_deg)));
     } else if (active_mode == MARINE_MODE_ANCHOR_WATCH) {
@@ -856,7 +864,7 @@ static void ap_refresh(void) {
     lv_obj_remove_flag(ap_cts_bug, LV_OBJ_FLAG_HIDDEN);
     lv_obj_remove_flag(ap_rudder_fill, LV_OBJ_FLAG_HIDDEN);
 
-    snprintf(buf, sizeof(buf), "%03d°", (int)roundf(wrap_deg(snap.heading_deg)));
+    snprintf(buf, sizeof(buf), "%03d°%s", (int)roundf(wrap_deg(snap.heading_deg)), heading_ref_str());
     lv_label_set_text(ap_lbl_hdg, buf);
     lv_obj_set_style_text_color(ap_lbl_hdg, c_text(), 0);
 
@@ -2172,8 +2180,8 @@ void marine_ui_tick(uint32_t now_ms) {
     uint32_t idle_ms = now_ms - last_input_ms;
     bool keep_awake = snap.ap_engaged || (snap.active_alarm != MARINE_ALARM_NONE);
     uint8_t target_bl = 100;
-    if (idle_ms > MARINE_IDLE_OFF_TIME_MS && !keep_awake) target_bl = 0;
-    else if (idle_ms > MARINE_IDLE_DIM_TIME_MS) target_bl = MARINE_IDLE_DIM_LEVEL_PCT;
+    if (idle_off_ms != 0 && idle_ms > idle_off_ms && !keep_awake) target_bl = 0;
+    else if (idle_ms > idle_dim_ms) target_bl = idle_dim_pct;
 
     if (target_bl != current_backlight_pct) {
         current_backlight_pct = target_bl;
@@ -2183,4 +2191,10 @@ void marine_ui_tick(uint32_t now_ms) {
 
 marine_ui_mode_t marine_ui_get_active_mode(void) {
     return active_mode;
+}
+
+void marine_ui_set_power(uint32_t dim_after_ms, uint8_t dim_pct, uint32_t off_after_ms) {
+    idle_dim_ms = dim_after_ms;
+    idle_dim_pct = dim_pct > 100 ? 100 : dim_pct;
+    idle_off_ms = off_after_ms;
 }

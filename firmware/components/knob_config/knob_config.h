@@ -18,6 +18,9 @@ typedef struct {
     char autopilot_id[32];
     bool heading_true;       /* true: navigation.headingTrue, false: navigation.headingMagnetic */
     uint16_t anchor_radius_m;
+    uint32_t dim_after_ms;   /* idle time before the backlight dims */
+    uint8_t dim_level_pct;
+    uint32_t off_after_ms;   /* idle time before the backlight goes off, 0 = never */
     int n_lights;            /* channels with a non-empty path, compacted to the front of lights[] */
     knob_cfg_light_t lights[KNOB_CFG_MAX_LIGHTS];
 } knob_cfg_t;

@@ -147,7 +147,7 @@ Spike measurements: app_main at 0.33 s, first frame 0.6 s, LVGL up 0.37 s after 
 
 | Snapshot field | SignalK source | Stale default |
 |---|---|---|
-| `heading_deg` | `navigation.headingTrue` or `navigation.headingMagnetic`, chosen on the settings page (default true), rad -> deg. The UI labels the unit `°T` or `°M` accordingly, which needs a heading-reference field added to the snapshot | `meta.timeout` else 5 s |
+| `heading_deg` | `navigation.headingTrue` or `navigation.headingMagnetic`, chosen on the settings page (default true), rad -> deg. The UI labels the unit `°T` or `°M` accordingly (snapshot field `heading_ref`) | `meta.timeout` else 5 s |
 | `ap_engaged`, `cts_deg` | autopilot v2 `state`, `target`, deltas on `steering.autopilot.*` | 5 s |
 | `rudder_deg` | `steering.rudderAngle` | 5 s |
 | `depth_m` | `environment.depth.belowTransducer` | 10 s |

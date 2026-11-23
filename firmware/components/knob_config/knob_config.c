@@ -16,6 +16,9 @@ void knob_config_load(knob_cfg_t *c)
     strcpy(c->autopilot_id, "raymarineST");
     c->heading_true = true;
     c->anchor_radius_m = 35;
+    c->dim_after_ms = 30000;
+    c->dim_level_pct = 10;
+    c->off_after_ms = 600000;
 
     espos_config_get_str(NS, "autopilot_id", c->autopilot_id, sizeof(c->autopilot_id), NULL);
     char hs[12] = "true";
@@ -23,6 +26,11 @@ void knob_config_load(knob_cfg_t *c)
     c->heading_true = strcmp(hs, "magnetic") != 0;
     int32_t r = 35;
     if (espos_config_get_i32(NS, "anchor_radius", &r) == ESP_OK && r >= 5 && r <= 500) c->anchor_radius_m = (uint16_t)r;
+
+    int32_t v = 0;
+    if (espos_config_get_i32(NS, "dim_after_s", &v) == ESP_OK && v >= 5 && v <= 3600) c->dim_after_ms = (uint32_t)v * 1000u;
+    if (espos_config_get_i32(NS, "dim_level_pct", &v) == ESP_OK && v >= 1 && v <= 100) c->dim_level_pct = (uint8_t)v;
+    if (espos_config_get_i32(NS, "off_after_min", &v) == ESP_OK && v >= 0 && v <= 240) c->off_after_ms = (uint32_t)v * 60000u;
 
     for (int i = 1; i <= KNOB_CFG_MAX_LIGHTS; i++) {
         char key[20], path[128] = "", name[16] = "", form[8] = "onoff";
