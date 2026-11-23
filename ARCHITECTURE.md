@@ -313,7 +313,8 @@ espOS components used selectively (`espos_sk`, `espos_config`, `espos_net`) unde
 5. USB-HID mode, config export/import, hardening items.
 
 Risks:
-- `marine_ui` has never been compiled or run on this panel (curved text, icon arcs, frame time of the tick ring). Plan a
+- `marine_ui` has never been compiled or run on this panel (icon arcs, frame time of the tick ring; curved text was dropped
+  2026-11-23). Plan a
   bring-up phase with the demo snapshot before wiring SignalK.
 - espOS is pre-1.0. Pin versions, keep `dependencies.lock`, no forks.
 - Setup AP and REST API are open until configured (section 6).

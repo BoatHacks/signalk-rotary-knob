@@ -66,17 +66,16 @@ knob's config **(verify)**.
 The pilot's other states, chosen from the pilot dialog while engaged (docs/plans/issue-7-autopilot-modes.md). Engage from
 standby always engages compass.
 
-- **Pilot dialog** (long press while engaged): top arc `PILOT · <current mode>`, lines `STANDBY` (first, focused, amber pill),
+- **Pilot dialog** (long press while engaged): top line `PILOT · <current mode>`, lines `STANDBY` (first, focused, amber pill),
   the other modes the pilot lists (`COMPASS`, `WIND`, `ROUTE`), `TACK PORT` and `TACK STARBOARD` (compass and wind only),
   `CANCEL` muted. Turn chooses, one press confirms. A tack line then asks for a confirm turn towards the tack side within 5 s.
-- **Wind:** top arc `WIND · AWA`, apparent wind angle large with `P` or `S` (`118° P`), `TGT 120° P · 2° off` in amber under it,
+- **Wind:** top line `WIND · AWA`, apparent wind angle large with `P` or `S` (`118° P`), `TGT 120° P · 2° off` in amber under it,
   heading small below. On the rim: the red lubber mark, a cyan line from the centre for the AWA and an amber dot for the target.
-  Turn adjusts the target by the step once the provider supports it, until then the bottom arc reads `ADJUST ON PILOT` and the
+  Turn adjusts the target by the step once the provider supports it, until then the bottom line reads `ADJUST ON PILOT` and the
   turn does nothing.
-- **Route:** top arc `ROUTE · TO <waypoint name>`, bearing and distance to it, XTE large (`0.08 nm`) with `steer right` or
+- **Route:** top line `ROUTE · TO <waypoint name>`, bearing and distance to it, XTE large (`0.08 nm`) with `steer right` or
   `steer left`, a steer bar like the rudder bar (fill from the centre towards the side to steer), heading and `HOLD: PILOT` on
-  the bottom arc. Turn does nothing.
-- Curved text on the bottom arc is concentric with the rim, like all curved labels (section 8).
+  the bottom line. Turn does nothing.
 - Built 2026-11-23 as variants of the compass screen's labels: the header line says `WIND · AWA` or `ROUTE · TO <waypoint>`,
   the large number is the AWA or the XTE, the pill says the mode, the route's steer bar is the rudder bar. The waypoint shows as
   `WAYPOINT` until a name source is found. Engaged compass says `COMPASS · STEP n°` in the pill.
@@ -93,7 +92,7 @@ The watch circle is the plot (design B, agreed 2026-11-23). Words: the anchor is
 engaged or in standby, the two are never mixed.
 
 Screens (all text flat; the state line on top (20 px, y 26) and the telemetry line at the bottom (14 px, y 210) are straight labels,
-changed from curved 12 px on 2026-11-23 at the owner's request):
+changed from curved 12 px on 2026-11-23 at the owner's request, section 8):
 - **Dropped:** cyan ring (the chosen radius, 72 px), a faint ring at 50 %, the anchor in the centre, the green boat dot at its
   bearing and distance, a short trail of earlier positions, the distance next to the dot, the radius under the top of the ring.
   Top line `DROPPED`.
@@ -134,8 +133,8 @@ next channel and long press toggles, as for dimmers. The first-click rule below 
   as usual. An off group with no remembered level (0 %) takes the turn as a normal level change.
 - The ring shows the level, a row of dots shows which group is selected. Touch may also set the level.
 - Look: tick ring in light grey, an amber level arc around the ring, large level numeral in the centre, the group name in a
-  pill, a dot row with "GROUP n OF m", curved hint text along the bottom (`TURN: LEVEL · PRESS: NEXT`).
-- Group off: the level arc and numeral are replaced by a grey `OFF`, the screen shows the last level and the curved hint
+  pill, a dot row with "GROUP n OF m", the hint line along the bottom (`TURN: LEVEL · PRESS: NEXT`).
+- Group off: the level arc and numeral are replaced by a grey `OFF`, the screen shows the last level and the hint
   `HOLD TO TURN ON`.
 
 ### 3.4 USB-HID
@@ -158,8 +157,8 @@ Availability:
 - Boot: the knob boots into HID (when HID was the last mode) only if a USB host is on the cable within the boot window, the
   first 10 s after power on, and the mode has not been changed meanwhile. Otherwise it boots to the last non-HID mode.
 
-Look: tick ring, no gauge arc. A green `USB HID CONNECTED` label curves along the top, the profile name is in the centre, the
-live action line shows the last action (`ZOOM IN (+)`) and `PRESS: ENTER`, and `HOLD: PROFILE` curves along the bottom. Without
+Look: tick ring, no gauge arc. A green `USB HID CONNECTED` label sits at the top, the profile name is in the centre, the
+live action line shows the last action (`ZOOM IN (+)`) and `PRESS: ENTER`, and `HOLD: PROFILE` at the bottom. Without
 a host, everything greys out and the labels read `USB DISCONNECTED`, `NO USB HOST`, `SIGNALK LINK STILL UP` and
 `2x PRESS: MODES`. A later option is to show a configured SignalK path on the HID screen (open item 11).
 
@@ -170,9 +169,9 @@ with a double press. Only what a skipper changes at the helm, everything else st
 
 Look:
 - **List:** the focused item in a pill in the middle (name, value in the primary colour), the item before and after it in muted
-  text above and below, `SETTINGS · n OF m` on the top arc, `PRESS: EDIT · 2x: BACK` on the bottom arc.
-- **Editing:** the item name on the top arc, the new value large in amber on a 270 degree amber arc, `was 80 %` under it,
-  `PRESS: STORE · 2x: CANCEL` on the bottom arc. On/off and choice items show the word instead of the arc.
+  text above and below, `SETTINGS 3/14` on the top line, `PRESS EDIT · 2x BACK` on the bottom line (straight, 12 px).
+- **Editing:** the item name on the top line, the new value large in amber on a 270 degree amber arc, `was 80 %` under it,
+  `PRESS STORE · 2x UNDO` on the bottom line. On/off and choice items show the word instead of the arc.
 - **Confirm turn** (allow control, off to on): cyan countdown arc, `Autopilot and anchor`, `TURN RIGHT`, `to allow`,
   `5 s · ANY PRESS CANCELS`.
 - Night: the same layout in the red palette.
@@ -242,8 +241,8 @@ States follow SPEC section 3.1. In STALE (and while connecting):
 
 ### Demo mode (#4)
 
-The whole UI runs on a simulated boat. A small `DEMO` (12 px, purple, red at night) sits at the bottom edge, below the curved
-bottom lines, on every screen, and the first LED pulses slowly in purple whenever no other LED pattern shows. Everything else
+The whole UI runs on a simulated boat. A small `DEMO` (12 px, purple, red at night) sits at the bottom edge, below the bottom
+lines, on every screen, and the first LED pulses slowly in purple whenever no other LED pattern shows. Everything else
 looks and works as on the boat, alarms included: setting the anchor radius below the boat's swing raises the drag alarm.
 
 ### CONTROL ON notice (agreed 2026-11-23, #3)
@@ -282,16 +281,16 @@ phrases it as how long a consumer waits for a new value, so we use the 1.5.0 mea
 
 ### Boot, setup and pairing screens
 
-Same style as the mode screens (dimmed tick ring, bold type), the status on top straight in 20 px (section 8), the line at the
-bottom curved. Implemented in `ui/marine_ui_v5` as the system
+Same style as the mode screens (dimmed tick ring, bold type), the status on top straight in 20 px, the line at the
+bottom straight in 12 px (section 8), hidden on the splash, which shows its phase in its own status pill. Implemented in `ui/marine_ui_v5` as the system
 screens.
 
 | Screen | Shows |
 |---|---|
 | Boot | The splash picture (firmware/assets/splash.png) with a live progress bar and a status bar under it that names the current phase in text: `STARTING`, `WI-FI`, `SIGNALK`, `TOKEN`. It stays until the token is verified (about 6 s on the boat), then the last mode opens with a short `CONNECTING` overlay until the data arrives. Later drops never bring the splash back, they show `LINK LOST` over the mode. The last mode is the one last chosen on the mode ring (USB-HID only with a host, see section 3.4). The portal, approval and cannot-connect screens below replace it when they apply. No input needed |
-| Wi-Fi setup portal | `JOIN WI-FI`, the setup network name in a pill (an example, the real name comes from espOS), `THEN OPEN THE SETUP PAGE`, curved `SETUP ONLY`. Wi-Fi only, no pairing code |
+| Wi-Fi setup portal | `JOIN WI-FI`, the setup network name in a pill (an example, the real name comes from espOS), `THEN OPEN THE SETUP PAGE`, `SETUP ONLY` at the bottom. Wi-Fi only, no pairing code |
 | Connecting | Three steps with drawn status marks: Wi-Fi, server, link (done = green disc with a check, current = cyan ring, pending = grey ring) |
-| Waiting for approval | Large straight text in the middle of the screen (28 px, three lines): `PAIRING`, `WAITING FOR`, `APPROVAL`. No curved labels. Under it, small: `APPROVE IN SIGNALK ADMIN UI` and the device name the request shows there. First connect only |
+| Waiting for approval | Large straight text in the middle of the screen (28 px, three lines): `PAIRING`, `WAITING FOR`, `APPROVAL`. No status lines. Under it, small: `APPROVE IN SIGNALK ADMIN UI` and the device name the request shows there. First connect only |
 | Cannot connect | `NO SERVER`, `WI-FI OK`, retrying, controls off. This is the state before the first link, not the stale overlay |
 | Reset setup | Red progress arc that fills over the full 5 s hold, release to cancel, `CLEARS WI-FI AND PAIRING`. The hold is made at power-up (proposed) |
 
@@ -314,7 +313,7 @@ palette.
 - Other alarm types, if added later, use the same takeover until a lighter treatment is agreed.
 - Takeover layout: `DRAGGING` or `FIX LOST` straight on top (20 px, red), the geofence with the anchor and the boat dot, the
   warning mark, `DRAG ALARM!` or `GPS LOST!` (28 px), the distance and radius under it for a drag alarm (`14 m OF 35 m`, 14 px),
-  `PRESS TO ACKNOWLEDGE`, and the curved telemetry line at the bottom.
+  `PRESS TO ACKNOWLEDGE`, and the telemetry line at the bottom (only what the boat publishes, `NO GPS FIX` for GPS lost).
 
 ## 6. Power, dimming and wake
 
@@ -361,15 +360,14 @@ Elements:
 - **Autopilot:** CTS bug on the perimeter, red lubber mark at the top, large bold heading, status pill, bold CTS, delta line,
   rudder bar with a red centre tick.
 - **Anchor:** the watch circle as a plot: cyan ring when dropped, boat dot with a trail, an amber ring for the radius preview (section 3.2).
-- **Curved text, static and dynamic:** labels follow the ring: a label on the top arc (for example `HEADING (HDG)`,
-  `SELECT MODE`) and one on the bottom arc (data line such as `6.4 m · 12.8 V · GPS 3D`, hints such as `PRESS TO APPLY`).
-  **Dynamic values are drawn curved too**, they are not limited to fixed labels. The large centre numerals stay flat and
-  horizontal.
-- **Status line on top, straight** (decided 2026-11-23, the owner found the curved 12 px status hard to read): the state at the
-  top of the anchor screen, the alarm screen and the boot and setup screens is a straight 20 px label at y 30, at most about
-  130 px wide (the round edge), so the words are short: `RAISED`, `DROPPED`, `SET RADIUS`, `DRAGGING`, `FIX LOST`, `HELM DIAL`,
-  `JOIN WI-FI`, `CONNECTING`, `NO SERVER`, `RESET`. The bottom lines stay curved, except the anchor screen's telemetry line
-  (straight 14 px).
+- **All text is straight** (decided 2026-11-23, the owner: curved text drawn letter by letter along the rim is hard to read).
+  The curved-text code is removed. Near the round edge a straight line has little room, about 130 px at y 30 and about 150 px
+  at y 210, so the texts there are short and long ones end in dots.
+- **Status line on top:** 20 px at y 30 on the anchor screen, the alarm screen and the boot and setup screens: `RAISED`,
+  `DROPPED`, `SET RADIUS`, `DRAGGING`, `FIX LOST`, `HELM DIAL`, `JOIN WI-FI`, `CONNECTING`, `NO SERVER`, `RESET`. Longer top lines
+  (the settings list position and item names) are 12 px a little lower.
+- **Bottom line:** 12 or 14 px: the anchor screen's telemetry, the alarm's telemetry, the setup screens' second line, the
+  settings hints (`PRESS EDIT · 2x BACK`, `PRESS STORE · 2x UNDO`, `PRESS CANCELS`, `PRESS BACK`).
 - **Type:** bold throughout, large primary values. Secondary text is 12 to 13 px in the 240 px design space and is read only as a
   supporting line.
 - **Left out of the prototype:** the 3D bezel (it is the physical knob ring, not part of the display).
@@ -379,30 +377,18 @@ Elements:
   so on the device they are pre-rendered images with alpha or cheap approximations, decided by measurement in the spike
   (open item 12).
 
-### Rendering the curved text
-
-The handoff says curved per-character text needs a 240x240 true-colour-alpha canvas in PSRAM with rotated glyph bitmaps. With
-dynamic curved text that is the expected path unless LVGL 9.3 offers something cheaper. To settle during the spike, in this order:
-
-1. LVGL 9.3's arc label widget (`lv_arclabel`) **(verify it exists in 9.3 and renders with our fonts)**. Preferred, no extra
-   buffer.
-2. A shared text-on-arc helper that renders each character rotated into a small canvas, updated only when the string changes.
-   Cost is PSRAM for the canvas and some CPU on change, not per frame.
-3. Fallback: flat labels at the top and bottom, with curved text only for static labels pre-rendered once.
-
-Curved text updates only when its string changes (for example once a second for depth and voltage), never every frame.
-Measure frame time and PSRAM headroom with the espOS app running before committing to a method (HANDOFF "not tested at all").
-
 ### Readability rules
 
 - Text is read at arm's length, in sun, on a 48 mm display. Primary values use the largest sizes that fit. Fonts are checked on
   the real panel. The prototype's muted grey for secondary text is lightened (about `#8CA0BC`) for sun contrast.
-- Keep text inside a safe circle. Curved labels follow the ring inside the tick band and must not touch the ticks. Flat text
-  at the very top and bottom edges can clip at the round bezel, the autopilot screen is the tightest.
+- Keep text inside a safe circle. Text at the very top and bottom edges can clip at the round bezel, the autopilot screen is
+  the tightest.
 - Contrast must be checked in the day and night palettes on the real panel, not only in the browser prototype.
 - Night mode keeps the same layout with every colour mapped to the red palette. The tick ring dims rather than turns off.
 
 ### Style tokens (imported from the prototype v2 package, `elecrow_128_marine_ui_v2`)
+
+The curved text in these prototype values is superseded: the firmware draws every line straight (section 8, 2026-11-23).
 
 Values are in the 240 x 240 design space. The Canvas prototype (`prototype/index.html`) is the visual reference. Where the
 package's LVGL code (`marine_ui.c`) differs from the prototype, the prototype wins and the difference is listed below.
@@ -491,8 +477,7 @@ The proposal's registry pattern (one descriptor per mode: build, refresh and inp
 5. Alarm acknowledge path **(verify)**.
 6. How the anchor "move drop point here" maps to the anchor plugin (SPEC open question 3).
 7. Whether touch dimmer control is worth the ghost-touch risk.
-8. Rendering method for dynamic curved text (section 8): `lv_arclabel`, a PSRAM canvas helper, or flat fallback, plus the
-   measured frame time and PSRAM cost.
+8. Settled 2026-11-23: no curved text at all (section 8). The per-glyph canvases are gone.
 9. Boot, pairing, dimmer and HID screens exist in the v5 prototype. Still to review there: the night palette on every screen.
 10. HID after a host dropout: stays on the no-host screen and waits for the user (as agreed). Revisit auto-resume if it is
     annoying in practice, for example when the host PC reboots.
@@ -510,7 +495,7 @@ The proposal's registry pattern (one descriptor per mode: build, refresh and inp
 17. v4 package review, fixed in a v5 package (`ui/marine_ui_v5/`, applied by the project session, not
     compiled and not run on hardware): per-glyph layer finish for the curved text, stale evaluated every tick with per-value
     `meta.timeout`, the mode ring and HID usable while stale, drawn icons, drawn step marks, rate-limited tick ring, pulsing
-    acknowledged ring and LED actions. Still to verify on the panel: curved-text update time, tick-ring frame time, icon shapes,
+    acknowledged ring and LED actions. Still to verify on the panel: tick-ring frame time, icon shapes,
     arc wrap for the AUTO gauge icon. See that package's HANDOFF.md.
 16. Cabin light mode from the v2 package: seven colour presets with RGBW values and a dimmer. Our dimmer mode so far is groups
     with a level and on/off. Decide whether colour presets belong in the MVP, and if so which SignalK paths carry colour.

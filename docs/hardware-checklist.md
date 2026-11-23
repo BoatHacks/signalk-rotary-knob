@@ -61,7 +61,8 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 | Item | Status | Date | Commit | Notes |
 |---|---|---|---|---|
 | Mode ring: slots evenly spaced, gear `SETUP` last, 5 with a USB host, 4 without, hidden during an alarm | open | | | |
-| List: turn moves and wraps, prev and next items above and below, `SETTINGS · n OF 14` | open | | | |
+| List: turn moves and wraps, prev and next items above and below, `SETTINGS 3/14` | open | | | |
+| All text straight: settings top and bottom lines, alarm telemetry, setup screens' bottom line, nothing clipped | open | | | curved text removed 2026-11-23 |
 | Edit: amber arc, value, `was ...`, press stores, double press cancels | open | | | |
 | Each value stored, shown on the web page at once, still there after a reboot | open | | | brightness, dim after, dim level, off after, night, LEDs, heading, HID profile |
 | A change on the web page shows on the knob | open | | | |
