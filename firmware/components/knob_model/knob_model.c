@@ -7,15 +7,14 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "cJSON.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "espos_sk.h"
-#include "espos_sk_http.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/portmacro.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
+#include "knob_actions.h"
 #include "knob_config.h"
 #include "knob_logic.h"
 #include "knob_net.h"
@@ -29,21 +28,17 @@ static const char *TAG = "knob_model";
  * Configuration. Compiled in for now, the knob_config component (NVS and the espOS settings page) replaces it.
  * ---------------------------------------------------------------------------------------------------------------- */
 
-#define ANCHOR_PLUGIN "/plugins/hoekens-anchor-alarm"
-
 /* Loaded from the espOS settings store (knob_config) at start: the autopilot id, the heading source, the default anchor radius
  * and the light channels (name, path, relay or dimmer). Changes on the settings page apply after a restart. */
 static knob_cfg_t s_cfg;
 #define s_lights s_cfg.lights
 #define N_LIGHTS s_cfg.n_lights
-#define AP_BASE "/signalk/v2/api/vessels/self/autopilots/"
 
 /* Stale timeouts, ms. 0 = never stale by age (event driven values). The server publishes no meta.timeout for these paths. */
 #define T_HEADING 5000
 #define T_AP      8000   /* the autopilot is polled every 2 s */
 #define T_ANCHOR  10000
 
-#define AP_POLL_MS 2000
 #define T_GPS_LOST   30000  /* armed anchor and no position update for this long: GPS lost alarm */
 #define T_BOOT_GRACE 45000  /* no GPS lost alarm in the first seconds after boot */
 
@@ -77,15 +72,12 @@ typedef struct {
 static portMUX_TYPE s_mux = portMUX_INITIALIZER_UNLOCKED;
 static model_t s_m;
 
-static QueueHandle_t s_q;
-static volatile bool s_live;            /* LIVE CONTROL: autopilot and anchor commands are sent only while set */
 static volatile bool s_heading_frozen;
 static volatile bool s_bypass_net;
 static volatile bool s_force_down;
 static volatile int s_night_override;   /* 0 follow the server, 1 night, 2 day */
 static volatile int s_alarm_inject;     /* 0 none, else marine_alarm_type_t */
 static volatile bool s_ack_latch;
-static volatile uint16_t s_radius_pref = 35;
 
 static volatile int s_phase;
 static volatile uint32_t s_loop_ms, s_apply_done_ms;
@@ -315,7 +307,7 @@ static void build_snapshot(marine_ui_snapshot_t *s, uint32_t now)
 
     /* Anchor watch (hoekens-anchor-alarm). Not armed: nothing to go stale. */
     s->anchor_armed = m.anchor_on;
-    s->anchor_radius_m = (m.anchor_on && m.anchor_max_m > 0) ? (uint16_t)lroundf(m.anchor_max_m) : s_radius_pref;
+    s->anchor_radius_m = (m.anchor_on && m.anchor_max_m > 0) ? (uint16_t)lroundf(m.anchor_max_m) : knob_actions_anchor_radius();
     s->anchor_dist_m = m.anchor_curr_m;
     double br = m.anchor_bearing_rad * RAD2DEG;
     if (br < 0) br += 360.0;
@@ -379,210 +371,44 @@ static void model_task(void *arg)
  * Adapters, on the worker task: they may block on HTTP.
  * ---------------------------------------------------------------------------------------------------------------- */
 
-static void put_cb(const char *request_id, const char *state, int status_code, const char *message, void *arg)
-{
-    (void)request_id; (void)arg;
-    ESP_LOGI(TAG, "PUT result: %s %d %s", state ? state : "?", status_code, message ? message : "");
-}
-
-static bool online(void)
-{
-    knob_net_status_t ns;
-    knob_net_get(&ns);
-    return ns.phase == KNOB_NET_ONLINE;
-}
-
-/* One REST call with the knob's token. Logs the outcome, returns true on a 2xx reply. */
-static bool rest(const char *method, const char *path, const char *body)
-{
-    espos_sk_http_opts_t o = { .timeout_ms = 5000, .max_body = 2048 };
-    espos_sk_http_resp_t r = { 0 };
-    esp_err_t e = !strcmp(method, "POST") ? espos_sk_http_post(path, body, &o, &r) : espos_sk_http_put(path, body, &o, &r);
-    bool ok = e == ESP_OK && r.status >= 200 && r.status < 300;
-    ESP_LOGI(TAG, "%s %s -> %s %d%s%.100s", method, path, esp_err_to_name(e), r.status, r.body && r.body[0] ? " " : "", r.body ? r.body : "");
-    espos_sk_http_resp_free(&r);
-    return ok;
-}
-
-static void light_set(int g, bool on)
-{
-    if (g < 0 || g >= N_LIGHTS) return;
-    if (!online()) { ESP_LOGW(TAG, "light: not online, ignored"); return; }
-    char v[16];
-    if (s_lights[g].onoff) snprintf(v, sizeof(v), "%d", on ? 1 : 0);
-    else snprintf(v, sizeof(v), "%.2f", on ? 1.0 : 0.0);
-    esp_err_t e = espos_sk_put(s_lights[g].path, v, put_cb, NULL);
-    ESP_LOGI(TAG, "light %d %s -> %s (%s)", g, s_lights[g].path, v, esp_err_to_name(e));
-}
-
-static void light_level(int g, int pct)
-{
-    if (g < 0 || g >= N_LIGHTS) return;
-    if (!online()) { ESP_LOGW(TAG, "light: not online, ignored"); return; }
-    char v[16];
-    if (s_lights[g].onoff) snprintf(v, sizeof(v), "%d", pct > 0 ? 1 : 0);
-    else snprintf(v, sizeof(v), "%.2f", pct / 100.0);
-    esp_err_t e = espos_sk_put(s_lights[g].path, v, put_cb, NULL);
-    ESP_LOGI(TAG, "light %d level %d -> %s (%s)", g, pct, v, esp_err_to_name(e));
-}
-
-static void ap_poll(void)
-{
-    espos_sk_http_opts_t o = { .timeout_ms = 3000, .max_body = 2048 };
-    espos_sk_http_resp_t r = { 0 };
-    char path[96];
-    snprintf(path, sizeof(path), AP_BASE "%s", s_cfg.autopilot_id);
-    esp_err_t e = espos_sk_http_get(path, &o, &r);
-    if (e == ESP_OK && r.status == 200 && r.body) {
-        cJSON *j = cJSON_ParseWithLength(r.body, r.len);
-        if (j) {
-            const cJSON *eng = cJSON_GetObjectItem(j, "engaged");
-            const cJSON *tg = cJSON_GetObjectItem(j, "target");
-            portENTER_CRITICAL(&s_mux);
-            s_m.ap_known = true;
-            s_m.ap_engaged = cJSON_IsTrue(eng);
-            s_m.ap_has_target = cJSON_IsNumber(tg);
-            s_m.ap_target_rad = cJSON_IsNumber(tg) ? tg->valuedouble : 0;
-            s_m.ap_ms = ms_now();
-            portEXIT_CRITICAL(&s_mux);
-            cJSON_Delete(j);
-        }
-    }
-    espos_sk_http_resp_free(&r);
-}
-
-static void ap_action(const marine_ui_action_t *a)
-{
-    if (!s_live) { ESP_LOGW(TAG, "autopilot action %d ignored: live control is off (send l)", (int)a->action); return; }
-    if (!online()) { ESP_LOGW(TAG, "autopilot action ignored: not online"); return; }
-    char body[64], path[112];
-    switch (a->action) {
-    case MARINE_ACT_AP_ENGAGE:
-        snprintf(path, sizeof(path), AP_BASE "%s/engage", s_cfg.autopilot_id);
-        rest("POST", path, NULL);
-        break;
-    case MARINE_ACT_AP_STANDBY:
-        snprintf(path, sizeof(path), AP_BASE "%s/disengage", s_cfg.autopilot_id);
-        rest("POST", path, NULL);
-        break;
-    case MARINE_ACT_AP_SET_CTS:
-        snprintf(body, sizeof(body), "{\"value\":%ld,\"units\":\"deg\"}", (long)a->value);
-        snprintf(path, sizeof(path), AP_BASE "%s/target", s_cfg.autopilot_id);
-        rest("PUT", path, body);
-        break;
-    default: break;
-    }
-    ap_poll(); /* show the new state without waiting for the next poll */
-}
-
-static void anchor_action(const marine_ui_action_t *a)
-{
-    if (a->action == MARINE_ACT_ANCHOR_SET_RADIUS) s_radius_pref = (uint16_t)a->value;
-    if (!s_live) { ESP_LOGW(TAG, "anchor action %d ignored: live control is off (send l)", (int)a->action); return; }
-    if (!online()) { ESP_LOGW(TAG, "anchor action ignored: not online"); return; }
-
-    model_t m;
-    portENTER_CRITICAL(&s_mux);
-    m = s_m;
-    portEXIT_CRITICAL(&s_mux);
-    char body[200];
-    bool pos_ok = m.pos_valid && ms_now() - m.pos_ms < 15000;
-
-    switch (a->action) {
-    case MARINE_ACT_ANCHOR_ARM_HERE:
-        if (!pos_ok) { ESP_LOGW(TAG, "anchor arm: no fresh position"); return; }
-        snprintf(body, sizeof(body), "{\"position\":{\"latitude\":%.7f,\"longitude\":%.7f},\"zone\":{\"type\":\"circle\",\"radius\":%u}}",
-                 m.lat, m.lon, (unsigned)s_radius_pref);
-        rest("POST", ANCHOR_PLUGIN "/dropAnchor", body);
-        break;
-    case MARINE_ACT_ANCHOR_SET_RADIUS:
-        if (!m.anchor_on) break; /* only remembered for the next arm */
-        snprintf(body, sizeof(body), "{\"zone\":{\"type\":\"circle\",\"radius\":%ld}}", (long)a->value);
-        rest("POST", ANCHOR_PLUGIN "/setZone", body);
-        break;
-    case MARINE_ACT_ANCHOR_MOVE_DROP:
-        if (!pos_ok) { ESP_LOGW(TAG, "anchor move: no fresh position"); return; }
-        snprintf(body, sizeof(body), "{\"zone\":{\"type\":\"circle\",\"radius\":%u},\"position\":{\"latitude\":%.7f,\"longitude\":%.7f}}",
-                 (unsigned)(m.anchor_max_m > 0 ? lroundf(m.anchor_max_m) : s_radius_pref), m.lat, m.lon);
-        rest("POST", ANCHOR_PLUGIN "/setZone", body);
-        break;
-    case MARINE_ACT_ANCHOR_DISARM:
-        rest("POST", ANCHOR_PLUGIN "/raiseAnchor", NULL);
-        break;
-    default: break;
-    }
-}
-
-/* Acknowledge the anchor alarm through the server's Notifications API. The id comes from the notification list. */
-static void alarm_ack(void)
-{
-    s_ack_latch = true; /* the screen reacts at once */
-    if (!online() || s_alarm_inject) return; /* an injected bench alarm has no notification behind it */
-    espos_sk_http_opts_t o = { .timeout_ms = 4000, .max_body = 8192 };
-    espos_sk_http_resp_t r = { 0 };
-    char id[64] = "";
-    if (espos_sk_http_get("/signalk/v2/api/notifications", &o, &r) == ESP_OK && r.status == 200 && r.body) {
-        cJSON *j = cJSON_ParseWithLength(r.body, r.len);
-        for (cJSON *c = j ? j->child : NULL; c; c = c->next) {
-            const cJSON *path = cJSON_GetObjectItem(c, "path");
-            if (cJSON_IsString(path) && !strcmp(path->valuestring, "notifications.navigation.anchor") && c->string) {
-                strncpy(id, c->string, sizeof(id) - 1);
-                break;
-            }
-        }
-        cJSON_Delete(j);
-    }
-    espos_sk_http_resp_free(&r);
-    if (!id[0]) { ESP_LOGW(TAG, "alarm ack: no anchor notification id found"); return; }
-    char path[128];
-    snprintf(path, sizeof(path), "/signalk/v2/api/notifications/%s/acknowledge", id);
-    rest("POST", path, NULL);
-}
-
-static void handle_action(const marine_ui_action_t *a)
-{
-    ESP_LOGI(TAG, "action mode=%d act=%d value=%ld meta=%ld", (int)a->mode, (int)a->action, (long)a->value, (long)a->meta);
-    switch (a->action) {
-    case MARINE_ACT_DIMMER_SET_LEVEL: light_level((int)a->meta, (int)a->value); break;
-    case MARINE_ACT_DIMMER_TOGGLE_POWER: {
-        int g = (int)a->value;
-        bool on = g >= 0 && g < N_LIGHTS && s_m.light[g] == 1;
-        light_set(g, !on);
-        break;
-    }
-    case MARINE_ACT_AP_ENGAGE:
-    case MARINE_ACT_AP_STANDBY:
-    case MARINE_ACT_AP_SET_CTS: ap_action(a); break;
-    case MARINE_ACT_ANCHOR_ARM_HERE:
-    case MARINE_ACT_ANCHOR_SET_RADIUS:
-    case MARINE_ACT_ANCHOR_MOVE_DROP:
-    case MARINE_ACT_ANCHOR_DISARM: anchor_action(a); break;
-    case MARINE_ACT_ALARM_ACK: alarm_ack(); break;
-    case MARINE_ACT_POWER_SET_BACKLIGHT: knob_power_set_backlight((uint8_t)a->value); break;
-    case MARINE_ACT_ALARM_LED_PULSE: knob_power_led_alarm(a->value ? KNOB_LED_ALARM_FAST : KNOB_LED_ALARM_OFF); break;
-    case MARINE_ACT_ALARM_LED_SLOW_PULSE: knob_power_led_alarm(a->value ? KNOB_LED_ALARM_SLOW : KNOB_LED_ALARM_OFF); break;
-    case MARINE_ACT_SYS_FACTORY_RESET: ESP_LOGW(TAG, "factory reset requested (not wired yet)"); break;
-    default: break; /* HID actions: knob_hid does not exist yet */
-    }
-}
-
-static void worker_task(void *arg)
-{
-    uint32_t last_poll = 0;
-    for (;;) {
-        marine_ui_action_t a;
-        if (xQueueReceive(s_q, &a, pdMS_TO_TICKS(100)) == pdTRUE) handle_action(&a);
-        uint32_t now = ms_now();
-        if (online() && now - last_poll >= AP_POLL_MS) {
-            last_poll = now;
-            ap_poll();
-        }
-    }
-}
-
 /* ------------------------------------------------------------------------------------------------------------------
  * Public API
  * ---------------------------------------------------------------------------------------------------------------- */
+
+/* What the adapters call back into the model for. */
+static void hook_get_view(knob_actions_view_t *v)
+{
+    portENTER_CRITICAL(&s_mux);
+    memcpy(v->light, s_m.light, sizeof(v->light));
+    v->anchor_on = s_m.anchor_on;
+    v->anchor_max_m = s_m.anchor_max_m;
+    v->pos_valid = s_m.pos_valid;
+    v->lat = s_m.lat;
+    v->lon = s_m.lon;
+    v->pos_ms = s_m.pos_ms;
+    portEXIT_CRITICAL(&s_mux);
+}
+
+static void hook_set_autopilot(bool engaged, bool has_target, double target_rad)
+{
+    portENTER_CRITICAL(&s_mux);
+    s_m.ap_known = true;
+    s_m.ap_engaged = engaged;
+    s_m.ap_has_target = has_target;
+    s_m.ap_target_rad = target_rad;
+    s_m.ap_ms = ms_now();
+    portEXIT_CRITICAL(&s_mux);
+}
+
+static void hook_ack_latch(void) { s_ack_latch = true; }
+static bool hook_alarm_injected(void) { return s_alarm_inject != 0; }
+
+static const knob_actions_hooks_t s_hooks = {
+    .get_view = hook_get_view,
+    .set_autopilot = hook_set_autopilot,
+    .ack_latch = hook_ack_latch,
+    .alarm_injected = hook_alarm_injected,
+};
 
 void knob_model_action_cb(const marine_ui_action_t *act, void *ctx)
 {
@@ -596,7 +422,7 @@ void knob_model_action_cb(const marine_ui_action_t *act, void *ctx)
     case MARINE_ACT_ALARM_ACK: s_ack_latch = true; break; /* and the server call below */
     default: break;
     }
-    if (s_q) xQueueSend(s_q, act, 0);
+    knob_actions_submit(act);
 }
 
 void knob_model_command(char c)
@@ -610,12 +436,11 @@ void knob_model_command(char c)
     case 'n': s_night_override = (s_night_override + 1) % 3; break;
     case 'd': s_bypass_net = !s_bypass_net; break;
     case 'l':
-        s_live = !s_live;
-        ESP_LOGW(TAG, "LIVE CONTROL %s: autopilot and anchor commands %s", s_live ? "ON" : "OFF", s_live ? "are SENT" : "are ignored");
+        knob_actions_set_live(!knob_actions_is_live());
         return;
     default:
         ESP_LOGI(TAG, "commands: a anchor alarm, g gps alarm, c clear, x stream down, s freeze heading, n night override, "
-                      "d bypass network gating, l live control (now %s)", s_live ? "ON" : "off");
+                      "d bypass network gating, l live control (now %s)", knob_actions_is_live() ? "ON" : "off");
         return;
     }
     ESP_LOGI(TAG, "command %c", c);
@@ -638,9 +463,8 @@ void knob_model_start(void)
     strcpy(s_cfg.autopilot_id, "raymarineST"); /* defaults until knob_model_subscribe() loads the settings */
     s_cfg.heading_true = true;
     s_cfg.anchor_radius_m = 35;
-    s_q = xQueueCreate(16, sizeof(marine_ui_action_t));
     xTaskCreate(model_task, "model", 6144, NULL, 2, NULL);
-    xTaskCreate(worker_task, "skwork", 8192, NULL, 3, NULL);
+    knob_actions_start(&s_cfg, &s_hooks);
     ESP_LOGI(TAG, "model started, live control off");
 }
 
@@ -652,7 +476,7 @@ void knob_model_subscribe(void)
     portENTER_CRITICAL(&s_mux);
     s_cfg = cfg;
     portEXIT_CRITICAL(&s_mux);
-    s_radius_pref = s_cfg.anchor_radius_m;
+    knob_actions_set_anchor_radius(s_cfg.anchor_radius_m);
     lv_port_lock();
     marine_ui_set_power(cfg.dim_after_ms, cfg.dim_level_pct, cfg.off_after_ms);
     lv_port_unlock();

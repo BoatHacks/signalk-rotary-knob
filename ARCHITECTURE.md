@@ -218,7 +218,7 @@ signalk-rotary-knob/
     CMakeLists.txt  sdkconfig.defaults  partitions.csv  dependencies.lock
     main/                       app_main, boot order, glue
     components/
-      board/  lv_port/  input/  knob_net/  knob_model/ (model, worker task and the adapters, to be split later)  knob_power/
+      board/  lv_port/  input/  knob_net/  knob_model/  knob_actions/ (the adapters and their worker task)  knob_logic/ (pure logic)  knob_power/
       knob_usb/ (+ knob_hid)  knob_config/
       marine_ui/                from ui/marine_ui_v5/esp_idf_component
     test/                       Unity tests, linux target
