@@ -195,6 +195,11 @@ Spike measurements: app_main at 0.33 s, first frame 0.6 s, LVGL up 0.37 s after 
   owner enters on the settings page, no generated secret shown on the screen. Whether the portal can take the key in the same
   step as the Wi-Fi credentials is unchecked (**verify**). Until it can, a knob has an open window at first setup. Treat this as a
   release blocker, not a polish item.
+  Findings 2026-11-23: espOS closes the setup access point by itself once Wi-Fi works (policy auto, verified on the bench: the
+  portal reports inactive while connected). For the key, espOS has the build option `CONFIG_ESPOS_HTTPD_AUTH_REQUIRED`: protected
+  endpoints answer 403 until a key is set. A product build must turn it on (a commented line in `firmware/sdkconfig.defaults`).
+  It stays off on the bench, because with Wi-Fi configured the portal is not up to set the key, and the way back in is the portal
+  recovery window (3 power cycles in a row).
 - No logging of tokens, Wi-Fi passwords or full request headers, including on the CDC port.
 - USB: anyone with physical access to the cable can reboot into ROM download mode. Same exposure as the BOOT button, accepted.
   Secure boot and flash encryption are off for the MVP.

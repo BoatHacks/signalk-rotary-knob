@@ -88,5 +88,10 @@ CONFIG_LV_USE_CUSTOM_MALLOC=y
 # CONFIG_LV_USE_BUILTIN_MALLOC is not set
 # CONFIG_LV_BUILD_EXAMPLES is not set
 
+# PRODUCT BUILDS: refuse the REST API and the settings page until an API key is set (otherwise the API is open to the
+# whole network, including reboot and factory reset). Left off on the bench because the setup portal is closed while
+# Wi-Fi works, so the key could then only be set through the portal recovery window (3 power cycles in a row).
+# CONFIG_ESPOS_HTTPD_AUTH_REQUIRED=y
+
 # The main task formats the diagnostics log lines and ran with 850 bytes of headroom at 3584.
 CONFIG_ESP_MAIN_TASK_STACK_SIZE=5120
