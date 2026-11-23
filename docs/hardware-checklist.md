@@ -34,23 +34,23 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 | Setup network closes once Wi-Fi works | ok | 2026-11-23 | ee2b16f | log `portal down` right after the join |
 | A set API key protects the REST API | ok | 2026-11-23 | ee2b16f | 401 without the key, 200 with it |
 | Back online by itself after the setup | ok | 2026-11-23 | ee2b16f | the token check had backed off while the knob was offline (`NO SERVER` for a while), it then reconnected without a reboot |
-| Setup without a key (Wi-Fi only) | open | | | the default, not tried on the phone |
+| Setup without a key (Wi-Fi only) | open | | | the default, not tried on the phone. The key was removed again on the settings page, the API answers without it |
 
 ## Config and REST API (#3)
 
 | Item | Status | Date | Commit | Notes |
 |---|---|---|---|---|
-| Allow control off after the update (new key, default off), refusal screen on anchor and autopilot | open | 2026-11-23 | fce9406 | off after the update ok (status API). Refusal screen not tried yet |
+| Allow control off after the update (new key, default off), refusal screen on anchor and autopilot | open | 2026-11-23 | fd863c9 | off after the update ok (status API). Anchor: Drop here with control off showed the red refusal screen, no call reached the server. Autopilot not tried |
 | Allow control on through the config API: `CONTROL ON` notice 3 s, log line with the source | ok | 2026-11-23 | fce9406 | also from the settings page, log `ALLOW CONTROL ON (web page or API)` |
 | Allow control stays as set after a reboot | ok | 2026-11-23 | fce9406 | |
-| Serial `l` flips it for the session only, not stored | open | | | |
+| Serial `l` flips it for the session only, not stored | ok | 2026-11-23 | fd863c9 | log names the serial override, status API follows, the stored setting stayed on |
 | A press dismisses the notice, a turn does not | ok | 2026-11-23 | fce9406 | the turn moved the anchor radius preview under the notice |
-| Notice in the night palette, hidden by an alarm | open | | | |
+| Notice in the night palette, hidden by an alarm | ok | 2026-11-23 | fd863c9 | red in night, no notice over the bench alarm |
 | Live reload: dim time and anchor radius apply without a restart | ok | 2026-11-23 | fce9406 | dim after 5 s and off after 1 min took effect at once. Anchor radius default not watched |
 | Partial config write, a value out of range gives 400 with the key | ok | 2026-11-23 | fce9406 | `knob.dim_after_s` 2: 400 `out of range [5,3600]` |
 | Export and import of the whole config | ok | 2026-11-23 | fce9406 | secrets come out masked, importing the same document changes nothing |
 | `PUT /api/v1/knob/mode` switches the screen and is stored as the last mode | ok | 2026-11-23 | fce9406 | bad name 400, without the JSON content type 415 |
-| Mode switch during an alarm: the alarm stays on top | open | | | bench alarm `a` |
+| Mode switch during an alarm: the alarm stays on top | ok | 2026-11-23 | fd863c9 | bench alarm `a`, status API reported `anchor_drag` |
 | `hid` without a USB host gives 409 | open | | | needs the knob on a charger, a PC on the cable is a host |
 | `GET /api/v1/knob/status` fields | ok | 2026-11-23 | fce9406 | |
 | All of it 401 without the key when one is set | ok | 2026-11-23 | fce9406 | status, mode, config, mode PUT |
@@ -91,7 +91,7 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 | Move drop point here | open | | 84adfd6 | |
 | Raise anchor | open | | 84adfd6 | |
 | Radius change while dropped goes to the server | open | | 84adfd6 | |
-| State and telemetry lines straight and readable (14 px), inside the round edge | open | | | were curved 12 px, changed 2026-11-23 |
+| State line (20 px) and telemetry line (14 px) straight and readable, inside the round edge | open | | | were curved 12 px, changed 2026-11-23, 14 px state looked too small |
 | Drag alarm takes over the screen, LEDs flash, press acknowledges | open | | | bench alarm (`a`) ok on an earlier build, real alarm open |
 | Acknowledge reaches the server's Notifications API | open | | | |
 | GPS lost alarm while dropped | open | | | |
