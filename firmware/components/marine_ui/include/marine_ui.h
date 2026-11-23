@@ -93,7 +93,8 @@ typedef void (*marine_ui_action_cb_t)(const marine_ui_action_t *act, void *user_
 typedef struct {
     char name[16];
     bool on;
-    uint8_t level_pct; // 0..100
+    uint8_t level_pct; // 0..100. For an on/off channel (onoff_only) the firmware reports 100 when on and 0 when off.
+    bool onoff_only;   // a relay, not a dimmer: turn right = on, turn left = off, no level
 } marine_dimmer_group_t;
 
 /**

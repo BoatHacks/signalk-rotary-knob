@@ -270,7 +270,7 @@ static void hid_refresh(void);
 
 static const marine_mode_desc_t mode_registry[MARINE_MODE_COUNT] = {
     [MARINE_MODE_AUTOPILOT]    = { MARINE_MODE_AUTOPILOT,    "AUTO",   build_ap_screen,     ap_on_input,     ap_refresh },
-    [MARINE_MODE_DIMMER]       = { MARINE_MODE_DIMMER,       "LIGHT",  build_dimmer_screen, dimmer_on_input, dimmer_refresh },
+    [MARINE_MODE_DIMMER]       = { MARINE_MODE_DIMMER,       "LIGHTS", build_dimmer_screen, dimmer_on_input, dimmer_refresh },
     [MARINE_MODE_ANCHOR_WATCH] = { MARINE_MODE_ANCHOR_WATCH, "ANCHOR", build_anchor_screen, anchor_on_input, anchor_refresh },
     [MARINE_MODE_USB_HID]      = { MARINE_MODE_USB_HID,      "USB",    build_hid_screen,    hid_on_input,    hid_refresh }
 };
@@ -1075,6 +1075,18 @@ static void dimmer_on_input(marine_semantic_input_t ev, int32_t val) {
 
     if (ev == MARINE_INPUT_TURN) {
         const marine_dimmer_group_t *grp = &snap.dimmer_groups[dimmer_selected_group];
+        if (grp->onoff_only) {
+            // A relay: one click is enough. Right = on, left = off. Nothing to do when it already is that way.
+            uint8_t want = val > 0 ? 100 : 0;
+            uint8_t cur = dimmer_pending_active ? dimmer_pending_level : (grp->on ? 100 : 0);
+            if (want == cur) return;
+            dimmer_pending_level = want;
+            dimmer_pending_active = true;
+            dimmer_pending_sent = false;
+            dimmer_pending_deadline_ms = snap.now_ms + 250;
+            dimmer_refresh();
+            return;
+        }
         if (dimmer_wake_active && dimmer_wake_group == dimmer_selected_group) return; // switch-on in flight, swallow
         if (!dimmer_pending_active && !grp->on && grp->level_pct > 0) {
             // Off with a saved dim level: this click only turns the light back on, it does not change the level.
@@ -1157,12 +1169,17 @@ static void dimmer_refresh(void) {
     if (mask) {
         lv_label_set_text(dim_lbl_val, "---");
     } else if (is_on) {
-        snprintf(buf, sizeof(buf), "%u%%", (unsigned)lvl);
-        lv_label_set_text(dim_lbl_val, buf);
-        lv_label_set_text(dim_lbl_hint, "1x: GROUP • HOLD: OFF");
+        if (g->onoff_only) {
+            lv_label_set_text(dim_lbl_val, "ON");
+            lv_label_set_text(dim_lbl_hint, "TURN: ON/OFF • 1x: NEXT");
+        } else {
+            snprintf(buf, sizeof(buf), "%u%%", (unsigned)lvl);
+            lv_label_set_text(dim_lbl_val, buf);
+            lv_label_set_text(dim_lbl_hint, "1x: GROUP • HOLD: OFF");
+        }
     } else {
         lv_label_set_text(dim_lbl_val, "OFF");
-        lv_label_set_text(dim_lbl_hint, "HOLD TO TURN ON");
+        lv_label_set_text(dim_lbl_hint, g->onoff_only ? "TURN RIGHT: ON" : "HOLD TO TURN ON");
     }
     lv_obj_set_style_text_color(dim_lbl_val, c_text(), 0);
     lv_label_set_text(dim_lbl_name, g->name[0] ? g->name : "GROUP");

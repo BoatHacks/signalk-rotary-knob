@@ -98,7 +98,7 @@ espOS token, blocking, so on this task only):
 | Adapter | Does |
 |---|---|
 | autopilot | v2 API: `engage`, `disengage`, `PUT target` (radians), status `GET` for state/mode/target. Device id from config, default `_default`. |
-| anchor | Drives the sbender9 `anchoralarm` plugin (decided): `dropAnchor`, `setRadius`, `setAnchorPosition`, `raiseAnchor` for disarm. Ack route still to verify (SPEC question 3). Another plugin means another adapter. |
+| anchor | Drives `hoekens-anchor-alarm` (decided 2026-11-23, installed on the boat): REST `POST /plugins/hoekens-anchor-alarm/dropAnchor` (arm, position from the knob's `navigation.position` subscription plus a circle zone), `setZone` (radius or move the drop point), `raiseAnchor` (disarm). Uses `espos_sk_http` with the knob's readwrite token. Ack through the Notifications API (to verify). Another plugin means another adapter. |
 | dimmer | `espos_sk_put()` on the configured channel path. Each channel has a value form chosen on the settings page: ratio 0..1, percent 0..100, or on/off. The boat's real convention is checked on the bench (SPEC question 2). |
 | notifications | Acknowledge via the server Notifications API, falls back to the plugin if the anchor alarm does not use it (**verify**). |
 
@@ -153,7 +153,7 @@ Spike measurements: app_main at 0.33 s, first frame 0.6 s, LVGL up 0.37 s after 
 | `depth_m` | `environment.depth.belowTransducer` | 10 s |
 | `voltage_v` | configured battery path, `electrical.batteries.*.voltage` | 30 s |
 | `gps_3d_fix` | `navigation.gnss.methodQuality` or position age | 10 s |
-| anchor data | `navigation.anchor.*` (position, maxRadius, currentRadius), plugin specific | 10 s |
+| anchor data | `navigation.anchor.state`, `.currentRadius`, `.maxRadius`, `.distanceFromBow`, `.bearingTrue` (rad), `.position` (hoekens-anchor-alarm) | 10 s |
 | `active_alarm` | `notifications.navigation.anchor`, `notifications.*gps*` | event driven |
 | dimmer levels | configured `electrical.switches.*` paths | 0 (never) |
 | `night_palette` | `environment.mode` (`"day"`/`"night"`) | event driven, Day until first value |
@@ -179,7 +179,7 @@ Spike measurements: app_main at 0.33 s, first frame 0.6 s, LVGL up 0.37 s after 
   task or an espOS event handler (it blocks), so it runs on the actions task only. This answers SPEC question 8: yes, authenticated
   HTTP is available, no hand-rolled `esp_http_client`.
 - **Autopilot provider plugin:** only through the v2 autopilot API.
-- **Anchor alarm plugin:** the adapter encapsulates the plugin; swapping `anchoralarm` for another plugin means a different adapter
+- **Anchor alarm plugin:** the adapter encapsulates the plugin; swapping `hoekens-anchor-alarm` for another plugin means a different adapter
   only.
 - **USB host:** HID (profiles) and CDC. No data protocol over CDC, it carries logs only.
 - **Boat network:** plain WS/HTTP on the LAN, no TLS (SPEC section 12).

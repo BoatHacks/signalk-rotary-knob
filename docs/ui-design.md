@@ -67,7 +67,12 @@ radius, and a small data line.
 
 All anchor changes need only the one confirm press (SPEC section 2). Alarm logic stays on the server.
 
-### 3.3 Dimmer
+### 3.3 Lights (dimmer)
+
+The mode is called **LIGHTS** (ring label and screen), decided 2026-11-23, because the boat has relays and no dimmers. A channel
+is either a dimmer (level) or an on/off channel (a relay). On an on/off channel: turn right switches it on, turn left switches it
+off, one click is enough. The screen shows a large `ON` or `OFF` (no percentage), the arc is full when on. Single press picks the
+next channel and long press toggles, as for dimmers. The first-click rule below applies to dimmers only.
 
 - Turn: level of the shown channel group in 5 % steps.
 - Single press: next channel group, in the order set in the knob's config.

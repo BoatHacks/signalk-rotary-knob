@@ -121,10 +121,14 @@ layer (section 6.1).
   `GET` status (`state`, `mode`, `target` in radians, `engaged`), `POST engage`, `POST disengage`,
   `PUT state`, `PUT mode`, `PUT target` and `PUT target/adjust` with `{"value": -2, "units": "deg"}`.
   Deltas arrive on `steering.autopilot.*`. An unreachable device reports `off-line`.
-- **Anchor alarm** (plugin id `anchoralarm`, `POST /plugins/anchoralarm/...`): `dropAnchor {radius}`, `setRadius`,
-  `raiseAnchor`, `setAnchorPosition`. Also PUT handlers on `navigation.anchor.position` (null raises),
-  `navigation.anchor.maxRadius`, `navigation.anchor.rodeLength`. No documented arm/disarm endpoint, so arming
-  is implied by position plus radius. Disarm maps to `raiseAnchor`.
+- **Anchor alarm** (`hoekens-anchor-alarm`, the plugin installed on the boat, decided 2026-11-23). REST under
+  `/plugins/hoekens-anchor-alarm/`, needs a `readwrite` token (the knob's token qualifies): `POST dropAnchor`
+  `{position:{latitude,longitude}, zone:{type:"circle", radius}}` (arm, the boat must be inside the zone), `POST setZone`
+  `{zone, position?}` (change the radius or move the drop point and keep the session), `POST raiseAnchor` (disarm, no body).
+  Replies `{statusCode, state}`, errors come as 403 with a message. The knob has no position of its own: it uses the latest
+  `navigation.position` it subscribed to as the drop position. It publishes `navigation.anchor.state` (`"on"`/`"off"`),
+  `.position`, `.currentRadius` (m, antenna to anchor), `.maxRadius` (m, circle only), `.watchZone`, `.distanceFromBow`,
+  `.bearingTrue` (rad) and the alarm on `notifications.navigation.anchor`. The knob only sets circle zones.
 - **Alarm ack/silence**: documented only for the server Notifications API
   (`POST /signalk/v2/api/notifications/{id}/acknowledge` and `/silence`). Unconfirmed whether the anchor plugin's
   alarms go through it.
@@ -213,8 +217,13 @@ Everything else is ephemeral.
 - **Plain WS and HTTP plus the SignalK token, no TLS.** Keeps connect time inside the ONLINE target on a closed boat LAN.
 - **Firmware updates: USB in the MVP, OTA and a signed firmware repository later** (decided 2026-11-22, replaces the earlier
   "never pull from a server"). Nothing in the MVP points the OTA component at an update source.
-- **Anchor adapter targets sbender9 `anchoralarm` first** (decided 2026-11-22). Disarm maps to `raiseAnchor`.
+- **Anchor adapter targets `hoekens-anchor-alarm`** (decided 2026-11-23, replaces the earlier choice of sbender9
+  `anchoralarm`, which is not installed on the boat). Arm is `dropAnchor`, radius or drop point change is `setZone`, disarm is
+  `raiseAnchor`. The knob sets circle zones only.
 - **Dimmer channels carry a value form** (ratio 0..1, percent 0..100 or on/off), set on the settings page per channel.
+- **The dimmer mode is called LIGHTS and handles on/off channels** (decided 2026-11-23). The boat has no dimmers, only relays
+  (`electrical.switches.bank.0.N.state`, values 0 and 1). On an on/off channel turn right is on and turn left is off. Level
+  dimmers stay supported for other boats. Each channel's form (on/off or level) is part of the channel config.
 - **Heading source is configurable** (true or magnetic, default true), shown with `°T` or `°M`.
 - **Staleness age is measured from the knob's receive time**, not the server's timestamp.
 - **Setup AP closes once Wi-Fi works, API key is a fixed key set by the owner on the settings page.**
@@ -227,7 +236,8 @@ Everything else is ephemeral.
 1. Night/day: `environment.mode` with `"day"`/`"night"` is what the espOS ecosystem uses. It is published by
    `signalk-espos-manager` (from sun altitude) or `signalk-derived-data`. Confirm one of them runs on the boat.
 2. Dimmer paths: which `electrical.switches.*` convention does the boat actually use, and how is it PUT?
-3. Anchor alarm: the espOS cockpit docs target `hoeken/hoekens-anchor-alarm` (PUT `null` on `navigation.anchor.position`
+3. RESOLVED 2026-11-23 for the target plugin: the boat runs `hoekens-anchor-alarm` (see section 6.3 and the decisions). Still to
+   verify on the boat: that the alarm is acknowledged through the Notifications API. The older note: the espOS cockpit docs target `hoeken/hoekens-anchor-alarm` (PUT `null` on `navigation.anchor.position`
    raises, PUT `navigation.anchor.maxRadius` sets scope, dropping at the current fix needs a plugin change). Which plugin
    do we drive? Previously researched: sbender9 `anchoralarm`. Is the `anchoralarm` plugin the target? How are its alarms acknowledged, and does disarm equal `raiseAnchor`?
 4. RESOLVED 2026-11-22: firmware updates over USB in the MVP, OTA and a signed firmware repository post-MVP. The two-slot table,
@@ -247,3 +257,31 @@ Everything else is ephemeral.
 11. Staleness: which of the boat's paths carry `meta.timeout`, and does the server enforce it (the signalk-server stale-data
     work marks timed-out paths)? How does the knob read the meta (REST `.../meta` or `meta` deltas) and compute age against the
     server's clock when the server has no RTC?
+
+### Boat survey, 2026-11-23
+
+Read-only survey of the boat's SignalK server (2.37.0, unauthenticated reads allowed) plus one authenticated test write
+through the knob. Answers for questions 1, 2, 3, 9 and 11:
+
+- **Day and night (1):** `environment.mode` is published by `derived-data`, string `"day"` or `"night"`, event driven (its
+  timestamp can be hours old). `environment.sun` also exists with the same words. Use `environment.mode`.
+- **Dimmers (2):** the boat has **no dimmers and no `dimmingLevel`** anywhere. The switchable loads are relays. The 8-relay
+  board (Waveshare ESP32-S3-ETH-8DI-8RO, running espOS) shows up as `electrical.switches.bank.0.N.state`
+  (N 1 to 8, displayName "Relay N", values `0` and `1`, also via NMEA 2000 PGN 127501) and a second bank `bank.1.N`. A `PUT` of
+  `1` or `0` to `electrical.switches.bank.0.1.state` through the knob's token **works** (completed with 200, the value followed
+  on the server). So the knob's dimmer mode needs the on/off value form first. Level dimming stays supported in the UI for boats
+  that have it.
+- **Token permission (9):** the knob's access request was approved with `readwrite`, and a `PUT` succeeded. Autopilot and anchor
+  calls with that token are not tested yet.
+- **Autopilot:** the v2 API lists one provider, id `raymarineST` (not `_default`), states `standby`, `auto`, `wind`, `route`.
+  Currently `state` and `target` are `null` (the pilot is not active) and `.../mode` answers "Not implemented", so engage and
+  disengage go through `state` and `engage`. There are **no `steering.*` paths** (no rudder angle, no `steering.autopilot.*`).
+  Heading: `navigation.headingTrue` (derived-data) and `navigation.headingMagnetic` (NMEA 2000), both in radians.
+- **Anchor (3):** no `navigation.anchor.*` paths are present right now because no watch is active. The boat runs
+  `hoekens-anchor-alarm` (confirmed by the owner, sbender9 `anchoralarm` is not installed). The v2 Notifications API exists
+  and supports acknowledge and silence. Whether the plugin's drag alarm is acknowledged through it is still to verify with a
+  real alarm.
+- **`meta.timeout` (11):** none of the paths the knob needs (headings, switches, mode, GNSS) carries `meta.timeout`. Only the
+  espOS device health paths do (25 s). So the per-path defaults in ARCHITECTURE.md section 3.1 are what applies.
+- **Not on this boat:** no `environment.depth.*`, no steering paths. The depth and rudder telemetry on the autopilot screen
+  will show `---` unless a source is added.

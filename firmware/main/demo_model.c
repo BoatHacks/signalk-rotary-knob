@@ -185,6 +185,10 @@ void demo_model_start(void)
     s_q = xQueueCreate(16, sizeof(marine_ui_action_t));
     marine_ui_load_demo_snapshot(&s_snap);
     s_snap.ap_engaged = false; /* start in standby so the engage flow can be tried */
+    /* The boat has relays, not dimmers: the first channel is an on/off one, the others stay level dimmers for testing. */
+    strcpy(s_snap.dimmer_groups[0].name, "RELAY 1");
+    s_snap.dimmer_groups[0].onoff_only = true;
+    s_snap.dimmer_groups[0].level_pct = 100;
     s_snap.system_screen = MARINE_SCREEN_BOOT;
     s_snap.hid_profile = HID_PROFILE_CHARTPLOTTER;
     xTaskCreate(demo_task, "demo", 6144, NULL, 2, NULL);
