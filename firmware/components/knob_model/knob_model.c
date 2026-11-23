@@ -637,7 +637,10 @@ static void build_snapshot(marine_ui_snapshot_t *s, uint32_t now)
         if (!m.zone[i].id[0]) continue;
         t = &s->vol_targets[nt++];
         memset(t, 0, sizeof(*t));
-        snprintf(t->name, sizeof(t->name), "%s", m.zone[i].name[0] ? m.zone[i].name : m.zone[i].id);
+        const char *zn = m.zone[i].name[0] ? m.zone[i].name : m.zone[i].id; /* a long id is cut to the name field */
+        size_t zl = strnlen(zn, sizeof(t->name) - 1);
+        memcpy(t->name, zn, zl);
+        t->name[zl] = '\0';
         t->pct = m.zone[i].vol >= 0 ? (uint8_t)m.zone[i].vol : 0;
         t->connected = m.zone[i].connected;
         t->updated_ms = m.zone[i].vol >= 0 ? m.zone[i].vol_ms : 0;
