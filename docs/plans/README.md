@@ -25,4 +25,6 @@ Name files `issue-<n>-<short-name>.md` for a GitHub issue, `<short-name>.md` oth
 
 - Which relays beyond Relay 1 become light channels, and their names (SPEC section 13).
 - The boot screen rule (see boot-to-last-screen.md).
-- Whether live control may be switched on from the knob itself (see issue-5-settings-screen.md).
+
+Decided 2026-11-23 while planning the issues: "live control" becomes the stored setting **allow control** (SPEC section 2),
+switched on the web page, the config API or the knob's settings screen.

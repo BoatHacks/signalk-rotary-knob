@@ -14,7 +14,8 @@ This collects the items that have to be done before it runs unattended on the bo
   The key is set on the setup page together with Wi-Fi. Check that the portal can take the key in the same step, otherwise
   the setup has a window without one.
 - **Setup access point:** closes once Wi-Fi works and stays closed. Verify with espOS's portal state while connected.
-- **Live control default:** stays off at every boot until the trials are done. After that, decide whether it is a setting.
+- **Allow control:** decided 2026-11-23, a stored setting, off on a fresh knob (SPEC section 2). Check that a factory reset
+  clears it.
 - **USB VID/PID:** the current IDs are Espressif's test PID. Apply for a pid.codes PID (open hardware) or use the
   BoatHacks one if it exists, and change the descriptor and the docs.
 - **Token permission:** the knob asks for readwrite. Check whether a narrower permission works with the paths it writes.
@@ -25,8 +26,6 @@ new values in the device manager.
 
 ## Open questions
 - pid.codes or another source for the USB PID (owner).
-- Is live control a setting after the trials, or always off at boot (owner)?
-
 ## Steps
 - [ ] Enable `CONFIG_ESPOS_HTTPD_AUTH_REQUIRED` in a product build profile, test setup with the key.
 - [ ] Verify the setup AP closes.

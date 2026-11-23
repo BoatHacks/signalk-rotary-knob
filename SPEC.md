@@ -44,8 +44,12 @@ own settings page. A plugin may be added later (section 6.1).
 - A stale connection must be visible. If the knob has no live link, controls are disabled and the screen
   says so. It must never show old autopilot or anchor data as if it were current.
 - Fail safe: losing the knob (unplugged, Wi-Fi gone) never changes autopilot or anchor state.
-- Live control: autopilot and anchor commands only leave the knob while live control is on. It is off at every boot and is
-  switched with the serial command `l` or the knob's REST API (section 12). Every switch is logged with its source.
+- Allow control: autopilot and anchor commands only leave the knob while the stored per-knob setting **allow control** is on.
+  It is off on a fresh knob and after a factory reset, and stays as set across reboots. It is changed on the web settings page,
+  through the config API, or on the knob's settings screen (off to on needs a confirm turn). The serial command `l` flips it
+  for the running session only, as a bench override. Every change is logged with its source. A refused command shows the
+  refusal screen (`CONTROL IS OFF`, `NOTHING WAS CHANGED`) on the autopilot and the anchor screen alike. A knob with it off is
+  a view-only knob.
 
 ## 3. State / Lifecycle Model
 
@@ -235,8 +239,10 @@ Everything else is ephemeral.
 - **Config API is espOS's own** (decided 2026-11-23, #3). `GET` and `PUT /api/v1/config?ns=knob` with the API key, validated
   against the descriptor, partial updates, `restart_required` in the reply. The whole-device export (secrets left out) is the
   backup and restore format. The knob adds live reload, `GET`/`PUT /api/v1/knob/mode` and a read-only `GET /api/v1/knob/status`.
-- **Live control can be switched on and off over the REST API** (decided 2026-11-23, #3), with the API key. It takes effect at
-  once, the knob shows a `LIVE CONTROL ON` notice, it is still off at every boot.
+- **Allow control is a stored per-knob setting** (decided 2026-11-23, #3 and #5, replaces the bench latch "live control", which
+  was off at every boot and only switched by the serial command `l`). Config key `knob.allow_control`, default off. It can be
+  switched on and off through the config API with the API key. When it goes on from the web page or the API, the knob shows
+  a short `CONTROL ON` notice. There is no permanent indicator: the refusal screen says when it is off.
 - **Demo mode** (decided 2026-11-23, #4): simulated data, no SignalK client, Wi-Fi and the settings page stay up. Stored in the
   config (survives a reboot), off by default, cleared by a factory reset.
 - **The manual is `docs/manual.md`** (decided 2026-11-23, #2), linked from the README and the settings page.

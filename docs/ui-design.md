@@ -35,6 +35,8 @@ switcher, scaled to the number of visible modes (and the position text, for exam
 
 The HID mode is listed only while a USB host has enumerated the knob (section 3.4). Without a host it is hidden from the ring.
 
+The last slot is **Settings** (gear icon, section 3.5), hidden while an alarm is active.
+
 ## 3. Modes
 
 ### 3.1 Autopilot
@@ -53,6 +55,9 @@ knob's config **(verify)**.
 - Target changes are sent after a short pause (suggested 400 ms) so a run of clicks is one request. The displayed target is the
   server's value, with the pending value drawn as a preview until it is confirmed.
 - No local "sync CTS to heading on engage". The server's autopilot API decides the target.
+- With allow control off (SPEC section 2) an engage, standby or target change is not sent. The screen shows the same refusal
+  as the anchor (section 3.2): red cross, `CONTROL IS OFF`, `NOTHING WAS CHANGED`, a press dismisses it. Decided 2026-11-23,
+  replaces dropping the command silently.
 
 ### 3.2 Anchor
 
@@ -79,7 +84,7 @@ Controls:
   one press confirms, a long press or 5 s without input leaves it. A radius turned to but not applied is the one used to drop.
 - After a choice the screen shows what is happening: an amber spinner (`DROPPING...`, `MOVING DROP POINT...`, `RAISING...`,
   `SETTING RADIUS...`) until the server confirms through the data stream, or a red cross with the reason and `NOTHING WAS CHANGED`
-  (`LIVE CONTROL IS OFF`, `NO LINK TO THE SERVER`, `NO POSITION FIX`, `THE SERVER REFUSED IT`, `NOT CONFIRMED` after 8 s). A press
+  (`CONTROL IS OFF`, `NO LINK TO THE SERVER`, `NO POSITION FIX`, `THE SERVER REFUSED IT`, `NOT CONFIRMED` after 8 s). A press
   dismisses it. The firmware reports the result in the snapshot (`action_result`, `action_result_seq`).
 - Alarm acknowledge: see section 5.
 
@@ -128,6 +133,40 @@ Look: tick ring, no gauge arc. A green `USB HID CONNECTED` label curves along th
 live action line shows the last action (`ZOOM IN (+)`) and `PRESS: ENTER`, and `HOLD: PROFILE` curves along the bottom. Without
 a host, everything greys out and the labels read `USB DISCONNECTED`, `NO USB HOST`, `SIGNALK LINK STILL UP` and
 `2x PRESS: MODES`. A later option is to show a configured SignalK path on the HID screen (open item 11).
+
+### 3.5 Settings
+
+Agreed 2026-11-23 from a mockup (#5, docs/plans/issue-5-settings-screen.md). Opened from the last slot of the mode ring, left
+with a double press. Only what a skipper changes at the helm, everything else stays on the web settings page.
+
+Look:
+- **List:** the focused item in a pill in the middle (name, value in the primary colour), the item before and after it in muted
+  text above and below, `SETTINGS · n OF m` on the top arc, `PRESS: EDIT · 2x: BACK` on the bottom arc.
+- **Editing:** the item name on the top arc, the new value large in amber on a 270 degree amber arc, `was 80 %` under it,
+  `PRESS: STORE · 2x: CANCEL` on the bottom arc. On/off and choice items show the word instead of the arc.
+- **Confirm turn** (allow control, off to on): cyan countdown arc, `Autopilot and anchor`, `TURN RIGHT`, `to allow`,
+  `5 s · ANY PRESS CANCELS`.
+- Night: the same layout in the red palette.
+
+| Input | List | Editing |
+|---|---|---|
+| Turn | Move | Change the value |
+| Single press | Edit (or open a read-only page) | Store |
+| Double press | Leave settings | Cancel the edit |
+| Long press | Not used | Not used |
+
+Items, in order: active brightness, dim after, dim level, off after, night mode (server, day, night), LEDs (on or off, all
+modes), heading reference (true or magnetic), HID profile, allow control, demo mode, setup access point, device info,
+SignalK, reset setup.
+
+- **Allow control:** off to on is a press and then one click right within 5 s. On to off is one press.
+- **LEDs off** turns off every LED in every mode, the alarm flash included: an alarm then shows on the screen only.
+- **Setup access point:** opens the espOS setup AP next to the current Wi-Fi so a phone reaches the settings page, nothing is
+  cleared. It closes after 10 minutes or when the item is left. It stays shut if the AP is disabled on the web page.
+- **Device info** and **SignalK** are read-only pages: firmware, Wi-Fi network and signal, IP, free RAM, uptime; server, link
+  state, token state, allow control.
+- **Reset setup** keeps the 5 s hold-to-confirm (section 4, boot screens).
+- Nothing here changes autopilot or anchor state or acknowledges an alarm. An alarm takes over the screen as everywhere.
 
 ## 4. Link state and stale handling
 
@@ -211,7 +250,8 @@ palette.
 
 ## 7. LEDs
 
-Priority from highest: alarm, stale, state colour, turn feedback.
+Priority from highest: alarm, stale, state colour, turn feedback. Above all of them, the **LEDs off** setting (section 3.5)
+turns every LED off, the alarm included.
 
 - Alarm: all five red, flashing.
 - Stale: slow amber pulse.

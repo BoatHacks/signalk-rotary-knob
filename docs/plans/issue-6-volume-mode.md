@@ -20,7 +20,7 @@ the next zone. Separate from the USB-HID media profile, which controls the compu
   confirms it.
 - **Screen:** level arc with the number, zone name, track line on the curved bottom arc when published, a muted state. Reuse the
   lights screen's arc where possible.
-- **Live control:** not required, volume is harmless. The mode can be hidden in the config like the others.
+- **Allow control:** not required, volume is harmless. The mode can be hidden in the config like the others.
 
 ## Test strategy
 - Host test for the step and clamp logic and the ratio and percent conversion (knob_logic).

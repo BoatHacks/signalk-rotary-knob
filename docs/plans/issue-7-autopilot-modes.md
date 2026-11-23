@@ -59,7 +59,7 @@ path names when a route is active)**.
 
 ## Test strategy
 - Host tests in `knob_logic`: wind angle sign and P/S, angle error wrap at 180, XTE side and scale.
-- Hardware checklist: each state change on the real pilot with live control on, engage from standby after a wind session
+- Hardware checklist: each state change on the real pilot with allow control on, engage from standby after a wind session
   engages compass, stale wind blocks the turn, Standby from every mode with one long press.
 - Mockups of the wind, route and mode dialog screens agreed before coding.
 

@@ -1,7 +1,7 @@
 # Plan: #3 REST API for config and mode
 
 ## Overview
-The knob's config, its current mode and its live control switch over its own HTTP API on the espOS httpd. The config part is
+The knob's config (allow control included) and its current mode over its own HTTP API on the espOS httpd. The config part is
 espOS's existing config API, the knob adds live reload, a mode endpoint and a status endpoint.
 
 ## Relevant SPEC / ARCHITECTURE sections
@@ -24,9 +24,9 @@ Read from `espos_httpd/src/api_config.c` and `espos_config.h` (espOS 0.32):
 - **Config: espOS's API as it is.** No `/api/knob/config` wrapper and no top-level `"schema"` field, espOS's namespace versions
   do that job.
 - **Knob endpoints:** `GET` and `PUT /api/v1/knob/mode`, and a read-only `GET /api/v1/knob/status`.
-- **Live control may be switched on and off over the API** (`PUT /api/v1/knob/live`, `{"on": true}`), protected by the API key.
-  Switching it on takes effect at once, the knob shows a short `LIVE CONTROL ON` notice, and every switch is logged with its
-  source (serial, API, knob). It is still off at every boot.
+- **Allow control may be switched on and off over the API.** It is the stored config key `knob.allow_control` (SPEC section 2),
+  so it goes through `PUT /api/v1/config` like any other key, no endpoint of its own. Switching it on takes effect at once, the
+  knob shows a short `CONTROL ON` notice, and every change is logged with its source (web or API, knob, serial override).
 
 ## Approach
 - **Live reload:** knob_config subscribes to its namespace and rebuilds its struct on a change. knob_model and knob_actions read
@@ -35,16 +35,16 @@ Read from `espos_httpd/src/api_config.c` and `espos_config.h` (espOS 0.32):
 - **Mode:** `PUT /api/v1/knob/mode {"mode":"autopilot"|"lights"|"anchor"|"hid"}` goes through the same entry point as the mode
   ring. It cannot engage, drop, raise or acknowledge anything. An active alarm takeover stays on top, the mode changes under it.
   A mode that is hidden in the config, or HID with no USB host, is refused with 409 and a reason.
-- **Status:** `{"mode", "link", "live_control", "demo", "alarm", "firmware"}`. No paths, tokens or addresses.
-- **Live control:** `PUT /api/v1/knob/live` and the serial `l` command share one function in main. The notice is a
-  marine_ui toast driven by a snapshot field. The knob has **no permanent live control indicator** today, which this makes
-  more pressing: it is designed with #5.
+- **Status:** `{"mode", "link", "allow_control", "demo", "alarm", "firmware"}`. No paths, tokens or addresses.
+- **Allow control:** knob_actions reads the key through knob_config on every command. The serial `l` override is a runtime
+  flag on top that is never stored. The notice is a marine_ui toast driven by a snapshot field, raised when the key goes on
+  from anywhere but the knob itself. No permanent indicator (decided with #5).
 
 ## Test strategy
 - Host test for the mode request parsing and the refusal rules (pure C in `knob_logic`).
 - Manual, curl against the knob: config read and partial write with and without the key, a value out of range, an export from
-  one knob imported into another, a mode switch during an alarm (the alarm stays on top), HID refused without a host, live
-  control on and off over the API with the notice on screen and the log line, off again after a reboot.
+  one knob imported into another, a mode switch during an alarm (the alarm stays on top), HID refused without a host, allow
+  control on and off over the API with the notice on screen and the log line, still as set after a reboot.
 
 ## Open questions
 None.
@@ -52,8 +52,9 @@ None.
 ## Steps
 - [ ] Mark `restart_required` keys in `knob.json`.
 - [ ] knob_config: subscribe and rebuild on change.
-- [ ] `/api/v1/knob/mode`, `/api/v1/knob/status`, `/api/v1/knob/live` in a `knob_api` file.
-- [ ] Live control toast in marine_ui, shared live control function with the serial command.
+- [ ] `knob.allow_control` key in `knob.json` (default off), knob_actions reads it, serial `l` becomes a session override.
+- [ ] `/api/v1/knob/mode` and `/api/v1/knob/status` in a `knob_api` file.
+- [ ] `CONTROL ON` toast in marine_ui.
 - [ ] Document the API in SPEC section 6 and the manual (export and import with curl).
 
 ## Files

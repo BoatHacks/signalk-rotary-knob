@@ -24,14 +24,27 @@ next one.
 All of it is on docs/hardware-checklist.md (autopilot and anchor tables). Server side checks through the admin UI and the
 SignalK REST API.
 
+Before step 1, allow control (SPEC section 2, the stored setting that replaces the bench latch) is off, and the knob shows the
+refusal screen for anchor and autopilot alike.
+
+## Findings from the provider source (2026-11-23)
+Read from `@signalk/signalk-autopilot` 2.6.0 on the boat server, details in issue-7-autopilot-modes.md:
+- The provider id is still `raymarineST` and `GET .../autopilots/raymarineST` answers (read without a token).
+- `POST .../engage` engages the **last engaged state**, which can be `wind` or `route`. The knob uses `engage` today, so compass
+  engage is only safe if the pilot was last in `auto`. Engaging through `PUT .../state {"value":"auto"}` avoids it (#7 plan).
+- State and target come from `steering.autopilot.*`, and the survey found none on the server, so the knob may see `state: null`
+  whatever the pilot does. Check before step 4 that the pilot's status reaches the server.
+- `target/adjust` converts radians to degrees and rounds down before matching +1, -1, +10, -10. Check that -1 and -10 arrive
+  as such (rounding may turn -1 into -2, which the provider refuses).
+
 ## Open questions
-- Is the autopilot provider id still `raymarineST`, and does the v2 API on this server answer `GET .../autopilots/<id>` with the
-  knob's token (gate item)? Check before the boat session.
+- Does the v2 API answer `GET .../autopilots/raymarineST` with the knob's token (gate item)? Check before the boat session.
 - Does the plugin's drag alarm reach `notifications.navigation.anchor`, and is that the id the knob acknowledges?
 
 ## Steps
 - [ ] Fix the internal RAM dip first (internal-ram-dip.md).
-- [ ] Bench: live control off, all anchor choices refused with the reason.
+- [ ] Bench: allow control off, all anchor choices and autopilot commands refused with the reason.
+- [ ] Bench: does the pilot's state reach `steering.autopilot.state` on the server.
 - [ ] Bench: autopilot GET with the token (gate item).
 - [ ] Boat: anchor drop, move, radius, raise.
 - [ ] Boat: drag alarm and acknowledge.
