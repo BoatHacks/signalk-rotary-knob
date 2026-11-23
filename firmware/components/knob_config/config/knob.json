@@ -2,7 +2,7 @@
  "namespace": "knob",
  "version": 1,
  "title": "Rotary knob",
- "description": "What the knob controls and how. Light channel changes apply after a restart, everything else at once.",
+ "description": "What the knob controls and how. Light channel changes apply after a restart, everything else at once. Manual: https://github.com/BoatHacks/signalk-rotary-knob/blob/main/docs/manual.md",
  "keys": [
   {
    "name": "allow_control",

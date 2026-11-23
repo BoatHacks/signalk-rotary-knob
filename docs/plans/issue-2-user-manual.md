@@ -26,11 +26,12 @@ Someone who has not used the knob sets it up and uses each mode from the manual 
 None.
 
 ## Steps
-- [ ] Setup section with the optional API key and the portal password, after the hardening plan.
+- [x] Setup section with the optional API key, the clock fallback and reset setup (2026-11-23). The portal password is in the
+      settings section.
 - [ ] Autopilot and anchor sections, after the live control trials.
-- [ ] Settings screen and demo mode, after #5 and #4.
+- [x] Settings screen and demo mode (#5, #4), volume (#6), the pilot dialog, wind and route (#7). Draft 2.
 - [ ] Screenshots and photos.
-- [ ] README and settings page link to the manual.
+- [x] README and settings page link to the manual (the knob section's description on the settings page).
 - [ ] A read-through by someone new.
 
 ## Files

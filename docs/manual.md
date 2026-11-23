@@ -1,9 +1,12 @@
 # Rotary knob user manual
 
-> DRAFT 1, written 2026-11-23 from the implemented behaviour and docs/ui-design.md. Items marked **(not verified)** have not been
-> tried on the real hardware yet. Photos and screenshots will be added once the UI has been checked on the panel.
+> DRAFT 2, 2026-11-23: written from the implemented behaviour and docs/ui-design.md, updated with the settings screen, demo
+> mode, the volume mode and the autopilot's wind and route modes. Items marked **(not verified)** have not been tried on the
+> real hardware yet. The autopilot and anchor sections get their final words after the trials at the boat. Photos and
+> screenshots will be added once the UI has been checked on the panel (demo mode is meant for them).
 
-The knob is a helm-side control surface for a SignalK boat: it steers the autopilot, switches lights and watches the anchor. It has
+The knob is a helm-side control surface for a SignalK boat: it steers the autopilot, switches lights, watches the anchor and turns
+the music up and down. It has
 one round screen, an endless dial with a push button, five LEDs around the edge, and a touch screen that is only a helper.
 
 ## 1. First setup
@@ -19,7 +22,15 @@ one round screen, an endless dial with a push button, five LEDs around the edge,
    the server it opens the screen you used last, says `CONNECTING` for a moment until the data is there, and the controls work.
    A normal start takes about six seconds.
 
-If the knob is moved to a different network, or its approval is removed on the server, it goes through the steps again.
+5. **Two settings worth making once** (settings page, `http://<knob name>.local`):
+   - *Time*, *Fall back to the SignalK clock*: switch it off. With it on, the knob loses its connection a few seconds after every
+     start (a SignalK server limit), it does not need the clock.
+   - *HTTP server*, *API key*: optional. Without one the page is open to everyone on the boat network, which is fine on a boat's
+     own Wi-Fi. If you set one, the page asks for it.
+
+If the knob is moved to a different network, or its approval is removed on the server, it goes through the steps again. To start
+over completely use *Reset setup* in the knob's settings (hold 5 seconds): it forgets the Wi-Fi and the approval and opens the
+setup network again.
 
 ## 2. Using the knob
 
