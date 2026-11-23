@@ -112,6 +112,7 @@ See docs/HANDOFF.md for the details and the pitfalls.
 | Stuck on `SIGNALK` | Wi-Fi works but no SignalK server was found. Set the server address on the settings page, or check that the server advertises itself on the network |
 | `PAIRING` for a long time | The request has not been approved yet in the SignalK admin UI |
 | `NO SERVER` | The server refused or cannot be reached. The knob keeps retrying |
+| A short `LINK LOST` a few seconds after every start | The setting *Fall back to the SignalK clock* (time section of the settings page) is on. Switch it off, the knob does not need it |
 | Controls do nothing and the log says live control is off | Autopilot and anchor commands are off after every start, see section 6 |
 | The screen is dim | Idle dim, any input wakes it |
 | Phantom touches | The touch controller sometimes reports ghost touches, the knob drops them |

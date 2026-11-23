@@ -60,7 +60,8 @@ Part of the BoatHacks SignalK suite.
 1. Compile and fix `knob_model` and `knob_config`, flash, check the lights slice end to end with the knob's own relay channel.
 2. Try the autopilot adapter against the real pilot with the owner present (live control on), then the anchor adapter with a real
    drop and raise. Verify that the drag alarm acknowledges through the Notifications API.
-3. Find out why the server closes the stream about 3 s after the first connect on every boot (docs/plans/boot-to-last-screen.md).
+3. The stream drop after boot is worked around with `time.sk_fallback` off. The real fix (espOS sending per-path unsubscribes that
+   signalk-server rejects) is to be investigated later.
 4. Hardening before any unattended use: close the setup access point once Wi-Fi works, set the API key, check that the
    portal can take the key with the Wi-Fi credentials.
 5. USB-HID dial mode, config export and import (espOS already exports its config as JSON), the open issues for the manual, the
@@ -75,6 +76,9 @@ is shared.
 ## Gotchas learned
 
 - espOS is pre-1.0 and single-maintainer. Pin versions and keep `dependencies.lock`.
+- signalk-server only accepts "unsubscribe all" on the stream and closes it on a per-path unsubscribe. espOS sends one when its
+  SignalK fallback clock is no longer needed, so set `time.sk_fallback` off on every knob. The knob must not call
+  `espos_sk_unsubscribe` itself either.
 - The setup portal is an **open** access point and the REST API has no key until `httpd.api_key` is set. Do not leave a knob
   running unattended in that state.
 - The build requires an app signing key (`espsecure generate-signing-key --version 2 --scheme rsa3072`). Keep it out of git

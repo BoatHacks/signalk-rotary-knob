@@ -1,8 +1,8 @@
 # Plan: boot to the last screen
 
 **Built and checked 2026-11-23.** Option A was built first (0ffc8ef, mode at about 2.5 s under a `CONNECTING` overlay), then
-changed on the owner's wish: the splash keeps the phases until the token is verified. Left: the anchor and USB-HID restore checks
-and the stream drop about 3 s after the first connect, which happens on every boot. Delete this plan when those are settled.
+changed on the owner's wish: the splash keeps the phases until the token is verified. Left: the anchor and USB-HID restore checks.
+The stream drop after boot is worked around (`time.sk_fallback` off). Delete this plan when the restore checks are done.
 
 ## Overview
 The spike gate asks for the last used screen within 4 s of power on. Today the splash stays until the SignalK stream is up
@@ -51,8 +51,9 @@ None.
       store (knob_config) and the boot rules with host tests (knob_logic).
 - [x] Flash, measure power on to mode screen, go through the boot lines of the hardware checklist (anchor and USB-HID restore
       still open). The splash-until-token version checked on ee2b16f: 7.4 s.
-- [ ] Stream drop: three boots out of three, the server closes the stream about 3 s after the first connect. Find out why
-      (server log at that moment, the unsubscribe espOS sends, the device meta it publishes).
+- [x] Stream drop: espOS unsubscribes `navigation.datetime` per path once SNTP sets the clock, signalk-server rejects that and
+      closes the stream. Worked around with `time.sk_fallback` off (owner's choice, no firmware change), four clean boots.
+      The upstream question stays open for later.
 - [x] Update the gate table in ARCHITECTURE.md.
 
 ## Files

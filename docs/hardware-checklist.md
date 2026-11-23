@@ -21,7 +21,7 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 | USB-HID last, host on the cable: boots into USB-HID. No host: the last non-HID mode | open | | | try with a charger and with a PC |
 | A stream drop while running shows `LINK LOST` over the mode, not the splash | ok | 2026-11-23 | 0ffc8ef | seen with the real drop about 3 s after online (see "Stream stays up after boot") |
 | A knob without a token keeps the splash, then the pairing screen | open | | | needs a forgotten token |
-| Stream stays up after boot | fail | 2026-11-23 | 0ffc8ef | three boots out of three: the server closes the stream about 3 s after it connects (9.6 to 9.8 s after power on, `stream closed by server` while espOS sends its device meta), reconnects 1.5 s later and then stays up. Not the RAM starvation. Possibly the single-path unsubscribe this server rejects with an error. Was ok on 549db49 for one 64 s run |
+| Stream stays up after boot | ok | 2026-11-23 | ee2b16f | with `time.sk_fallback` off, four boots out of four. Before: the server closed the stream on four boots out of five, because espOS unsubscribes `navigation.datetime` (its fallback clock) once SNTP sets the time, and signalk-server only accepts "unsubscribe all" and closes the stream on anything else. See ARCHITECTURE.md section 9 |
 | Reflash over the USB-Serial/JTAG port, automatic reset | ok | 2026-11-23 | 549db49 | no 1200 baud reboot any more. Not possible while the USB-HID mode is on screen |
 | Survives reboot and reflash with the token | ok | 2026-11-23 | 432c456 | |
 
