@@ -171,7 +171,7 @@ Spike measurements: app_main at 0.33 s, first frame 0.6 s, LVGL up 0.37 s after 
 | USB | `esp_tinyusb` 2.x | Composite CDC + HID. Takes the native USB pins from USB-Serial/JTAG. |
 | Memory | 8 MB octal PSRAM at 80 MHz, LVGL on malloc | LVGL plus espOS boot-looped without it. |
 | Flash | 16 MB, espOS 16 MB table: two 6.5 MB app slots, 1.75 MB LittleFS | Verified in the spike. Kept so OTA can come back (section 8). |
-| Tests | Unity host tests in `test/host` for the pure logic in `knob_logic` (value parsing, stale rule, steering and night fade, GPS-lost rule), built with a plain host C compiler; a hardware checklist for the rest | The logic that can hurt has no hardware dependency. The host tests were written but have not been run yet (no host compiler on the dev machine). |
+| Tests | Unity host tests in `test/host` for the pure logic in `knob_logic` (value parsing, stale rule, steering and night fade, GPS-lost rule), built with a plain host C compiler; a hardware checklist for the rest | The logic that can hurt has no hardware dependency. Run on 2026-11-23 with gcc 14 on an aarch64 Debian host (the boat Pi, the dev machine has no host compiler): 11 tests, 0 failures, no warnings with -Wall -Wextra. |
 
 ## 5. Integration Points
 
