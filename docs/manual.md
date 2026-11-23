@@ -128,6 +128,14 @@ work. Values the boat does not publish show `---`.
   that first input only wakes it and does nothing else (an alarm acknowledge excepted). When it was dimmed, the input also does
   what it normally does.
 
+## 6a. Demo mode
+
+For trying the knob away from the boat. Switch *Demo mode* on in the settings (on the knob or on the settings page). The knob
+restarts, shows `DEMO` at the bottom edge and runs on a simulated boat: the heading drifts, the autopilot steers to its target,
+the boat swings on the anchor, the lights switch. Set the anchor radius smaller than the swing and the drag alarm goes off.
+Nothing is sent to SignalK in demo mode, the knob does not even connect to the server, but Wi-Fi and the settings page stay up,
+so you can switch demo off from a phone. It stays on across restarts until you switch it off, a factory reset clears it.
+
 ## 7. Updating the firmware
 
 Updates are made over USB (over-the-air updates come later). Connect the knob to a computer. A running knob reboots into the bootloader

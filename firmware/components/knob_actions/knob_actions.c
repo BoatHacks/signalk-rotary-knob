@@ -36,6 +36,7 @@ static const knob_actions_hooks_t *s_hooks;
 static QueueHandle_t s_q;
 static volatile bool s_allow;           /* the stored allow control setting */
 static volatile int s_override = -1;    /* serial bench override for this session: -1 none, 0 off, 1 on */
+static volatile bool s_demo;            /* demo mode: nothing goes to SignalK, knob_model applies those actions itself */
 static volatile uint16_t s_radius_pref = 35;
 
 static uint32_t ms_now(void) { return (uint32_t)(esp_timer_get_time() / 1000); }
@@ -211,6 +212,10 @@ static void alarm_ack(void)
 static void handle_action(const marine_ui_action_t *a)
 {
     ESP_LOGI(TAG, "action mode=%d act=%d value=%ld meta=%ld", (int)a->mode, (int)a->action, (long)a->value, (long)a->meta);
+    if (s_demo && a->action != MARINE_ACT_HID_TURN && a->action != MARINE_ACT_HID_PRESS) {
+        ESP_LOGW(TAG, "demo mode: action %d not sent", (int)a->action);
+        return;
+    }
     switch (a->action) {
     case MARINE_ACT_DIMMER_SET_LEVEL: light_level((int)a->meta, (int)a->value); break;
     case MARINE_ACT_DIMMER_TOGGLE_POWER: {
@@ -232,7 +237,6 @@ static void handle_action(const marine_ui_action_t *a)
     case MARINE_ACT_POWER_SET_BACKLIGHT: knob_power_set_backlight((uint8_t)a->value); break;
     case MARINE_ACT_ALARM_LED_PULSE: knob_power_led_alarm(a->value ? KNOB_LED_ALARM_FAST : KNOB_LED_ALARM_OFF); break;
     case MARINE_ACT_ALARM_LED_SLOW_PULSE: knob_power_led_alarm(a->value ? KNOB_LED_ALARM_SLOW : KNOB_LED_ALARM_OFF); break;
-    case MARINE_ACT_SYS_FACTORY_RESET: ESP_LOGW(TAG, "factory reset requested (not wired yet)"); break;
     case MARINE_ACT_HID_TURN: knob_hid_turn((int)a->value); break;
     case MARINE_ACT_HID_PRESS: knob_hid_press(); break;
     case MARINE_ACT_HID_NEXT_PROFILE: knob_hid_next_profile(); break;
@@ -247,7 +251,7 @@ static void worker_task(void *arg)
         marine_ui_action_t a;
         if (xQueueReceive(s_q, &a, pdMS_TO_TICKS(100)) == pdTRUE) handle_action(&a);
         uint32_t now = ms_now();
-        if (online() && now - last_poll >= AP_POLL_MS) {
+        if (!s_demo && online() && now - last_poll >= AP_POLL_MS) {
             last_poll = now;
             ap_poll();
         }
@@ -293,6 +297,8 @@ void knob_actions_toggle_override(void)
 }
 
 bool knob_actions_is_live(void) { return knob_allow_control(s_allow, s_override); }
+
+void knob_actions_set_demo(bool on) { s_demo = on; }
 
 uint16_t knob_actions_anchor_radius(void) { return s_radius_pref; }
 

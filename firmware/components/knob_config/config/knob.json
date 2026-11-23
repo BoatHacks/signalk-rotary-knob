@@ -13,6 +13,14 @@
    "restart_required": false
   },
   {
+   "name": "demo",
+   "type": "bool",
+   "default": false,
+   "title": "Demo mode",
+   "description": "Simulated boat, no SignalK traffic at all, nothing is ever sent. Wi-Fi and this page stay up. The knob restarts when this changes.",
+   "restart_required": true
+  },
+  {
    "name": "autopilot_id",
    "type": "string",
    "default": "raymarineST",

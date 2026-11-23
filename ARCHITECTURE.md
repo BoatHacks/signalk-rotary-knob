@@ -155,6 +155,13 @@ model gives the access point back to espOS's policy after 10 minutes. Reset setu
 the boot hold) clears `wifi.ssid0..3`, forgets the SignalK token and restarts, on the LVGL task. The HID profile is stored too
 (`knob.hid_profile`), the HID long press writes it the same way.
 
+### 2.9c Demo mode (#4)
+Chosen at boot from `knob.demo`; changing the key restarts the knob. In demo mode knob_model stops espOS's SignalK client right
+after `espos_start()` (before Wi-Fi is up), locks knob_actions (every action bound for SignalK is dropped, the autopilot poll
+stops, USB-HID still works) and feeds its model state from the simulation in knob_logic (`knob_demo.c`, host tested): the same
+`s_m` fields SignalK would fill, so the snapshot is built the same way. The UI's actions are applied to the simulation, anchor
+actions report OK. The snapshot carries `demo` for the tag, knob_power pulses the first LED, the status API reports it.
+
 ### 2.10 main
 `app_main` order, chosen for time to first pixels:
 1. `board_power_on()`, `board_display_init()`, backlight at the dim level, boot screen via the raw path.

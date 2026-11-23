@@ -24,6 +24,7 @@ void knob_model_set_mode(int mode);
 typedef struct {
     const char *link;   /* "online", "connecting", "setup", "pairing", "failed" or "down" (bench command x) */
     int alarm;          /* marine_alarm_type_t on screen */
+    bool demo;          /* demo mode: simulated data, nothing sent */
 } knob_model_status_t;
 void knob_model_get_status(knob_model_status_t *out);
 

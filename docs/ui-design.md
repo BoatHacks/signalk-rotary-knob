@@ -176,8 +176,8 @@ Look:
 | Long press | Not used | Not used |
 
 Items, in order: active brightness, dim after, dim level, off after, night mode (server, day, night), LEDs (on or off, all
-modes), heading reference (true or magnetic), HID profile, allow control, setup access point, device info, SignalK, reset
-setup. Demo mode joins after allow control with #4.
+modes), heading reference (true or magnetic), HID profile, allow control, demo mode, setup access point, device info,
+SignalK, reset setup (14 items).
 
 Steps a turn moves through (clamped at the ends): brightness 10 to 100 % in tens; dim after 5, 10, 15, 20, 30, 45 s, 1, 1.5, 2,
 5, 10, 30, 60 min; dim level 1, 2, 5, 10, 15, 20, 30, 40, 50, 60, 80, 100 %; off after never, 1, 2, 5, 10, 15, 30, 60, 120, 240
@@ -190,6 +190,7 @@ min. Values from the web page that sit between two steps move to the nearer step
   It stays shut if the AP is disabled on the web page.
 - **Device info** and **SignalK** are read-only pages: firmware, Wi-Fi network and signal, IP, free RAM, uptime; server, link
   state, token state, allow control.
+- **Demo mode:** storing a change restarts the knob into or out of demo mode (#4).
 - **Reset setup:** a press opens a page with a red arc that fills while the button is held, `HOLD 5 s`, `CLEARS WI-FI`,
   `AND PAIRING`. Released early nothing happens, a short press goes back. After 5 s the knob forgets the Wi-Fi networks and the
   SignalK token and restarts into the setup access point.
@@ -225,6 +226,12 @@ States follow SPEC section 3.1. In STALE (and while connecting):
   mode keeps working without a SignalK link, it only needs the USB host.
 - The LEDs show a slow amber pulse.
 - The knob never sends an action while stale. Losing the knob changes nothing on the boat (SPEC section 2).
+
+### Demo mode (#4)
+
+The whole UI runs on a simulated boat. A small `DEMO` (12 px, purple, red at night) sits at the bottom edge, below the curved
+bottom lines, on every screen, and the first LED pulses slowly in purple whenever no other LED pattern shows. Everything else
+looks and works as on the boat, alarms included: setting the anchor radius below the boat's swing raises the drag alarm.
 
 ### CONTROL ON notice (agreed 2026-11-23, #3)
 

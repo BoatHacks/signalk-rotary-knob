@@ -224,6 +224,8 @@ typedef struct {
     char info_link[12];            // online, connecting, ...
     char info_token[12];           // approved, waiting, none
     bool info_allow_control;       // what applies now (stored setting or the serial override)
+
+    bool demo;                     // demo mode (#4): simulated data, the DEMO tag is shown on every screen
 } marine_ui_snapshot_t;
 
 /**

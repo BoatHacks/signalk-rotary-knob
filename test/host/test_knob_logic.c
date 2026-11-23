@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "knob_logic.h"
+#include "knob_demo.h"
 #include "unity.h"
 
 void setUp(void) {}
@@ -281,6 +282,56 @@ static void test_confirm_turn(void)
     TEST_ASSERT_EQUAL_INT(KNOB_CONFIRM_DONE, knob_confirm_step(0xFFFFF000u, 0x00000100u, 5000, KNOB_CONFIRM_EV_TURN, 1)); /* clock wrap */
 }
 
+/* ---- Demo mode simulation ---- */
+
+static void test_demo_autopilot(void)
+{
+    knob_demo_t d;
+    knob_demo_init(&d, 0, 35);
+    knob_demo_step(&d, 1000);
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, d.heading_deg, d.target_deg); /* standby: the target follows the heading */
+    knob_demo_engage(&d, true);
+    TEST_ASSERT_TRUE(d.engaged);
+    knob_demo_set_target(&d, d.heading_deg + 30.0f);
+    float before = d.heading_deg;
+    knob_demo_step(&d, 2000);                                      /* one second: at most about 3 degrees */
+    float moved = knob_course_error(d.heading_deg, before);
+    TEST_ASSERT_TRUE(moved > 2.0f && moved < 3.5f);
+    TEST_ASSERT_TRUE(d.rudder_deg > 0.0f);                         /* turning to starboard */
+    for (uint32_t t = 3000; t < 30000; t += 1000) knob_demo_step(&d, t);
+    TEST_ASSERT_FLOAT_WITHIN(1.0f, 0.0f, knob_course_error(d.target_deg, d.heading_deg)); /* arrived */
+    knob_demo_set_target(&d, 365.0f);
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 5.0f, d.target_deg);          /* wrapped */
+    knob_demo_engage(&d, false);
+    TEST_ASSERT_FALSE(d.engaged);
+}
+
+static void test_demo_anchor(void)
+{
+    knob_demo_t d;
+    knob_demo_init(&d, 0, 35);
+    TEST_ASSERT_FALSE(knob_demo_dragging(&d));
+    knob_demo_drop(&d, 35);
+    for (uint32_t t = 1000; t < 120000; t += 1000) {
+        knob_demo_step(&d, t);
+        TEST_ASSERT_FALSE(knob_demo_dragging(&d));                 /* swing 22 m inside 35 m */
+        TEST_ASSERT_TRUE(d.anchor_dist_m <= d.swing_m + 0.01f);
+    }
+    knob_demo_set_radius(&d, 10);                                   /* below the swing: drag alarm */
+    TEST_ASSERT_TRUE(knob_demo_dragging(&d));
+    knob_demo_set_radius(&d, 0);                                    /* 0 is ignored */
+    TEST_ASSERT_EQUAL_FLOAT(10.0f, d.radius_m);
+    knob_demo_raise(&d);
+    TEST_ASSERT_FALSE(knob_demo_dragging(&d));
+    knob_demo_set_light(&d, 1, true);
+    TEST_ASSERT_TRUE(d.light[1]);
+    knob_demo_set_light(&d, 9, true);                               /* out of range: ignored */
+    uint32_t big = 0xFFFFFF00u;
+    knob_demo_init(&d, big, 35);
+    knob_demo_step(&d, big + 100000u);                              /* a long gap moves at most 5 s worth */
+    TEST_ASSERT_TRUE(d.depth_m > 5.9f && d.depth_m < 6.9f);
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -305,5 +356,7 @@ int main(void)
     RUN_TEST(test_setting_steps);
     RUN_TEST(test_setting_format);
     RUN_TEST(test_confirm_turn);
+    RUN_TEST(test_demo_autopilot);
+    RUN_TEST(test_demo_anchor);
     return UNITY_END();
 }

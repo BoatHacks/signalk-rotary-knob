@@ -145,6 +145,7 @@ static lv_obj_t *stale_lbl_sub;
 static lv_obj_t *ovl_ap_confirm;
 static lv_obj_t *ovl_anc_menu;
 static lv_obj_t *ovl_anc_res;
+static lv_obj_t *ovl_demo_tag;     // DEMO at the bottom edge while in demo mode
 static lv_obj_t *ovl_ctl_ring;     // CONTROL ON notice: green rim
 static lv_obj_t *ovl_ctl_pill;     // CONTROL ON notice: pill with title and source line
 static lv_obj_t *ctl_lbl_title;
@@ -2662,6 +2663,11 @@ void marine_ui_init(marine_ui_action_cb_t action_cb, void *user_ctx) {
     }
     build_overlays_and_system();
     build_control_notice();
+    ovl_demo_tag = lv_label_create(lv_layer_top());
+    lv_label_set_text(ovl_demo_tag, "DEMO");
+    lv_obj_set_style_text_font(ovl_demo_tag, &lv_font_montserrat_12, 0);
+    lv_obj_align(ovl_demo_tag, LV_ALIGN_CENTER, 0, 110);   // below the curved bottom lines, inside the round edge
+    lv_obj_add_flag(ovl_demo_tag, LV_OBJ_FLAG_HIDDEN);
     lv_screen_load(scr_modes[active_mode]);
     mode_registry[active_mode].refresh();
 }
@@ -2784,6 +2790,14 @@ void marine_ui_apply_snapshot(const marine_ui_snapshot_t *snapshot) {
     uint32_t prev_now_ms = snap.now_ms;
     snap = *snapshot;
     if (snap.now_ms < prev_now_ms) snap.now_ms = prev_now_ms;   // keep the tick clock monotonic
+
+    if (snap.demo) {
+        lv_obj_set_style_text_color(ovl_demo_tag, snap.night_palette ? COL_NIGHT_RED : COL_PURPLE, 0);
+        lv_obj_remove_flag(ovl_demo_tag, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_move_foreground(ovl_demo_tag);
+    } else {
+        lv_obj_add_flag(ovl_demo_tag, LV_OBJ_FLAG_HIDDEN);
+    }
 
     if (snap.control_on_seq != ctl_last_seq) {
         ctl_last_seq = snap.control_on_seq;

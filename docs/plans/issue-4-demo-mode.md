@@ -29,10 +29,12 @@ bench work, showing the knob away from the boat, and the manual's screenshots.
 None.
 
 ## Steps
-- [ ] `knob_demo` component with the snapshot builder and local actions.
-- [ ] Boot-time choice in `main.c` from the config flag.
-- [ ] DEMO tag in marine_ui (a snapshot flag) and the LED pattern in knob_power.
-- [ ] Settings entry, docs.
+- [x] Simulation in knob_logic (`knob_demo.c`, host tested), fed into the model state, local actions. Instead of a separate
+      snapshot builder, the simulation fills the model state SignalK would, so the snapshot code stays one.
+- [x] Boot-time choice in knob_model from the config flag (`espos_sk_stop()` right after `espos_start()`), restart on a change.
+- [x] DEMO tag in marine_ui (a snapshot flag) and the LED pattern in knob_power.
+- [x] Settings entry (`DEMO MODE`, item 10), status API `demo`, docs.
+- [ ] Flash and go through the hardware checklist section "Demo mode".
 
 ## Files
 New `firmware/components/knob_demo/*`, `firmware/main/main.c`, `firmware/components/marine_ui/*` (tag),

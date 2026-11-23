@@ -24,6 +24,7 @@
 #include "esp_app_desc.h"
 #include "esp_system.h"
 #include "knob_logic.h"
+#include "knob_demo.h"
 #include "knob_net.h"
 #include "knob_power.h"
 #include "lv_port.h"
@@ -97,6 +98,12 @@ static volatile bool s_write_from_knob;  /* a setting is being stored from the s
 static volatile uint32_t s_ap_until_ms;  /* the setup access point opened from the settings closes then, 0 = not open */
 #define T_SETUP_AP 600000                /* 10 min */
 static void setup_ap(bool open);
+
+/* Demo mode (#4): chosen at boot from knob.demo. The simulation writes the model state that SignalK would, so the snapshot is
+ * built the same way, and the UI's actions are applied to it instead of being sent. */
+static bool s_demo;
+static knob_demo_t s_dm;
+static void hook_action_result(uint8_t code);
 static volatile int s_alarm_inject;     /* 0 none, else marine_alarm_type_t */
 static volatile bool s_ack_latch;
 
@@ -261,6 +268,7 @@ static void settings_snapshot(marine_ui_snapshot_t *s, const knob_net_status_t *
     s->setting[KNOB_SET_HEADING] = c.heading_true ? 0 : 1;
     s->setting[KNOB_SET_HID_PROFILE] = c.hid_profile;
     s->setting[KNOB_SET_ALLOW_CONTROL] = c.allow_control ? 1 : 0;
+    s->setting[KNOB_SET_DEMO] = c.demo ? 1 : 0;
 
     espos_wifi_status_t w;
     if (espos_wifi_get_status(&w) == ESP_OK) {
@@ -292,6 +300,62 @@ static void settings_snapshot(marine_ui_snapshot_t *s, const knob_net_status_t *
     strncpy(s->info_token, !strcmp(t, "approved") || !strcmp(t, "open") ? "approved" : !strcmp(t, "pending") ? "waiting"
                            : t[0] ? t : "none", sizeof(s->info_token) - 1);
     s->info_allow_control = knob_actions_is_live();
+}
+
+#define DEG2RAD 0.017453292519943295
+
+static void demo_feed(uint32_t now)
+{
+    portENTER_CRITICAL(&s_mux);
+    knob_demo_step(&s_dm, now);
+    s_m.heading_true = s_dm.heading_deg * DEG2RAD;
+    s_m.heading_mag = s_m.heading_true;
+    s_m.heading_true_ms = s_m.heading_mag_ms = now;
+    s_m.ap_known = true;
+    s_m.ap_engaged = s_dm.engaged;
+    s_m.ap_has_target = true;
+    s_m.ap_target_rad = s_dm.target_deg * DEG2RAD;
+    s_m.ap_ms = now;
+    s_m.anchor_seen = true;
+    s_m.anchor_on = s_dm.anchor_down;
+    s_m.anchor_max_m = s_dm.radius_m;
+    s_m.anchor_curr_m = s_dm.anchor_dist_m;
+    s_m.anchor_bearing_rad = s_dm.anchor_bearing_deg * DEG2RAD;
+    s_m.anchor_ms = now;
+    snprintf(s_m.alarm_state, sizeof(s_m.alarm_state), "%s", knob_demo_dragging(&s_dm) ? "alarm" : "");
+    s_m.gps_known = s_m.gps_fix = true;
+    s_m.pos_valid = true;
+    s_m.pos_ms = now;
+    for (int i = 0; i < N_LIGHTS && i < KNOB_DEMO_LIGHTS; i++) s_m.light[i] = s_dm.light[i] ? 1 : 0;
+    s_m.light_ms = now;
+    s_m.last_rx_ms = now;
+    portEXIT_CRITICAL(&s_mux);
+}
+
+/* The UI's actions in demo mode: applied to the simulation, never sent. Anchor actions report OK so the pending screen ends. */
+static void demo_action(const marine_ui_action_t *a)
+{
+    portENTER_CRITICAL(&s_mux);
+    bool lit = false, report = false;
+    switch (a->action) {
+    case MARINE_ACT_AP_ENGAGE: knob_demo_engage(&s_dm, true); break;
+    case MARINE_ACT_AP_STANDBY: knob_demo_engage(&s_dm, false); break;
+    case MARINE_ACT_AP_SET_CTS: knob_demo_set_target(&s_dm, (float)a->value); break;
+    case MARINE_ACT_ANCHOR_SET_RADIUS: knob_demo_set_radius(&s_dm, (uint16_t)a->value); report = s_dm.anchor_down; break;
+    case MARINE_ACT_ANCHOR_DROP:
+    case MARINE_ACT_ANCHOR_MOVE_DROP: knob_demo_drop(&s_dm, 0); report = true; break;
+    case MARINE_ACT_ANCHOR_RAISE: knob_demo_raise(&s_dm); report = true; break;
+    case MARINE_ACT_DIMMER_TOGGLE_POWER:
+        if (a->value >= 0 && a->value < KNOB_DEMO_LIGHTS) knob_demo_set_light(&s_dm, (int)a->value, !s_dm.light[a->value]);
+        lit = true;
+        break;
+    case MARINE_ACT_DIMMER_SET_LEVEL: knob_demo_set_light(&s_dm, (int)a->meta, a->value > 0); lit = true; break;
+    default: break;
+    }
+    portEXIT_CRITICAL(&s_mux);
+    if (a->action == MARINE_ACT_ANCHOR_SET_RADIUS) knob_actions_set_anchor_radius((uint16_t)a->value);
+    if (report) hook_action_result(MARINE_RESULT_OK);
+    (void)lit;
 }
 
 static void build_snapshot(marine_ui_snapshot_t *s, uint32_t now)
@@ -428,6 +492,19 @@ static void build_snapshot(marine_ui_snapshot_t *s, uint32_t now)
     s->usb_host_enumerated = usb_dev_host_present(); /* a host on the cable: the USB-HID mode is offered on the ring */
     s->hid_profile = knob_hid_profile();
     if (!s->device_name[0]) strncpy(s->device_name, ns.hostname, sizeof(s->device_name) - 1);
+
+    if (s_demo) {
+        /* No SignalK: the mode screens show the simulation, also while the setup access point runs. */
+        s->system_screen = MARINE_SCREEN_OPERATIONAL;
+        s->signalk_connected = !s_force_down;
+        s->demo = true;
+        portENTER_CRITICAL(&s_mux);
+        s->rudder_deg = s_dm.rudder_deg;
+        s->depth_m = s_dm.depth_m;
+        s->voltage_v = s_dm.voltage_v;
+        portEXIT_CRITICAL(&s_mux);
+        s->rudder_updated_ms = s->depth_updated_ms = s->voltage_updated_ms = now;
+    }
 }
 
 static void model_task(void *arg)
@@ -437,6 +514,7 @@ static void model_task(void *arg)
     for (;;) {
         s_loop_ms = ms_now();
         s_phase = 1;
+        if (s_demo) demo_feed(ms_now());
         build_snapshot(&snap, ms_now());
         marine_ui_mode_t mode = marine_ui_get_active_mode();
         if (s_boot_hid) {
@@ -555,6 +633,7 @@ static void setting_write_async(void *arg)
     case KNOB_SET_HEADING: knob_config_set_str("heading_source", v ? "magnetic" : "true"); break;
     case KNOB_SET_HID_PROFILE: if (v >= 0 && v < 3) knob_config_set_str("hid_profile", hid[v]); break;
     case KNOB_SET_ALLOW_CONTROL: knob_config_set_bool("allow_control", v != 0); break;
+    case KNOB_SET_DEMO: knob_config_set_bool("demo", v != 0); break;
     default: break;
     }
     s_write_from_knob = false;
@@ -612,6 +691,10 @@ void knob_model_action_cb(const marine_ui_action_t *act, void *ctx)
     case MARINE_ACT_ALARM_ACK: s_ack_latch = true; break; /* and the server call below */
     default: break;
     }
+    if (s_demo && act->action != MARINE_ACT_HID_TURN && act->action != MARINE_ACT_HID_PRESS) {
+        demo_action(act);
+        return;
+    }
     knob_actions_submit(act);
 }
 
@@ -637,6 +720,7 @@ void knob_model_get_status(knob_model_status_t *out)
     default: out->link = "connecting"; break;
     }
     out->alarm = s_last_alarm;
+    out->demo = s_demo;
 }
 
 void knob_model_restore_mode(void)
@@ -697,6 +781,12 @@ void knob_model_start(void)
 /* A key of the knob namespace changed (settings page, config API, import). Runs on espOS's httpd task, whose stack is in
  * internal RAM, so it may read the settings store. The light channels stay as loaded at boot: new paths would need new
  * subscriptions, and this server closes the stream on an unsubscribe (ARCHITECTURE.md section 9). */
+static void restart_cb(void *arg)
+{
+    (void)arg;
+    esp_restart();
+}
+
 static int night_override_of(uint8_t night_mode) { return night_mode == 1 ? 2 : night_mode == 2 ? 1 : 0; }
 
 /* Applies the settings that act outside the model (backlight, LEDs, HID, night). Not under any model lock: it may take the
@@ -739,6 +829,7 @@ static void on_config_key(const char *key)
     s_cfg.night_mode = cfg.night_mode;
     s_cfg.leds_on = cfg.leds_on;
     s_cfg.hid_profile = cfg.hid_profile;
+    s_cfg.demo = cfg.demo;
     portEXIT_CRITICAL(&s_mux);
     xSemaphoreGive(lock);
     bool from_knob = s_write_from_knob;
@@ -752,6 +843,14 @@ static void on_config_key(const char *key)
         }
     } else if (!strcmp(key, "anchor_radius")) {
         knob_actions_set_anchor_radius(now.anchor_radius_m);
+    } else if (!strcmp(key, "demo")) {
+        if (now.demo != s_demo) {
+            ESP_LOGW(TAG, "demo mode %s: restarting", now.demo ? "on" : "off");
+            static esp_timer_handle_t t;
+            const esp_timer_create_args_t a = { .callback = restart_cb, .name = "demo_rst" };
+            if (!t && esp_timer_create(&a, &t) != ESP_OK) t = NULL;
+            if (t) esp_timer_start_once(t, 800 * 1000); /* let the reply and the log line out first */
+        }
     } else if (!strncmp(key, "light", 5)) {
         ESP_LOGW(TAG, "light channel settings apply after a restart");
     } else {
@@ -771,6 +870,19 @@ void knob_model_subscribe(void)
     knob_actions_set_allow_control(cfg.allow_control, "boot");
     apply_device_settings(&cfg);
     knob_config_watch(on_config_key);
+    if (cfg.demo) {
+        /* Demo mode: stop the SignalK client before Wi-Fi is even up, so not a byte goes to a server. Wi-Fi and the settings
+         * page stay, to switch demo off from a phone. */
+        espos_sk_stop();
+        knob_actions_set_demo(true);
+        knob_power_set_demo(true);
+        portENTER_CRITICAL(&s_mux);
+        knob_demo_init(&s_dm, ms_now(), cfg.anchor_radius_m);
+        portEXIT_CRITICAL(&s_mux);
+        s_demo = true;
+        ESP_LOGW(TAG, "DEMO MODE: simulated data, the SignalK client is stopped, nothing is sent");
+        return;
+    }
     subscribe_all();
     ESP_LOGI(TAG, "subscribed, %d light channel(s), autopilot '%s'", N_LIGHTS, s_cfg.autopilot_id);
 }

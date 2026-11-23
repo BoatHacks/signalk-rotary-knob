@@ -50,6 +50,8 @@ void knob_actions_submit(const marine_ui_action_t *act);
 void knob_actions_set_allow_control(bool on, const char *source);
 /* Serial command l: flips allow control for this session only, as a bench override on top of the stored setting. */
 void knob_actions_toggle_override(void);
+/* Demo mode: every action bound for SignalK is dropped and the autopilot poll stops. USB-HID still works. */
+void knob_actions_set_demo(bool on);
 /* Whether autopilot and anchor commands are sent now (stored setting or override). */
 bool knob_actions_is_live(void);
 

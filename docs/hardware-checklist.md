@@ -61,7 +61,7 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 | Item | Status | Date | Commit | Notes |
 |---|---|---|---|---|
 | Mode ring: slots evenly spaced, gear `SETUP` last, 5 with a USB host, 4 without, hidden during an alarm | open | | | |
-| List: turn moves and wraps, prev and next items above and below, `SETTINGS · n OF 13` | open | | | |
+| List: turn moves and wraps, prev and next items above and below, `SETTINGS · n OF 14` | open | | | |
 | Edit: amber arc, value, `was ...`, press stores, double press cancels | open | | | |
 | Each value stored, shown on the web page at once, still there after a reboot | open | | | brightness, dim after, dim level, off after, night, LEDs, heading, HID profile |
 | A change on the web page shows on the knob | open | | | |
@@ -75,6 +75,17 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 | Reset setup: needs the full 5 s hold, early release does nothing | open | | | destructive, with the next fresh setup |
 | Settings usable without a SignalK link | open | | | |
 | HID profile from the HID long press survives a reboot | open | | | needs a USB host |
+
+## Demo mode (#4)
+
+| Item | Status | Date | Commit | Notes |
+|---|---|---|---|---|
+| Demo on from the knob's settings and from the web page: restart, `DEMO` tag, purple LED pulse | open | | | |
+| No SignalK traffic in demo mode (server access log) | open | | | |
+| Autopilot: engage, target change, the heading follows, standby | open | | | |
+| Anchor: drop, swing, radius below the swing raises the drag alarm, acknowledge, raise | open | | | |
+| Lights switch, USB-HID still works | open | | | |
+| Demo off from the web page restarts into normal mode | open | | | |
 
 ## Lights
 

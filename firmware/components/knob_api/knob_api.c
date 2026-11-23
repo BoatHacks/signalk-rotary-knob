@@ -56,8 +56,8 @@ static esp_err_t status_get(httpd_req_t *req)
     const esp_app_desc_t *app = esp_app_get_description();
     char out[256];
     snprintf(out, sizeof(out),
-             "{\"mode\":\"%s\",\"link\":\"%s\",\"allow_control\":%s,\"demo\":false,\"alarm\":\"%s\",\"firmware\":\"%s\"}",
-             knob_mode_name((int)marine_ui_get_active_mode()), st.link, knob_actions_is_live() ? "true" : "false", alarm,
+             "{\"mode\":\"%s\",\"link\":\"%s\",\"allow_control\":%s,\"demo\":%s,\"alarm\":\"%s\",\"firmware\":\"%s\"}",
+             knob_mode_name((int)marine_ui_get_active_mode()), st.link, knob_actions_is_live() ? "true" : "false", st.demo ? "true" : "false", alarm,
              app ? app->version : "");
     return espos_httpd_send_json(req, NULL, out);
 }

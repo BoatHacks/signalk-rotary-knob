@@ -25,6 +25,8 @@ void knob_config_load(knob_cfg_t *c)
 
     bool allow = false;
     if (espos_config_get_bool(NS, "allow_control", &allow) == ESP_OK) c->allow_control = allow;
+    bool demo = false;
+    if (espos_config_get_bool(NS, "demo", &demo) == ESP_OK) c->demo = demo;
     espos_config_get_str(NS, "autopilot_id", c->autopilot_id, sizeof(c->autopilot_id), NULL);
     char hs[12] = "true";
     espos_config_get_str(NS, "heading_source", hs, sizeof(hs), NULL);

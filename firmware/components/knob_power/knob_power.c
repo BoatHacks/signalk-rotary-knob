@@ -28,6 +28,9 @@ static volatile uint32_t s_oncourse_since_ms; /* when the indicator last changed
 static volatile uint8_t s_full_pct = 100;  /* active brightness from the settings */
 static volatile uint8_t s_req_pct = 100;   /* what the UI asked for last */
 static volatile bool s_leds_on = true;     /* settings: false keeps every LED dark, the alarm included */
+static volatile bool s_demo;               /* demo mode: a slow purple pulse on the first LED while nothing else shows */
+
+void knob_power_set_demo(bool on) { s_demo = on; }
 
 static void apply_backlight(void)
 {
@@ -92,7 +95,13 @@ static void led_task(void *arg)
             break;
         }
         if (!s_leds_on) r = g = b = 0;
-        for (int i = 0; i < BOARD_LED_COUNT; i++) board_led_set(i, r, g, b);
+        bool demo_led = s_demo && s_leds_on && !r && !g && !b;
+        uint32_t ph = t % 4000;                       /* triangle wave, 4 s: slower than every other pattern */
+        uint32_t tri = ph < 2000 ? ph : 4000 - ph;
+        for (int i = 0; i < BOARD_LED_COUNT; i++) {
+            if (demo_led && i == 0) board_led_set(i, (uint8_t)(40 * tri / 2000), 0, (uint8_t)(64 * tri / 2000));
+            else board_led_set(i, r, g, b);
+        }
         board_led_show();
         vTaskDelay(pdMS_TO_TICKS(LED_PERIOD_MS));
     }
