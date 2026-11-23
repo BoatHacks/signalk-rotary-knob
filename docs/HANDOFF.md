@@ -60,8 +60,7 @@ Part of the BoatHacks SignalK suite.
 1. Compile and fix `knob_model` and `knob_config`, flash, check the lights slice end to end with the knob's own relay channel.
 2. Try the autopilot adapter against the real pilot with the owner present (live control on), then the anchor adapter with a real
    drop and raise. Verify that the drag alarm acknowledges through the Notifications API.
-3. Check the boot on the panel: a paired knob opens its last mode under `CONNECTING` (decided and built 2026-11-23,
-   docs/plans/boot-to-last-screen.md).
+3. Find out why the server closes the stream about 3 s after the first connect on every boot (docs/plans/boot-to-last-screen.md).
 4. Hardening before any unattended use: close the setup access point once Wi-Fi works, set the API key, check that the
    portal can take the key with the Wi-Fi credentials.
 5. USB-HID dial mode, config export and import (espOS already exports its config as JSON), the open issues for the manual, the

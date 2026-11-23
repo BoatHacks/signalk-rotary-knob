@@ -82,6 +82,7 @@ static volatile bool s_bypass_net;
 static volatile uint8_t s_action_result;      /* what became of the last anchor action, marine_action_result_t */
 static volatile uint16_t s_action_result_seq; /* 0 = none yet, changes with every result */
 static volatile bool s_force_down;
+static bool s_token_verified;           /* the token was verified since boot: the splash is done (model task only) */
 static volatile bool s_boot_hid;        /* USB-HID was the last mode and the boot window is open */
 static marine_ui_mode_t s_boot_mode;    /* the mode restored at boot */
 static volatile int s_night_override;   /* 0 follow the server, 1 night, 2 day */
@@ -263,12 +264,15 @@ static void build_snapshot(marine_ui_snapshot_t *s, uint32_t now)
             strncpy(s->device_name, ns.hostname, sizeof(s->device_name) - 1);
             break;
         case KNOB_NET_FAILED: s->system_screen = MARINE_SCREEN_CANNOT_CONNECT; break;
-        case KNOB_NET_ONLINE: s->system_screen = MARINE_SCREEN_OPERATIONAL; break;
+        case KNOB_NET_ONLINE:
+            s->system_screen = MARINE_SCREEN_OPERATIONAL;
+            s_token_verified = true;
+            break;
         default:
-            /* A paired knob opens its last mode while Wi-Fi and the stream come up (CONNECTING overlay until the first data),
-             * and stays on it when the link drops later (LINK LOST). Only a fresh knob waits on the splash. */
-            s->system_screen = knob_boot_show_mode(ns.sk_known, ns.has_token, false) ? MARINE_SCREEN_OPERATIONAL
-                                                                                      : MARINE_SCREEN_BOOT;
+            /* The splash shows the phases until the token is verified, then the last mode opens (CONNECTING until the first
+             * data) and stays when the link drops later (LINK LOST). */
+            s->system_screen = knob_boot_show_mode(ns.phase == KNOB_NET_LINK, &s_token_verified) ? MARINE_SCREEN_OPERATIONAL
+                                                                                                  : MARINE_SCREEN_BOOT;
             break;
         }
         strncpy(s->boot_phase, ns.text, sizeof(s->boot_phase) - 1);

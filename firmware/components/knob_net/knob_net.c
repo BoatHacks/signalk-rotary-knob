@@ -22,13 +22,12 @@ static portMUX_TYPE s_mux = portMUX_INITIALIZER_UNLOCKED;
 static knob_net_status_t s_st = { .phase = KNOB_NET_STARTING, .text = "STARTING", .progress = 5 };
 
 /* The token state is the string after the first "state": in espos_sk_status_json(), which starts with the token object.
- * Copies at most n-1 characters. Also fills in whether a token is stored. Returns false while the client is not started. */
-static bool token_state(char *out, size_t n, bool *has_token)
+ * Copies at most n-1 characters. */
+static void token_state(char *out, size_t n)
 {
     out[0] = '\0';
-    *has_token = false;
     char *json = NULL;
-    if (espos_sk_status_json(&json) != ESP_OK || !json) return false;
+    if (espos_sk_status_json(&json) != ESP_OK || !json) return;
     const char *p = strstr(json, "\"state\":\"");
     if (p) {
         p += 9;
@@ -36,9 +35,7 @@ static bool token_state(char *out, size_t n, bool *has_token)
         while (p[i] && p[i] != '"' && i + 1 < n) { out[i] = p[i]; i++; }
         out[i] = '\0';
     }
-    *has_token = strstr(json, "\"has_token\":true") != NULL;
     free(json);
-    return true;
 }
 
 static void set(knob_net_phase_t ph, const char *text, uint8_t progress, const knob_net_status_t *base)
@@ -66,7 +63,7 @@ static void poll_task(void *arg)
         }
         strncpy(b.hostname, w.hostname, sizeof(b.hostname) - 1);
         strncpy(b.portal_ssid, w.portal_ssid, sizeof(b.portal_ssid) - 1);
-        b.sk_known = token_state(b.token_state, sizeof(b.token_state), &b.has_token);
+        token_state(b.token_state, sizeof(b.token_state));
         const char *t = b.token_state;
 
         espos_sk_ws_status_t ws = { 0 };

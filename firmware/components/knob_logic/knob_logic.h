@@ -47,10 +47,11 @@ bool knob_gps_lost(bool anchor_armed, uint32_t now_ms, uint32_t boot_grace_ms, b
 
 /* --- Boot --- */
 
-/* Whether the knob leaves the boot splash for its last mode. Once online, or as soon as espOS reports a stored SignalK token
- * (net_known) while Wi-Fi and the stream are still coming up: the stale rules then mask the data that has not arrived. A
- * fresh knob without a token keeps the splash until it needs setup or pairing. */
-bool knob_boot_show_mode(bool net_known, bool has_token, bool online);
+/* Whether the knob shows its mode screen instead of the boot splash. The splash with its phases stays until the SignalK token
+ * is verified for the first time since boot (token_ok: the stream is being opened or is up). From then on the mode screen stays,
+ * also when Wi-Fi or the stream drop later (the link overlay says so). *verified is the latch, kept by the caller, false at
+ * boot. */
+bool knob_boot_show_mode(bool token_ok, bool *verified);
 /* The mode to open at boot from the stored last non-HID mode: stored when it is a valid mode (0..count-1) other than
  * hid_mode, else 0 (nothing stored, or a value from another firmware). */
 int knob_boot_mode(int stored, int count, int hid_mode);

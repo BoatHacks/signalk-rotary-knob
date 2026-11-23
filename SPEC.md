@@ -177,7 +177,8 @@ Everything else is ephemeral.
 - Dimmer mode (one channel group, then several).
 - Anchor mode (arm/disarm, set drop point and radius, state, ack).
 - Always-on with dim mode.
-- Boot to last screen under 4 s and ONLINE under 10 s (bench-measure, tighten later).
+- Boot to the last screen and ONLINE under 10 s. The splash shows the connection phases until the token is verified, then
+  the last screen opens (decided 2026-11-23, the earlier 4 s target for the last screen was dropped).
 
 ### 10.2 Post-MVP / Deferred
 
@@ -236,7 +237,8 @@ Everything else is ephemeral.
 - **Setup AP closes once Wi-Fi works, API key is a fixed key set by the owner on the settings page.**
 - **Licence Apache-2.0.** Config export/import as JSON is planned after the MVP.
 - **Configurable HID profile, default dial.**
-- **Looser boot targets (4 s / 10 s)** because the device is always on, not cold-booted per use.
+- **Looser boot targets (10 s for the last screen and ONLINE)** because the device is always on, not cold-booted per use. The
+  splash with its phases until the token is verified reads better than a mode screen under an overlay (2026-11-23).
 - **Config API is espOS's own** (decided 2026-11-23, #3). `GET` and `PUT /api/v1/config?ns=knob` with the API key, validated
   against the descriptor, partial updates, `restart_required` in the reply. The whole-device export (secrets left out) is the
   backup and restore format. The knob adds live reload, `GET`/`PUT /api/v1/knob/mode` and a read-only `GET /api/v1/knob/status`.

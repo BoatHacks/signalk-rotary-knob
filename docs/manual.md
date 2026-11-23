@@ -15,9 +15,9 @@ one round screen, an endless dial with a push button, five LEDs around the edge,
 3. **Pairing.** The knob finds the SignalK server on its own, or you give the server address on the settings page. It then shows
    `PAIRING, WAITING FOR APPROVAL`. In the SignalK admin UI open Security, Access Requests, find the request named after the knob and
    approve it with **read/write** permission. This is done once.
-4. **Online.** The splash picture shows the phases (`WI-FI`, `SIGNALK`, `TOKEN`) with a progress bar. Once the knob is paired, later
-   starts skip most of that: it opens the screen you used last after about two seconds and says `CONNECTING` until the data is
-   there, about five seconds after power on. The controls work from then on.
+4. **Online.** The splash picture shows the phases (`WI-FI`, `SIGNALK`, `TOKEN`) with a progress bar. When the knob is accepted by
+   the server it opens the screen you used last, says `CONNECTING` for a moment until the data is there, and the controls work.
+   A normal start takes about six seconds.
 
 If the knob is moved to a different network, or its approval is removed on the server, it goes through the steps again.
 

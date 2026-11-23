@@ -1,7 +1,8 @@
 # Plan: boot to the last screen
 
-**Built and checked 2026-11-23 (option A, 0ffc8ef).** Mode screen at about 2.5 s. Left: the anchor and USB-HID restore checks and
-the stream drop about 3 s after the first connect, which happens on every boot. Delete this plan when those are settled.
+**Built and checked 2026-11-23.** Option A was built first (0ffc8ef, mode at about 2.5 s under a `CONNECTING` overlay), then
+changed on the owner's wish: the splash keeps the phases until the token is verified. Left: the anchor and USB-HID restore checks
+and the stream drop about 3 s after the first connect, which happens on every boot. Delete this plan when those are settled.
 
 ## Overview
 The spike gate asks for the last used screen within 4 s of power on. Today the splash stays until the SignalK stream is up
@@ -27,11 +28,13 @@ DHCP renew, server side close).
 Hardware checklist: "Last screen in under 4 s" and "Stream stays up after boot".
 
 ## Decision
-Option A, decided by the owner on 2026-11-23, with `CONNECTING` instead of `LINK LOST` while no data has arrived since boot.
+Option A was chosen first, with `CONNECTING` instead of `LINK LOST` while no data has arrived since boot. Seen on the panel, the
+owner preferred the phases on the splash over a mode screen under an overlay (2026-11-23): the splash stays until the token is
+verified, then the last mode opens with a short `CONNECTING`. That takes about 6 s, so the last screen target is 10 s now.
 
 How it was built:
-- knob_net reports whether espOS has a stored token. knob_model shows the operational screen in every phase but setup portal,
-  pairing and failed once the token is known (`knob_boot_show_mode` in knob_logic). So a drop after boot also shows `LINK LOST`
+- knob_model shows the splash in every phase but setup portal, pairing and failed until the token is verified for the first
+  time since boot (phase link or online, latched in `knob_boot_show_mode` in knob_logic). After that a drop shows `LINK LOST`
   over the mode instead of the splash, which is what ui-design section 4 always asked for.
 - The last mode did not exist yet: marine_ui emits `MARINE_ACT_MODE_CHANGED` on a ring change, knob_config stores the last
   non-HID mode and a USB-HID flag in its own NVS namespace `knob_state`. The ring change arrives on the input task, whose
@@ -43,11 +46,11 @@ How it was built:
 None.
 
 ## Steps
-- [x] Owner decides A or B (A, 2026-11-23).
+- [x] Owner decides A or B (A, 2026-11-23, then the splash until the token is verified).
 - [x] Implement in `knob_model.c` (system screen choice) and `marine_ui.c` (overlay text before first data), plus the last mode
       store (knob_config) and the boot rules with host tests (knob_logic).
 - [x] Flash, measure power on to mode screen, go through the boot lines of the hardware checklist (anchor and USB-HID restore
-      still open).
+      still open, the splash-until-token version to be checked again).
 - [ ] Stream drop: three boots out of three, the server closes the stream about 3 s after the first connect. Find out why
       (server log at that moment, the unsubscribe espOS sends, the device meta it publishes).
 - [x] Update the gate table in ARCHITECTURE.md.

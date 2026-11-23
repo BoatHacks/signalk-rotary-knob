@@ -147,12 +147,12 @@ static void test_gps_lost(void)
 
 static void test_boot_show_mode(void)
 {
-    TEST_ASSERT_FALSE(knob_boot_show_mode(false, false, false)); /* espOS not up yet */
-    TEST_ASSERT_FALSE(knob_boot_show_mode(false, true, false));  /* token flag from a status not read yet does not count */
-    TEST_ASSERT_FALSE(knob_boot_show_mode(true, false, false));  /* fresh knob: splash until setup or pairing */
-    TEST_ASSERT_TRUE(knob_boot_show_mode(true, true, false));    /* paired, still connecting: last mode early */
-    TEST_ASSERT_TRUE(knob_boot_show_mode(true, false, true));    /* online always shows the mode */
-    TEST_ASSERT_TRUE(knob_boot_show_mode(false, false, true));
+    bool verified = false;
+    TEST_ASSERT_FALSE(knob_boot_show_mode(false, &verified)); /* Wi-Fi, server search, token check: splash */
+    TEST_ASSERT_FALSE(knob_boot_show_mode(false, &verified));
+    TEST_ASSERT_TRUE(knob_boot_show_mode(true, &verified));   /* token verified: the mode screen */
+    TEST_ASSERT_TRUE(knob_boot_show_mode(false, &verified));  /* a later drop keeps the mode screen (LINK LOST) */
+    TEST_ASSERT_TRUE(verified);
 }
 
 static void test_boot_mode(void)

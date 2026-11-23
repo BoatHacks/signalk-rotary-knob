@@ -25,8 +25,6 @@ typedef struct {
     char portal_ssid[33];  /* setup access point name while phase is KNOB_NET_PORTAL */
     char hostname[33];     /* what the knob is called on the network */
     char token_state[16];  /* espOS token state string, for logs */
-    bool sk_known;         /* espOS's SignalK client has reported its state, so has_token means something */
-    bool has_token;        /* a SignalK token is stored (the knob was paired before) */
 } knob_net_status_t;
 
 /* Starts the polling task. Call after espos_start(). */
