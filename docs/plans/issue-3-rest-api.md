@@ -1,41 +1,62 @@
 # Plan: #3 REST API for config and mode
 
 ## Overview
-The knob's config and its current mode over its own HTTP API, on the espOS httpd. The same versioned JSON document serves
-export and import (SPEC question 10), and the on-knob settings screen (#5) and the web settings page read and write the same
-store.
+The knob's config, its current mode and its live control switch over its own HTTP API on the espOS httpd. The config part is
+espOS's existing config API, the knob adds live reload, a mode endpoint and a status endpoint.
 
 ## Relevant SPEC / ARCHITECTURE sections
-- SPEC sections 4, 8 and 9 (data model, persistence, configuration), 13 question 10.
+- SPEC sections 2 (safety rules), 4, 8 and 9 (data model, persistence, configuration), 12, 13 question 10.
 - ARCHITECTURE.md sections 2.9 (knob_config), 6 (security, API key).
 
+## What espOS already gives
+Read from `espos_httpd/src/api_config.c` and `espos_config.h` (espOS 0.32):
+- `GET /api/v1/config?ns=knob` and `PUT /api/v1/config` (whole device without `?ns`), protected by the API key.
+- `PUT` takes a partial document: keys not present stay as they are. Every key is validated against the descriptor
+  (`knob_config/config/knob.json`: type, range, length, enum). A bad key gives 400 with the offending `ns.key` and a reason.
+  The reply lists the changed keys and `restart_required` (per key, from the descriptor).
+- `GET /api/v1/config` without `?ns` exports every namespace, secrets left out. That document is the export and import format
+  (SPEC question 10).
+- Schema versions are per namespace with registered migrations, so an old export imports into newer firmware.
+- `espos_config_subscribe()` calls back on every change, which is what live reload needs.
+- `GET /api/v1/config/schema` is what the espOS settings page renders its form from. The page already uses this API.
+
+## Decisions (2026-11-23)
+- **Config: espOS's API as it is.** No `/api/knob/config` wrapper and no top-level `"schema"` field, espOS's namespace versions
+  do that job.
+- **Knob endpoints:** `GET` and `PUT /api/v1/knob/mode`, and a read-only `GET /api/v1/knob/status`.
+- **Live control may be switched on and off over the API** (`PUT /api/v1/knob/live`, `{"on": true}`), protected by the API key.
+  Switching it on takes effect at once, the knob shows a short `LIVE CONTROL ON` notice, and every switch is logged with its
+  source (serial, API, knob). It is still off at every boot.
+
 ## Approach
-- espOS already serves `config/knob.json` through its settings page and its config REST API. First check what that gives for
-  free (read, write, validation from the descriptor). Build only what is missing.
-- Proposed endpoints, under the espOS API key:
-  - `GET /api/knob/config`: the whole knob config as one document with `"schema": 1`.
-  - `PUT /api/knob/config`: replace it. Every field validated and bounded, unknown schema rejected with a clear error, the reply
-    says which fields need a restart.
-  - `GET /api/knob/mode`, `PUT /api/knob/mode` with `{"mode":"autopilot"|"lights"|"anchor"|"hid"}`.
-- Mode switching goes through the same path as the mode ring, so it cannot engage, drop, raise or acknowledge anything.
-- Apply without a reboot where possible: knob_config gets a reload that knob_model and knob_actions already read through.
+- **Live reload:** knob_config subscribes to its namespace and rebuilds its struct on a change. knob_model and knob_actions read
+  through knob_config, so most keys apply at once. Keys that cannot (for example the HID profile while enumerated) carry
+  `restart_required` in the descriptor.
+- **Mode:** `PUT /api/v1/knob/mode {"mode":"autopilot"|"lights"|"anchor"|"hid"}` goes through the same entry point as the mode
+  ring. It cannot engage, drop, raise or acknowledge anything. An active alarm takeover stays on top, the mode changes under it.
+  A mode that is hidden in the config, or HID with no USB host, is refused with 409 and a reason.
+- **Status:** `{"mode", "link", "live_control", "demo", "alarm", "firmware"}`. No paths, tokens or addresses.
+- **Live control:** `PUT /api/v1/knob/live` and the serial `l` command share one function in main. The notice is a
+  marine_ui toast driven by a snapshot field. The knob has **no permanent live control indicator** today, which this makes
+  more pressing: it is designed with #5.
 
 ## Test strategy
-- Host test for the validation and bounds (pure C in `knob_config` or `knob_logic`).
-- Manual: curl against the knob with and without the key, a bad document, an unknown schema, a mode switch while an alarm is
-  active (must not hide the alarm).
+- Host test for the mode request parsing and the refusal rules (pure C in `knob_logic`).
+- Manual, curl against the knob: config read and partial write with and without the key, a value out of range, an export from
+  one knob imported into another, a mode switch during an alarm (the alarm stays on top), HID refused without a host, live
+  control on and off over the API with the notice on screen and the log line, off again after a reboot.
 
 ## Open questions
-- Does the espOS config API already cover read and write well enough that only `/mode` and the export wrapper are needed?
-- Does the web settings page use this API, or keep using espOS's own?
+None.
 
 ## Steps
-- [ ] Read espOS's config REST API and decide what is new.
-- [ ] Validation and bounds with host tests.
-- [ ] Config endpoints, then mode endpoints.
-- [ ] Live reload of the config without a reboot.
-- [ ] Document the API in SPEC section 6 and the manual.
+- [ ] Mark `restart_required` keys in `knob.json`.
+- [ ] knob_config: subscribe and rebuild on change.
+- [ ] `/api/v1/knob/mode`, `/api/v1/knob/status`, `/api/v1/knob/live` in a `knob_api` file.
+- [ ] Live control toast in marine_ui, shared live control function with the serial command.
+- [ ] Document the API in SPEC section 6 and the manual (export and import with curl).
 
 ## Files
-`firmware/components/knob_config/*`, a new `knob_api` component or a file in `knob_config`, `firmware/components/marine_ui`
-(mode switch entry point), `SPEC.md`, `docs/manual.md`.
+`firmware/components/knob_config/*`, a new `knob_api.c` (in `firmware/main` or its own component), `firmware/main/main.c`,
+`firmware/components/marine_ui/*` (mode switch entry point, toast), `firmware/components/knob_logic/*`, `SPEC.md`,
+`docs/manual.md`.

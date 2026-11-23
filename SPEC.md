@@ -44,6 +44,8 @@ own settings page. A plugin may be added later (section 6.1).
 - A stale connection must be visible. If the knob has no live link, controls are disabled and the screen
   says so. It must never show old autopilot or anchor data as if it were current.
 - Fail safe: losing the knob (unplugged, Wi-Fi gone) never changes autopilot or anchor state.
+- Live control: autopilot and anchor commands only leave the knob while live control is on. It is off at every boot and is
+  switched with the serial command `l` or the knob's REST API (section 12). Every switch is logged with its source.
 
 ## 3. State / Lifecycle Model
 
@@ -230,6 +232,14 @@ Everything else is ephemeral.
 - **Licence Apache-2.0.** Config export/import as JSON is planned after the MVP.
 - **Configurable HID profile, default dial.**
 - **Looser boot targets (4 s / 10 s)** because the device is always on, not cold-booted per use.
+- **Config API is espOS's own** (decided 2026-11-23, #3). `GET` and `PUT /api/v1/config?ns=knob` with the API key, validated
+  against the descriptor, partial updates, `restart_required` in the reply. The whole-device export (secrets left out) is the
+  backup and restore format. The knob adds live reload, `GET`/`PUT /api/v1/knob/mode` and a read-only `GET /api/v1/knob/status`.
+- **Live control can be switched on and off over the REST API** (decided 2026-11-23, #3), with the API key. It takes effect at
+  once, the knob shows a `LIVE CONTROL ON` notice, it is still off at every boot.
+- **Demo mode** (decided 2026-11-23, #4): simulated data, no SignalK client, Wi-Fi and the settings page stay up. Stored in the
+  config (survives a reboot), off by default, cleared by a factory reset.
+- **The manual is `docs/manual.md`** (decided 2026-11-23, #2), linked from the README and the settings page.
 
 ## 13. Open Questions
 
@@ -252,8 +262,8 @@ Everything else is ephemeral.
    to the token machine). Adapters use it from the actions task only, it blocks.
 9. Which permission does the device token get from the access request, and is it enough for `PUT` and the autopilot v2 and
    anchor alarm calls on a server with security on?
-10. Config backup and restore: can the espOS settings page export and import a knob's config, so a replaced knob or a second
-    knob does not need re-entering everything?
+10. RESOLVED 2026-11-23: config backup and restore is espOS's `GET` and `PUT /api/v1/config` (whole device, secrets left out,
+    versioned per namespace). See section 12 and docs/plans/issue-3-rest-api.md.
 11. Staleness: which of the boat's paths carry `meta.timeout`, and does the server enforce it (the signalk-server stale-data
     work marks timed-out paths)? How does the knob read the meta (REST `.../meta` or `meta` deltas) and compute age against the
     server's clock when the server has no RTC?

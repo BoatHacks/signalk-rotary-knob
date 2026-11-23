@@ -18,6 +18,7 @@ Name files `issue-<n>-<short-name>.md` for a GitHub issue, `<short-name>.md` oth
 | [issue-5-settings-screen.md](issue-5-settings-screen.md) | #5 | Needs a design pass first |
 | [issue-4-demo-mode.md](issue-4-demo-mode.md) | #4 | Useful for the manual's screenshots |
 | [issue-6-volume-mode.md](issue-6-volume-mode.md) | #6 | A new mode, starts with a survey of the boat's audio paths |
+| [issue-7-autopilot-modes.md](issue-7-autopilot-modes.md) | #7 | Needs compass mode proven on the boat and the pilot state on the server |
 | [issue-2-user-manual.md](issue-2-user-manual.md) | #2 | Follows the behaviour, so it finishes last |
 
 ## Decisions waiting for the owner
