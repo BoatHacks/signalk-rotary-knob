@@ -127,8 +127,20 @@ host has enumerated the knob. The 1200 baud open on the CDC port reboots into th
 ### 2.9 knob_config
 Config schema in espOS's NVS config store, exposed on the espOS settings page: visible modes, autopilot id, dimmer channels
 (name plus path, up to 6), anchor plugin target, steps, timeouts and per-path stale defaults, dim levels, HID profile, and
-the SignalK server host override. Versioned schema with defaults, so a firmware update never fails on old NVS. Export/import is
-open (SPEC question 10), the schema is plain JSON so it is cheap to add.
+the SignalK server host override, and `allow_control`. Versioned schema with defaults, so a firmware update never fails on old
+NVS. Export and import are espOS's `GET` and `PUT /api/v1/config` (SPEC section 6.2a). Every key but the light channels applies at
+once (live reload, section 2.9a).
+
+### 2.9a knob_api
+The knob's own REST endpoints on the espOS httpd (SPEC section 6.2a): `GET`/`PUT /api/v1/knob/mode` and
+`GET /api/v1/knob/status`. Registered after `espos_start()`, protected like every espOS handler. The body checks are in
+`knob_logic` (`knob_mode_request`), the mode switch goes through `knob_model_set_mode()`, which opens the mode under the LVGL lock
+and stores it like a ring change.
+
+Live reload: `knob_config_watch()` subscribes to the knob namespace. The callback runs on espOS's httpd task (internal RAM stack,
+so it may read the settings store) and copies the changed settings into the model under its spinlock. The autopilot id reaches
+the actions task through a hook that copies it, so a change never tears a request. The light channels are left as loaded at
+boot. When `allow_control` goes on, the model counts it in the snapshot (`control_on_seq`) and marine_ui shows `CONTROL ON`.
 
 ### 2.10 main
 `app_main` order, chosen for time to first pixels:

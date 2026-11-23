@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: Apache-2.0
  * The knob's own settings, stored in the espOS config store (NVS) under the "knob" namespace and edited on the espOS settings
- * page or through its REST config API. Descriptor: config/knob.json. All keys apply after a restart. */
+ * page or through its REST config API. Descriptor: config/knob.json. The light channels apply after a restart, the other keys
+ * at once (knob_config_watch). */
 #pragma once
 
 #include <stdbool.h>
@@ -15,6 +16,7 @@ typedef struct {
 } knob_cfg_light_t;
 
 typedef struct {
+    bool allow_control;      /* autopilot and anchor commands may leave the knob (SPEC section 2), off by default */
     char autopilot_id[32];
     bool heading_true;       /* true: navigation.headingTrue, false: navigation.headingMagnetic */
     uint16_t anchor_radius_m;
@@ -25,8 +27,14 @@ typedef struct {
     knob_cfg_light_t lights[KNOB_CFG_MAX_LIGHTS];
 } knob_cfg_t;
 
-/* Reads the settings. Falls back to the descriptor defaults, so it always fills in something usable. */
+/* Reads the settings. Falls back to the descriptor defaults, so it always fills in something usable. Reads the settings store:
+ * call it from a task whose stack is in internal RAM. */
 void knob_config_load(knob_cfg_t *out);
+
+/* Calls cb(key) after every committed change of a key in the "knob" namespace, from the settings page, the config API or an
+ * import. It runs on the writer's task (espOS's httpd task, stack in internal RAM), so it may call knob_config_load(). One
+ * watcher. Call after espos_start(). */
+void knob_config_watch(void (*cb)(const char *key));
 
 /* The last mode, kept in its own NVS namespace ("knob_state"), not on the settings page: the last non-HID mode (-1 when none
  * is stored) and whether USB-HID was on screen after it. Call after espos_start() (NVS is up then). */

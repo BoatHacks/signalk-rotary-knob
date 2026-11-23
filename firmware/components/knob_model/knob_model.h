@@ -17,6 +17,16 @@ void knob_model_start(void);
 /* Subscribes to the SignalK paths. Call after espos_start(). */
 void knob_model_subscribe(void);
 
+/* Opens a mode from outside the mode ring (the REST API) and stores it as the last mode. mode is a marine_ui_mode_t, already
+ * checked (knob_mode_request). Not under the LVGL lock. */
+void knob_model_set_mode(int mode);
+
+typedef struct {
+    const char *link;   /* "online", "connecting", "setup", "pairing", "failed" or "down" (bench command x) */
+    int alarm;          /* marine_alarm_type_t on screen */
+} knob_model_status_t;
+void knob_model_get_status(knob_model_status_t *out);
+
 /* Opens the mode stored at the last mode ring change (USB-HID excepted). Call after espos_start(), not under the LVGL lock. */
 void knob_model_restore_mode(void);
 
@@ -24,7 +34,7 @@ void knob_model_restore_mode(void);
  *  a anchor drag alarm   g GPS lost alarm   c clear injected alarm   x toggle stream-down display
  *  s freeze the heading (goes stale)   n cycle night override (follow server, night, day)
  *  d bypass the network gating (show the operational UI without a stream)
- *  l toggle LIVE CONTROL: autopilot and anchor commands are only sent while it is on (off at every boot)
+ *  l flip allow control for this session only (bench override on top of the stored setting knob.allow_control)
  *  h help */
 void knob_model_command(char c);
 

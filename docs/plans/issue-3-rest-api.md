@@ -50,12 +50,13 @@ Read from `espos_httpd/src/api_config.c` and `espos_config.h` (espOS 0.32):
 None.
 
 ## Steps
-- [ ] Mark `restart_required` keys in `knob.json`.
-- [ ] knob_config: subscribe and rebuild on change.
-- [ ] `knob.allow_control` key in `knob.json` (default off), knob_actions reads it, serial `l` becomes a session override.
-- [ ] `/api/v1/knob/mode` and `/api/v1/knob/status` in a `knob_api` file.
-- [ ] `CONTROL ON` toast in marine_ui.
-- [ ] Document the API in SPEC section 6 and the manual (export and import with curl).
+- [x] Mark `restart_required` keys in `knob.json` (only the light channels need a restart).
+- [x] knob_config: subscribe and rebuild on change (`knob_config_watch`, applied by knob_model on the httpd task).
+- [x] `knob.allow_control` key in `knob.json` (default off), knob_actions reads it, serial `l` becomes a session override.
+- [x] `/api/v1/knob/mode` and `/api/v1/knob/status` in a `knob_api` component, body rules in knob_logic with host tests.
+- [x] `CONTROL ON` notice in marine_ui (mockup agreed 2026-11-23, ui-design section 4).
+- [x] Document the API in SPEC section 6.2a and the manual (export and import with curl).
+- [ ] Flash and go through the hardware checklist section "Config and REST API".
 
 ## Files
 `firmware/components/knob_config/*`, a new `knob_api.c` (in `firmware/main` or its own component), `firmware/main/main.c`,

@@ -65,7 +65,7 @@ With the **hoekens-anchor-alarm** plugin installed:
   did not apply is used when you drop.
 - After you choose, the screen shows a spinner until the server confirms. If the knob could not do it, it says why (live control
   off, no link, no position fix, the server refused) and that nothing was changed.
-Anchor and autopilot commands are only sent when **live control** is on (see section 6).
+Anchor and autopilot commands are only sent when **allow control** is on (see section 6).
 
 ### USB-HID
 Listed in the mode ring only while a computer has recognised the knob over USB. The dial then acts as an input device for that computer:
@@ -86,16 +86,30 @@ Every value has its own age. If something the screen depends on stops arriving, 
 `LINK LOST`, or `CONNECTING` right after a start) and ignores that mode's controls. It never shows old values as current. The mode ring and the alarm acknowledge still
 work. Values the boat does not publish show `---`.
 
-## 6. Settings and live control
+## 6. Settings and allow control
 
 - **Settings page.** Open `http://<knob name>.local` in a browser on the same network. The *Rotary knob* section has the autopilot id,
   the heading reference, the default anchor radius, the idle dim time, the dim level, the time until the backlight goes off, and six
-  light channels. Changes apply after a restart. The page is open to anyone on the boat network. If you want a password, set an
+  light channels. Changes apply at once, the light channels after a restart. The page is open to anyone on the boat network. If you want a password, set an
   API key in the *HTTP server* section (*Generate* makes one), the page then asks for it. If the knob loses its network for 90
   seconds it opens its setup network again, which you can give a password in the *WiFi* section (*Access point password*).
-- **Live control.** For safety the autopilot and anchor commands are ignored after every start. Send the single character `l` over the
-  USB serial port to switch live control on (and again to switch it off). It does not survive a restart. **(an on-device way to
-  enable it is planned)**
+- **Allow control.** Autopilot and anchor commands only leave the knob while *Allow control* is on in the *Rotary knob* section.
+  It is off on a new knob and after a factory reset, and stays as you set it across restarts. When it goes on from the settings
+  page, the knob shows `CONTROL ON` for three seconds. A knob with it off only shows. On the bench, the single character `l` on
+  the USB serial port flips it until the next restart without storing it. **(switching it on the knob itself comes with the
+  settings screen)**
+- **Backup and remote control.** The knob answers on its own small REST API (with the API key as `Authorization: Bearer <key>`
+  when you set one):
+
+  ```
+  curl http://<knob name>.local/api/v1/config > knob-backup.json         # every setting, passwords left out
+  curl -X PUT -H "Content-Type: application/json" --data @knob-backup.json http://<knob name>.local/api/v1/config
+  curl -X PUT -H "Content-Type: application/json" --data '{"knob":{"allow_control":true}}' http://<knob name>.local/api/v1/config
+  curl -X PUT -H "Content-Type: application/json" --data '{"mode":"anchor"}' http://<knob name>.local/api/v1/knob/mode
+  curl http://<knob name>.local/api/v1/knob/status
+  ```
+
+  The mode call only switches the screen, it never engages, drops, raises or acknowledges anything.
 - **Night and day.** The knob follows the SignalK path `environment.mode`. It starts in day mode until the first value arrives.
 - **Dimming.** After 30 seconds without input the backlight drops to 10 %, after 10 minutes it goes off, but never while the autopilot
   is engaged or an alarm is active. Any input wakes it.
@@ -115,6 +129,6 @@ See docs/HANDOFF.md for the details and the pitfalls.
 | `PAIRING` for a long time | The request has not been approved yet in the SignalK admin UI |
 | `NO SERVER` | The server refused or cannot be reached. The knob keeps retrying |
 | A short `LINK LOST` a few seconds after every start | The setting *Fall back to the SignalK clock* (time section of the settings page) is on. Switch it off, the knob does not need it |
-| Controls do nothing and the log says live control is off | Autopilot and anchor commands are off after every start, see section 6 |
+| `CONTROL IS OFF` when you engage or drop | *Allow control* is off, see section 6 |
 | The screen is dim | Idle dim, any input wakes it |
 | Phantom touches | The touch controller sometimes reports ghost touches, the knob drops them |

@@ -2,8 +2,16 @@
  "namespace": "knob",
  "version": 1,
  "title": "Rotary knob",
- "description": "What the knob controls and how. Changes apply after a restart.",
+ "description": "What the knob controls and how. Light channel changes apply after a restart, everything else at once.",
  "keys": [
+  {
+   "name": "allow_control",
+   "type": "bool",
+   "default": false,
+   "title": "Allow control",
+   "description": "Autopilot and anchor commands leave the knob only while this is on. Off on a fresh knob and after a factory reset. Switching it on here shows CONTROL ON on the knob.",
+   "restart_required": false
+  },
   {
    "name": "autopilot_id",
    "type": "string",
@@ -11,7 +19,7 @@
    "maxLength": 31,
    "title": "Autopilot id",
    "description": "The autopilot in the SignalK v2 autopilot API, the id after /autopilots/ (not _default on this boat).",
-   "restart_required": true
+   "restart_required": false
   },
   {
    "name": "heading_source",
@@ -23,7 +31,7 @@
    ],
    "title": "Heading source",
    "description": "navigation.headingTrue (shown as degrees true) or navigation.headingMagnetic (degrees magnetic).",
-   "restart_required": true
+   "restart_required": false
   },
   {
    "name": "anchor_radius",
@@ -34,7 +42,7 @@
    "unit": "m",
    "title": "Default anchor radius",
    "description": "The watch circle radius used when arming, until the dial changes it.",
-   "restart_required": true
+   "restart_required": false
   },
   {
    "name": "dim_after_s",
@@ -45,7 +53,7 @@
    "unit": "s",
    "title": "Dim after idle",
    "description": "Seconds without input before the backlight drops to the dim level.",
-   "restart_required": true
+   "restart_required": false
   },
   {
    "name": "dim_level_pct",
@@ -56,7 +64,7 @@
    "unit": "%",
    "title": "Dim level",
    "description": "Backlight when dimmed. 10 % can be hard to read in direct sun.",
-   "restart_required": true
+   "restart_required": false
   },
   {
    "name": "off_after_min",
@@ -67,7 +75,7 @@
    "unit": "min",
    "title": "Backlight off after idle",
    "description": "Minutes of idle before the backlight goes fully off, except while the autopilot is engaged or an alarm is active. 0 = never.",
-   "restart_required": true
+   "restart_required": false
   },
   {
    "name": "light1_name",

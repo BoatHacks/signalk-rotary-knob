@@ -10,6 +10,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "input.h"
+#include "knob_api.h"
 #include "knob_net.h"
 #include "knob_power.h"
 #include "lv_port.h"
@@ -98,6 +99,7 @@ void app_main(void)
     knob_model_restore_mode();
     knob_net_start();
     knob_model_subscribe();
+    knob_api_start();
     heap_step("net, subscribe");
 
     size_t last_min = heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL);

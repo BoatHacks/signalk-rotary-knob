@@ -8,10 +8,12 @@
  *   anchor       hoekens-anchor-alarm REST: dropAnchor, setZone, raiseAnchor
  *   alarm ack    the server's Notifications API
  *
- * Autopilot and anchor commands are only sent while LIVE CONTROL is on (off at every boot). */
+ * Autopilot and anchor commands are only sent while allow control is on: the stored setting knob.allow_control, unless the
+ * serial bench override is set for this session (SPEC section 2). */
 #pragma once
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include "knob_config.h"
@@ -34,16 +36,21 @@ typedef struct {
     void (*ack_latch)(void);          /* the alarm was acknowledged on the knob */
     bool (*alarm_injected)(void);     /* the alarm is a bench one, no server notification behind it */
     void (*action_result)(uint8_t code); /* what became of an anchor action, a marine_action_result_t */
+    void (*autopilot_id)(char *out, size_t n); /* a copy of the current autopilot id (the setting may change at any time) */
 } knob_actions_hooks_t;
 
-/* Starts the worker task. cfg and hooks must outlive it. The settings are read through cfg each time, so a later load into
- * the same struct takes effect. */
+/* Starts the worker task. cfg and hooks must outlive it. cfg is read for the light channels, which only change with a restart.
+ * The autopilot id comes through the hook. */
 void knob_actions_start(const knob_cfg_t *cfg, const knob_actions_hooks_t *hooks);
 
 /* From the UI action callback: queues the action, never blocks. */
 void knob_actions_submit(const marine_ui_action_t *act);
 
-void knob_actions_set_live(bool live);
+/* The stored allow control setting changed (or was loaded). source names where from, for the log: "config", "boot". */
+void knob_actions_set_allow_control(bool on, const char *source);
+/* Serial command l: flips allow control for this session only, as a bench override on top of the stored setting. */
+void knob_actions_toggle_override(void);
+/* Whether autopilot and anchor commands are sent now (stored setting or override). */
 bool knob_actions_is_live(void);
 
 /* The anchor watch circle radius chosen on the knob, used by the next arm. */

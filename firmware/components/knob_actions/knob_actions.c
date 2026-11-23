@@ -18,6 +18,7 @@
 #include "freertos/queue.h"
 #include "freertos/task.h"
 #include "knob_hid.h"
+#include "knob_logic.h"
 #include "knob_net.h"
 #include "knob_power.h"
 
@@ -33,7 +34,8 @@ static const knob_cfg_t *s_cfg;
 
 static const knob_actions_hooks_t *s_hooks;
 static QueueHandle_t s_q;
-static volatile bool s_live;            /* LIVE CONTROL: autopilot and anchor commands are sent only while set */
+static volatile bool s_allow;           /* the stored allow control setting */
+static volatile int s_override = -1;    /* serial bench override for this session: -1 none, 0 off, 1 on */
 static volatile uint16_t s_radius_pref = 35;
 
 static uint32_t ms_now(void) { return (uint32_t)(esp_timer_get_time() / 1000); }
@@ -93,8 +95,9 @@ static void ap_poll(void)
 {
     espos_sk_http_opts_t o = { .timeout_ms = 3000, .max_body = 2048 };
     espos_sk_http_resp_t r = { 0 };
-    char path[96];
-    snprintf(path, sizeof(path), AP_BASE "%s", s_cfg->autopilot_id);
+    char path[96], id[32];
+    s_hooks->autopilot_id(id, sizeof(id));
+    snprintf(path, sizeof(path), AP_BASE "%s", id);
     esp_err_t e = espos_sk_http_get(path, &o, &r);
     if (e == ESP_OK && r.status == 200 && r.body) {
         cJSON *j = cJSON_ParseWithLength(r.body, r.len);
@@ -110,21 +113,22 @@ static void ap_poll(void)
 
 static void ap_action(const marine_ui_action_t *a)
 {
-    if (!s_live) { ESP_LOGW(TAG, "autopilot action %d ignored: live control is off (send l)", (int)a->action); return; }
+    if (!knob_actions_is_live()) { ESP_LOGW(TAG, "autopilot action %d ignored: allow control is off", (int)a->action); return; }
     if (!online()) { ESP_LOGW(TAG, "autopilot action ignored: not online"); return; }
-    char body[64], path[112];
+    char body[64], path[112], id[32];
+    s_hooks->autopilot_id(id, sizeof(id));
     switch (a->action) {
     case MARINE_ACT_AP_ENGAGE:
-        snprintf(path, sizeof(path), AP_BASE "%s/engage", s_cfg->autopilot_id);
+        snprintf(path, sizeof(path), AP_BASE "%s/engage", id);
         rest("POST", path, NULL);
         break;
     case MARINE_ACT_AP_STANDBY:
-        snprintf(path, sizeof(path), AP_BASE "%s/disengage", s_cfg->autopilot_id);
+        snprintf(path, sizeof(path), AP_BASE "%s/disengage", id);
         rest("POST", path, NULL);
         break;
     case MARINE_ACT_AP_SET_CTS:
         snprintf(body, sizeof(body), "{\"value\":%ld,\"units\":\"deg\"}", (long)a->value);
-        snprintf(path, sizeof(path), AP_BASE "%s/target", s_cfg->autopilot_id);
+        snprintf(path, sizeof(path), AP_BASE "%s/target", id);
         rest("PUT", path, body);
         break;
     default: break;
@@ -146,7 +150,7 @@ static void anchor_action(const marine_ui_action_t *a)
         s_radius_pref = (uint16_t)a->value;
         if (!m.anchor_on) return; /* only remembered for the next drop, no server call and nothing to report */
     }
-    if (!s_live) { ESP_LOGW(TAG, "anchor action %d ignored: live control is off (send l)", (int)a->action); report(MARINE_RESULT_LIVE_OFF); return; }
+    if (!knob_actions_is_live()) { ESP_LOGW(TAG, "anchor action %d ignored: allow control is off", (int)a->action); report(MARINE_RESULT_LIVE_OFF); return; }
     if (!online()) { ESP_LOGW(TAG, "anchor action ignored: not online"); report(MARINE_RESULT_NO_LINK); return; }
 
     char body[200];
@@ -268,13 +272,27 @@ void knob_actions_submit(const marine_ui_action_t *act)
     if (s_q) xQueueSend(s_q, act, 0); /* called under the LVGL lock, never block */
 }
 
-void knob_actions_set_live(bool live)
+static void log_control(const char *source)
 {
-    s_live = live;
-    ESP_LOGW(TAG, "LIVE CONTROL %s: autopilot and anchor commands %s", live ? "ON" : "OFF", live ? "are SENT" : "are ignored");
+    bool on = knob_actions_is_live();
+    ESP_LOGW(TAG, "ALLOW CONTROL %s (%s%s): autopilot and anchor commands %s", on ? "ON" : "OFF", source,
+             s_override >= 0 ? ", serial override for this session" : "", on ? "are SENT" : "are ignored");
 }
 
-bool knob_actions_is_live(void) { return s_live; }
+void knob_actions_set_allow_control(bool on, const char *source)
+{
+    if (on == s_allow && strcmp(source, "boot") != 0) return;
+    s_allow = on;
+    log_control(source);
+}
+
+void knob_actions_toggle_override(void)
+{
+    s_override = knob_actions_is_live() ? 0 : 1;
+    log_control("serial");
+}
+
+bool knob_actions_is_live(void) { return knob_allow_control(s_allow, s_override); }
 
 uint16_t knob_actions_anchor_radius(void) { return s_radius_pref; }
 

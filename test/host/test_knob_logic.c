@@ -175,6 +175,49 @@ static void test_boot_hid(void)
     TEST_ASSERT_FALSE(knob_boot_hid(true, true, 3000, 10000, true));   /* the user picked a mode meanwhile */
 }
 
+/* ---- Mode API and allow control ---- */
+
+static void test_mode_names(void)
+{
+    TEST_ASSERT_EQUAL_INT(0, knob_mode_from_name("autopilot"));
+    TEST_ASSERT_EQUAL_INT(1, knob_mode_from_name("lights"));
+    TEST_ASSERT_EQUAL_INT(2, knob_mode_from_name("anchor"));
+    TEST_ASSERT_EQUAL_INT(3, knob_mode_from_name("hid"));
+    TEST_ASSERT_EQUAL_INT(-1, knob_mode_from_name("Anchor"));
+    TEST_ASSERT_EQUAL_INT(-1, knob_mode_from_name(""));
+    TEST_ASSERT_EQUAL_INT(-1, knob_mode_from_name(NULL));
+    TEST_ASSERT_EQUAL_STRING("lights", knob_mode_name(1));
+    TEST_ASSERT_EQUAL_STRING("unknown", knob_mode_name(4));
+    TEST_ASSERT_EQUAL_STRING("unknown", knob_mode_name(-1));
+}
+
+static void test_mode_request(void)
+{
+    int m = -1;
+    TEST_ASSERT_EQUAL_INT(KNOB_MODE_REQ_OK, knob_mode_request("{\"mode\":\"anchor\"}", false, &m));
+    TEST_ASSERT_EQUAL_INT(2, m);
+    TEST_ASSERT_EQUAL_INT(KNOB_MODE_REQ_OK, knob_mode_request("{ \"mode\" : \"lights\" }", false, &m));
+    TEST_ASSERT_EQUAL_INT(1, m);
+    m = -1;
+    TEST_ASSERT_EQUAL_INT(KNOB_MODE_REQ_NO_HOST, knob_mode_request("{\"mode\":\"hid\"}", false, &m));
+    TEST_ASSERT_EQUAL_INT(-1, m); /* not set on a refusal */
+    TEST_ASSERT_EQUAL_INT(KNOB_MODE_REQ_OK, knob_mode_request("{\"mode\":\"hid\"}", true, &m));
+    TEST_ASSERT_EQUAL_INT(3, m);
+    TEST_ASSERT_EQUAL_INT(KNOB_MODE_REQ_BAD, knob_mode_request("{\"mode\":\"engage\"}", true, &m));
+    TEST_ASSERT_EQUAL_INT(KNOB_MODE_REQ_BAD, knob_mode_request("{\"mode\":2}", true, &m));
+    TEST_ASSERT_EQUAL_INT(KNOB_MODE_REQ_BAD, knob_mode_request("{}", true, &m));
+    TEST_ASSERT_EQUAL_INT(KNOB_MODE_REQ_BAD, knob_mode_request("", true, &m));
+    TEST_ASSERT_EQUAL_INT(KNOB_MODE_REQ_BAD, knob_mode_request(NULL, true, &m));
+}
+
+static void test_allow_control(void)
+{
+    TEST_ASSERT_FALSE(knob_allow_control(false, -1)); /* stored off, no override: a fresh knob */
+    TEST_ASSERT_TRUE(knob_allow_control(true, -1));
+    TEST_ASSERT_TRUE(knob_allow_control(false, 1));   /* serial override on for this session */
+    TEST_ASSERT_FALSE(knob_allow_control(true, 0));   /* serial override off beats the stored on */
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -192,5 +235,8 @@ int main(void)
     RUN_TEST(test_boot_show_mode);
     RUN_TEST(test_boot_mode);
     RUN_TEST(test_boot_hid);
+    RUN_TEST(test_mode_names);
+    RUN_TEST(test_mode_request);
+    RUN_TEST(test_allow_control);
     return UNITY_END();
 }

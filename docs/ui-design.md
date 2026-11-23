@@ -214,6 +214,14 @@ States follow SPEC section 3.1. In STALE (and while connecting):
 - The LEDs show a slow amber pulse.
 - The knob never sends an action while stale. Losing the knob changes nothing on the boat (SPEC section 2).
 
+### CONTROL ON notice (agreed 2026-11-23, #3)
+
+When allow control goes on from the web page or the API (never when it is switched on at the knob), the current screen shows a
+pill 160 x 44 at y 152, radius 22, card fill, 2 px green border, `CONTROL ON` (14 px, green) over `SET OVER THE NETWORK` (12 px,
+muted), and a 3 px green rim at r 118. It stays 3 s and wakes the backlight. A press only dismisses it, turns work as usual.
+An alarm screen hides it and it is not shown again. In the night palette green becomes `#FF1E27`. There is no permanent
+indicator and no notice when control goes off: the refusal screen says it then.
+
 ### Per-value staleness
 
 Staleness is decided per value, not by the stream alone. This follows the SignalK metadata, which has an optional `timeout`

@@ -59,6 +59,28 @@ int knob_boot_mode(int stored, int count, int hid_mode);
  * the user has not changed the mode since the restore. Otherwise the knob stays on the last non-HID mode. */
 bool knob_boot_hid(bool hid_last, bool host_present, uint32_t now_ms, uint32_t window_ms, bool user_changed_mode);
 
+/* --- Mode API and allow control (#3) --- */
+
+/* Mode numbers follow marine_ui_mode_t: 0 autopilot, 1 lights, 2 anchor, 3 hid. The names are the API's. */
+#define KNOB_MODE_COUNT 4
+#define KNOB_MODE_HID 3
+/* "autopilot", "lights", "anchor" or "hid" to 0..3, -1 for anything else (case sensitive). */
+int knob_mode_from_name(const char *name);
+/* 0..3 to its API name, "unknown" otherwise. */
+const char *knob_mode_name(int mode);
+
+typedef enum {
+    KNOB_MODE_REQ_OK = 0,
+    KNOB_MODE_REQ_BAD,      /* not a JSON object with a "mode" string, or an unknown name: 400 */
+    KNOB_MODE_REQ_NO_HOST,  /* USB-HID without a USB host on the cable: 409 */
+} knob_mode_req_t;
+/* Checks a PUT /api/v1/knob/mode body such as {"mode":"anchor"}. *mode is set when the result is OK. */
+knob_mode_req_t knob_mode_request(const char *json, bool usb_host, int *mode);
+
+/* Whether autopilot and anchor commands may leave the knob: the stored allow control setting, unless the serial bench
+ * override is set for this session (override -1 none, 0 off, 1 on). */
+bool knob_allow_control(bool stored, int override);
+
 #ifdef __cplusplus
 }
 #endif

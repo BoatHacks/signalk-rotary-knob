@@ -15,6 +15,7 @@
 #include "esp_heap_caps.h"
 #include "freertos/portmacro.h"
 #include "freertos/queue.h"
+#include "freertos/semphr.h"
 #include "freertos/task.h"
 #include "knob_actions.h"
 #include "knob_config.h"
@@ -83,6 +84,8 @@ static volatile uint8_t s_action_result;      /* what became of the last anchor 
 static volatile uint16_t s_action_result_seq; /* 0 = none yet, changes with every result */
 static volatile bool s_force_down;
 static bool s_token_verified;           /* the token was verified since boot: the splash is done (model task only) */
+static volatile uint16_t s_control_on_seq;  /* counts allow control going on from the web page or the API */
+static volatile int s_last_alarm;            /* marine_alarm_type_t of the latest snapshot, for the status API */
 static volatile bool s_boot_hid;        /* USB-HID was the last mode and the boot window is open */
 static marine_ui_mode_t s_boot_mode;    /* the mode restored at boot */
 static volatile int s_night_override;   /* 0 follow the server, 1 night, 2 day */
@@ -245,6 +248,7 @@ static void build_snapshot(marine_ui_snapshot_t *s, uint32_t now)
     knob_net_get(&ns);
 
     s->now_ms = now;
+    s->control_on_seq = s_control_on_seq;
     s->fx_glass_enabled = true;
     s->fx_glow_enabled = true;
     s->fx_ring_pulse_enabled = true;
@@ -345,6 +349,7 @@ static void build_snapshot(marine_ui_snapshot_t *s, uint32_t now)
     }
     if (alarm == MARINE_ALARM_NONE) s_ack_latch = false;
     s->active_alarm = alarm;
+    s_last_alarm = (int)alarm;
     s->alarm_acknowledged = alarm != MARINE_ALARM_NONE && s_ack_latch;
     s->action_result = s_action_result;
     s->action_result_seq = s_action_result_seq;
@@ -446,12 +451,20 @@ static void hook_action_result(uint8_t code)
     s_action_result_seq = seq ? seq : 1; /* 0 stays "none yet" */
 }
 
+static void hook_autopilot_id(char *out, size_t n)
+{
+    portENTER_CRITICAL(&s_mux);
+    snprintf(out, n, "%s", s_cfg.autopilot_id);
+    portEXIT_CRITICAL(&s_mux);
+}
+
 static const knob_actions_hooks_t s_hooks = {
     .get_view = hook_get_view,
     .set_autopilot = hook_set_autopilot,
     .ack_latch = hook_ack_latch,
     .alarm_injected = hook_alarm_injected,
     .action_result = hook_action_result,
+    .autopilot_id = hook_autopilot_id,
 };
 
 static volatile int s_mode_to_save;
@@ -483,6 +496,30 @@ void knob_model_action_cb(const marine_ui_action_t *act, void *ctx)
     knob_actions_submit(act);
 }
 
+void knob_model_set_mode(int mode)
+{
+    lv_port_lock();
+    marine_ui_set_mode((marine_ui_mode_t)mode);
+    /* Stored like a ring change. The caller (httpd) has an internal RAM stack, but the write goes the same way as the ring's. */
+    s_mode_to_save = mode;
+    lv_async_call(save_mode_async, NULL);
+    lv_port_unlock();
+}
+
+void knob_model_get_status(knob_model_status_t *out)
+{
+    knob_net_status_t ns;
+    knob_net_get(&ns);
+    switch (ns.phase) {
+    case KNOB_NET_ONLINE: out->link = s_force_down ? "down" : "online"; break;
+    case KNOB_NET_PORTAL: out->link = "setup"; break;
+    case KNOB_NET_PAIRING: out->link = "pairing"; break;
+    case KNOB_NET_FAILED: out->link = "failed"; break;
+    default: out->link = "connecting"; break;
+    }
+    out->alarm = s_last_alarm;
+}
+
 void knob_model_restore_mode(void)
 {
     int stored = knob_config_last_mode();
@@ -505,11 +542,12 @@ void knob_model_command(char c)
     case 'n': s_night_override = (s_night_override + 1) % 3; break;
     case 'd': s_bypass_net = !s_bypass_net; break;
     case 'l':
-        knob_actions_set_live(!knob_actions_is_live());
+        knob_actions_toggle_override();
         return;
     default:
         ESP_LOGI(TAG, "commands: a anchor alarm, g gps alarm, c clear, x stream down, s freeze heading, n night override, "
-                      "d bypass network gating, l live control (now %s)", knob_actions_is_live() ? "ON" : "off");
+                      "d bypass network gating, l allow control override for this session (control now %s)",
+                 knob_actions_is_live() ? "ON" : "off");
         return;
     }
     ESP_LOGI(TAG, "command %c", c);
@@ -534,7 +572,48 @@ void knob_model_start(void)
     s_cfg.anchor_radius_m = 35;
     xTaskCreateWithCaps(model_task, "model", 6144, NULL, 2, NULL, MALLOC_CAP_SPIRAM); /* stack in PSRAM: internal RAM is the scarce resource */
     knob_actions_start(&s_cfg, &s_hooks);
-    ESP_LOGI(TAG, "model started, live control off");
+    ESP_LOGI(TAG, "model started, allow control off until the settings are loaded");
+}
+
+/* A key of the knob namespace changed (settings page, config API, import). Runs on espOS's httpd task, whose stack is in
+ * internal RAM, so it may read the settings store. The light channels stay as loaded at boot: new paths would need new
+ * subscriptions, and this server closes the stream on an unsubscribe (ARCHITECTURE.md section 9). */
+static void on_config_key(const char *key)
+{
+    static SemaphoreHandle_t lock;
+    static knob_cfg_t cfg;
+    if (!lock) lock = xSemaphoreCreateMutex();
+    if (!lock) return;
+    xSemaphoreTake(lock, portMAX_DELAY);
+    knob_config_load(&cfg);
+    portENTER_CRITICAL(&s_mux);
+    bool was_allowed = s_cfg.allow_control;
+    s_cfg.allow_control = cfg.allow_control;
+    memcpy(s_cfg.autopilot_id, cfg.autopilot_id, sizeof(s_cfg.autopilot_id));
+    s_cfg.heading_true = cfg.heading_true;
+    s_cfg.anchor_radius_m = cfg.anchor_radius_m;
+    s_cfg.dim_after_ms = cfg.dim_after_ms;
+    s_cfg.dim_level_pct = cfg.dim_level_pct;
+    s_cfg.off_after_ms = cfg.off_after_ms;
+    portEXIT_CRITICAL(&s_mux);
+    ESP_LOGI(TAG, "setting knob.%s changed", key);
+
+    if (!strcmp(key, "allow_control")) {
+        knob_actions_set_allow_control(cfg.allow_control, "web page or API");
+        if (cfg.allow_control && !was_allowed) {
+            uint16_t n = (uint16_t)(s_control_on_seq + 1);
+            s_control_on_seq = n ? n : 1; /* 0 means never */
+        }
+    } else if (!strcmp(key, "anchor_radius")) {
+        knob_actions_set_anchor_radius(cfg.anchor_radius_m);
+    } else if (!strncmp(key, "dim_", 4) || !strcmp(key, "off_after_min")) {
+        lv_port_lock();
+        marine_ui_set_power(cfg.dim_after_ms, cfg.dim_level_pct, cfg.off_after_ms);
+        lv_port_unlock();
+    } else if (!strncmp(key, "light", 5)) {
+        ESP_LOGW(TAG, "light channel settings apply after a restart");
+    }
+    xSemaphoreGive(lock);
 }
 
 void knob_model_subscribe(void)
@@ -546,9 +625,11 @@ void knob_model_subscribe(void)
     s_cfg = cfg;
     portEXIT_CRITICAL(&s_mux);
     knob_actions_set_anchor_radius(s_cfg.anchor_radius_m);
+    knob_actions_set_allow_control(cfg.allow_control, "boot");
     lv_port_lock();
     marine_ui_set_power(cfg.dim_after_ms, cfg.dim_level_pct, cfg.off_after_ms);
     lv_port_unlock();
+    knob_config_watch(on_config_key);
     subscribe_all();
     ESP_LOGI(TAG, "subscribed, %d light channel(s), autopilot '%s'", N_LIGHTS, s_cfg.autopilot_id);
 }

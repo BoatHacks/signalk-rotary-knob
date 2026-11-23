@@ -101,3 +101,35 @@ bool knob_boot_hid(bool hid_last, bool host_present, uint32_t now_ms, uint32_t w
 {
     return hid_last && host_present && now_ms < window_ms && !user_changed_mode;
 }
+
+static const char *const s_mode_names[KNOB_MODE_COUNT] = { "autopilot", "lights", "anchor", "hid" };
+
+int knob_mode_from_name(const char *name)
+{
+    if (!name) return -1;
+    for (int i = 0; i < KNOB_MODE_COUNT; i++) {
+        if (!strcmp(name, s_mode_names[i])) return i;
+    }
+    return -1;
+}
+
+const char *knob_mode_name(int mode)
+{
+    return (mode >= 0 && mode < KNOB_MODE_COUNT) ? s_mode_names[mode] : "unknown";
+}
+
+knob_mode_req_t knob_mode_request(const char *json, bool usb_host, int *mode)
+{
+    char name[16];
+    if (!json || !knob_obj_str(json, "mode", name, sizeof(name))) return KNOB_MODE_REQ_BAD;
+    int m = knob_mode_from_name(name);
+    if (m < 0) return KNOB_MODE_REQ_BAD;
+    if (m == KNOB_MODE_HID && !usb_host) return KNOB_MODE_REQ_NO_HOST;
+    *mode = m;
+    return KNOB_MODE_REQ_OK;
+}
+
+bool knob_allow_control(bool stored, int override)
+{
+    return override < 0 ? stored : override != 0;
+}

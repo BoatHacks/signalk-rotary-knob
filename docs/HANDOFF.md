@@ -53,7 +53,7 @@ Part of the BoatHacks SignalK suite.
   or anchor state.
 - Firmware updates over USB in the MVP, OTA and a signed firmware repository later.
 - Staleness is measured from the knob's receive time, per value.
-- Autopilot and anchor commands must be deliberately enabled (live control) until tried at the boat.
+- Autopilot and anchor commands must be deliberately enabled: the stored setting allow control, off by default (SPEC section 2).
 
 ## Next steps
 

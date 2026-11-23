@@ -118,6 +118,24 @@ plus CDC for logs) **(verify composite works in TinyUSB mode on this board)**. U
 application such as OpenCPN. The profile is configurable per mode (dial, mouse wheel, media keys) and
 defaults to a HID dial.
 
+### 6.2a The knob's REST API (#3)
+
+On the espOS httpd, protected by the API key when one is set (optional, section 12). No path, token or address is ever in a
+reply.
+
+- **Config:** espOS's own. `GET /api/v1/config?ns=knob` reads the knob's settings, `PUT /api/v1/config` takes a partial
+  document such as `{"knob":{"allow_control":true}}` (keys left out stay as they are, every key is checked against the
+  descriptor, a bad one gives 400 with the key and the reason, the reply lists the changed keys and `restart_required`).
+  `GET /api/v1/config` without `ns` exports the whole device without secrets, which is the backup, and `PUT` of that document
+  restores it. Changes apply at once, the light channels after a restart (new paths would need new subscriptions).
+- **Mode:** `GET /api/v1/knob/mode` gives `{"mode":"lights"}`. `PUT /api/v1/knob/mode` with
+  `{"mode":"autopilot"|"lights"|"anchor"|"hid"}` opens that mode through the same entry point as the mode ring and stores it as
+  the last mode. It cannot engage, drop, raise or acknowledge anything, and an alarm on screen stays on top. 400 for a bad body,
+  409 for `hid` without a USB host.
+- **Status:** `GET /api/v1/knob/status` gives `{"mode", "link", "allow_control", "demo", "alarm", "firmware"}`. `link` is
+  `online`, `connecting`, `setup`, `pairing` or `failed`, `alarm` is `none`, `anchor_drag` or `gps_lost`, `allow_control` is
+  what applies now (the stored setting or the serial override).
+
 ### 6.3 SignalK interfaces the knob uses
 
 Researched against the SignalK server docs and the anchor alarm plugin README. The firmware calls these through its adapter

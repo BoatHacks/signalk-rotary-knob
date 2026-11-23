@@ -95,7 +95,7 @@ typedef void (*marine_ui_action_cb_t)(const marine_ui_action_t *act, void *user_
 typedef enum {
     MARINE_RESULT_NONE = 0,
     MARINE_RESULT_OK,           // the server accepted the call (the new state follows through the data stream)
-    MARINE_RESULT_LIVE_OFF,     // live control is off, nothing was sent
+    MARINE_RESULT_LIVE_OFF,     // allow control is off, nothing was sent
     MARINE_RESULT_NO_LINK,      // not online, nothing was sent
     MARINE_RESULT_NO_POSITION,  // no fresh position, nothing was sent
     MARINE_RESULT_FAILED        // the server refused the call or did not answer
@@ -201,6 +201,10 @@ typedef struct {
     uint8_t connect_step;        // 0 = Wi-Fi, 1 = Server, 2 = SignalK Link
     char boot_phase[16];         // text in the boot splash status bar, upper case, for example "WI-FI" or "SIGNALK"
     char heading_ref;            // 'T' for true or 'M' for magnetic, shown after the heading degrees. 0 = no label
+
+    // Allow control went on from the web page or the API: the UI shows the CONTROL ON notice for 3 s whenever this changes
+    // to a new non-zero value. 0 = never.
+    uint16_t control_on_seq;
 } marine_ui_snapshot_t;
 
 /**

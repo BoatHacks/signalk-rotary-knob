@@ -36,6 +36,26 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 | Back online by itself after the setup | ok | 2026-11-23 | ee2b16f | the token check had backed off while the knob was offline (`NO SERVER` for a while), it then reconnected without a reboot |
 | Setup without a key (Wi-Fi only) | open | | | the default, not tried on the phone |
 
+## Config and REST API (#3)
+
+| Item | Status | Date | Commit | Notes |
+|---|---|---|---|---|
+| Allow control off after the update (new key, default off), refusal screen on anchor and autopilot | open | | | |
+| Allow control on through the config API: `CONTROL ON` notice 3 s, log line with the source | open | | | also from the settings page |
+| Allow control stays as set after a reboot | open | | | |
+| Serial `l` flips it for the session only, not stored | open | | | |
+| A press dismisses the notice, a turn does not | open | | | |
+| Notice in the night palette, hidden by an alarm | open | | | |
+| Live reload: dim time and anchor radius apply without a restart | open | | | |
+| Partial config write, a value out of range gives 400 with the key | open | | | |
+| Export and import of the whole config | open | | | |
+| `PUT /api/v1/knob/mode` switches the screen and is stored as the last mode | open | | | |
+| Mode switch during an alarm: the alarm stays on top | open | | | bench alarm `a` |
+| `hid` without a USB host gives 409 | open | | | |
+| `GET /api/v1/knob/status` fields | open | | | |
+| All of it 401 without the key when one is set | open | | | |
+| Factory reset clears allow control | open | | | destructive, with the next fresh setup |
+
 ## Lights
 
 | Item | Status | Date | Commit | Notes |
@@ -45,7 +65,7 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 | Long press toggles, single press steps to the next channel | open | | | only one channel configured |
 | Dimmer channel (level arc, first click wakes) | n/a | | | no dimmers on this boat |
 
-## Autopilot (live control on, owner at the helm)
+## Autopilot (allow control on, owner at the helm)
 
 | Item | Status | Date | Commit | Notes |
 |---|---|---|---|---|
@@ -58,7 +78,7 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 | Steering LEDs: red, green, yellow, blue, night fade | open | | | |
 | Losing the knob does not change the pilot | open | | | unplug while engaged |
 
-## Anchor (live control on, at anchor or on the mooring)
+## Anchor (allow control on, at anchor or on the mooring)
 
 | Item | Status | Date | Commit | Notes |
 |---|---|---|---|---|

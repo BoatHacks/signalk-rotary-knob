@@ -21,6 +21,8 @@ void knob_config_load(knob_cfg_t *c)
     c->dim_level_pct = 10;
     c->off_after_ms = 600000;
 
+    bool allow = false;
+    if (espos_config_get_bool(NS, "allow_control", &allow) == ESP_OK) c->allow_control = allow;
     espos_config_get_str(NS, "autopilot_id", c->autopilot_id, sizeof(c->autopilot_id), NULL);
     char hs[12] = "true";
     espos_config_get_str(NS, "heading_source", hs, sizeof(hs), NULL);
@@ -49,8 +51,22 @@ void knob_config_load(knob_cfg_t *c)
         for (char *p = l->name; *p; p++) if (*p >= 'a' && *p <= 'z') *p = (char)(*p - 32);
         l->onoff = strcmp(form, "level") != 0;
     }
-    ESP_LOGI(TAG, "autopilot '%s', heading %s, anchor radius %u m, %d light channel(s)", c->autopilot_id,
-             c->heading_true ? "true" : "magnetic", (unsigned)c->anchor_radius_m, c->n_lights);
+    ESP_LOGI(TAG, "autopilot '%s', heading %s, anchor radius %u m, %d light channel(s), allow control %s", c->autopilot_id,
+             c->heading_true ? "true" : "magnetic", (unsigned)c->anchor_radius_m, c->n_lights, c->allow_control ? "on" : "off");
+}
+
+static void (*s_watch_cb)(const char *key);
+
+static void on_change(const char *ns, const char *key, void *arg)
+{
+    (void)arg;
+    if (s_watch_cb && ns && key && !strcmp(ns, NS)) s_watch_cb(key);
+}
+
+void knob_config_watch(void (*cb)(const char *key))
+{
+    s_watch_cb = cb;
+    if (espos_config_subscribe(on_change, NULL) != ESP_OK) ESP_LOGW(TAG, "no config subscription slot: changes need a restart");
 }
 
 #define STATE_NS "knob_state"

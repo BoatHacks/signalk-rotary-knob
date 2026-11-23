@@ -143,6 +143,14 @@ static lv_obj_t *stale_lbl_sub;
 static lv_obj_t *ovl_ap_confirm;
 static lv_obj_t *ovl_anc_menu;
 static lv_obj_t *ovl_anc_res;
+static lv_obj_t *ovl_ctl_ring;     // CONTROL ON notice: green rim
+static lv_obj_t *ovl_ctl_pill;     // CONTROL ON notice: pill with title and source line
+static lv_obj_t *ctl_lbl_title;
+static lv_obj_t *ctl_lbl_sub;
+static bool ctl_notice_on;
+static uint32_t ctl_notice_until_ms;
+static uint16_t ctl_last_seq;
+#define CTL_NOTICE_MS 3000
 
 // Autopilot Widgets (Radial rotating tick lines)
 static lv_obj_t *ap_tick_lines[72];
@@ -2011,6 +2019,66 @@ static void cancel_transients(void) {
     anchor_preview_active = false;
 }
 
+// --- CONTROL ON notice: allow control was switched on from the web page or the API (ui-design section 4) ---
+static void build_control_notice(void) {
+    ovl_ctl_ring = lv_obj_create(lv_layer_top());
+    lv_obj_set_size(ovl_ctl_ring, 236, 236);
+    lv_obj_center(ovl_ctl_ring);
+    lv_obj_set_style_radius(ovl_ctl_ring, LV_RADIUS_CIRCLE, 0);
+    lv_obj_set_style_bg_opa(ovl_ctl_ring, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(ovl_ctl_ring, 3, 0);
+    lv_obj_remove_flag(ovl_ctl_ring, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(ovl_ctl_ring, LV_OBJ_FLAG_HIDDEN);
+
+    ovl_ctl_pill = lv_obj_create(lv_layer_top());
+    lv_obj_set_size(ovl_ctl_pill, 160, 44);
+    lv_obj_align(ovl_ctl_pill, LV_ALIGN_TOP_MID, 0, 152);
+    lv_obj_set_style_radius(ovl_ctl_pill, 22, 0);
+    lv_obj_set_style_border_width(ovl_ctl_pill, 2, 0);
+    lv_obj_set_style_pad_all(ovl_ctl_pill, 0, 0);
+    lv_obj_remove_flag(ovl_ctl_pill, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(ovl_ctl_pill, LV_OBJ_FLAG_HIDDEN);
+
+    ctl_lbl_title = lv_label_create(ovl_ctl_pill);
+    lv_obj_set_style_text_font(ctl_lbl_title, &lv_font_montserrat_14, 0);
+    lv_label_set_text(ctl_lbl_title, "CONTROL ON");
+    lv_obj_align(ctl_lbl_title, LV_ALIGN_TOP_MID, 0, 6);
+
+    ctl_lbl_sub = lv_label_create(ovl_ctl_pill);
+    lv_obj_set_style_text_font(ctl_lbl_sub, &lv_font_montserrat_12, 0);
+    lv_label_set_text(ctl_lbl_sub, "SET OVER THE NETWORK");
+    lv_obj_align(ctl_lbl_sub, LV_ALIGN_TOP_MID, 0, 24);
+}
+
+static void control_notice_hide(void) {
+    if (!ctl_notice_on) return;
+    ctl_notice_on = false;
+    lv_obj_add_flag(ovl_ctl_ring, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(ovl_ctl_pill, LV_OBJ_FLAG_HIDDEN);
+}
+
+static void control_notice_show(void) {
+    if (is_full_alarm_blocking()) return;   // the alarm screen wins, the notice is not queued
+    lv_color_t accent = snap.night_palette ? COL_NIGHT_RED : COL_GREEN;
+    lv_obj_set_style_border_color(ovl_ctl_ring, accent, 0);
+    lv_obj_set_style_border_color(ovl_ctl_pill, accent, 0);
+    lv_obj_set_style_bg_color(ovl_ctl_pill, snap.night_palette ? lv_color_hex(0x050000) : COL_CARD, 0);
+    lv_obj_set_style_text_color(ctl_lbl_title, accent, 0);
+    lv_obj_set_style_text_color(ctl_lbl_sub, c_muted(), 0);
+    lv_obj_remove_flag(ovl_ctl_ring, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_remove_flag(ovl_ctl_pill, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(ovl_ctl_ring);
+    lv_obj_move_foreground(ovl_ctl_pill);
+    ctl_notice_on = true;
+    ctl_notice_until_ms = snap.now_ms + CTL_NOTICE_MS;
+    // Wake the screen, so the notice is seen from across the cockpit.
+    last_input_ms = snap.now_ms;
+    if (current_backlight_pct != 100) {
+        current_backlight_pct = 100;
+        emit_action(active_mode, MARINE_ACT_POWER_SET_BACKLIGHT, 100, 0);
+    }
+}
+
 // --- Stale overlay, evaluated every tick and on every snapshot (a silent link never calls apply_snapshot) ---
 static void update_stale_overlay(void) {
     stale_state_t st = (snap.system_screen == MARINE_SCREEN_OPERATIONAL) ? current_stale() : STALE_NONE;
@@ -2157,6 +2225,12 @@ static void dispatch_semantic(marine_semantic_input_t ev, int32_t val) {
         return;
     }
 
+    // A press while the CONTROL ON notice shows only dismisses it. Turns and other presses work as usual.
+    if (ctl_notice_on && ev == MARINE_INPUT_SINGLE_PRESS) {
+        control_notice_hide();
+        return;
+    }
+
     if (snap.system_screen != MARINE_SCREEN_OPERATIONAL) {
         return;
     }
@@ -2238,6 +2312,7 @@ void marine_ui_init(marine_ui_action_cb_t action_cb, void *user_ctx) {
         scr_modes[i] = mode_registry[i].build_screen();
     }
     build_overlays_and_system();
+    build_control_notice();
     lv_screen_load(scr_modes[active_mode]);
     mode_registry[active_mode].refresh();
 }
@@ -2331,6 +2406,11 @@ void marine_ui_apply_snapshot(const marine_ui_snapshot_t *snapshot) {
     uint32_t prev_now_ms = snap.now_ms;
     snap = *snapshot;
     if (snap.now_ms < prev_now_ms) snap.now_ms = prev_now_ms;   // keep the tick clock monotonic
+
+    if (snap.control_on_seq != ctl_last_seq) {
+        ctl_last_seq = snap.control_on_seq;
+        if (snap.control_on_seq != 0 && snap.system_screen == MARINE_SCREEN_OPERATIONAL) control_notice_show();
+    }
 
     // Immediate backlight wake + fast LED flash when a new alarm arrives OR the alarm type changes
     // (a changed type needs a fresh acknowledge, so the screen must be awake for it).
@@ -2474,6 +2554,11 @@ void marine_ui_apply_snapshot(const marine_ui_snapshot_t *snapshot) {
 
 void marine_ui_tick(uint32_t now_ms) {
     snap.now_ms = now_ms;
+
+    if (ctl_notice_on && (now_ms >= ctl_notice_until_ms || is_full_alarm_blocking() ||
+                          snap.system_screen != MARINE_SCREEN_OPERATIONAL)) {
+        control_notice_hide();
+    }
 
     // 1. Button classifier timers (300 ms single-press window, 750 ms long-press)
     if (btn_is_down && !btn_long_fired && (now_ms - btn_down_ms >= 750)) {
