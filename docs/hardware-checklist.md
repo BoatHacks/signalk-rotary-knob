@@ -11,13 +11,13 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 |---|---|---|---|---|
 | Display, encoder, push, touch dead zone, LEDs work | ok | 2026-11-22 | spike | |
 | Boots without a reboot loop, no health watchdog reset | ok | 2026-11-23 | 84adfd6 | |
-| Internal RAM low-water mark stays above 12 KB at boot | ok | 2026-11-23 | 1500302 | 39.8 KB minimum, about 60 KB free, no restart in 64 s. Was 276 bytes and health restarts, cause: Wi-Fi buffers and task stacks in internal RAM |
+| Internal RAM low-water mark stays above 12 KB at boot | ok | 2026-11-23 | 549db49 | 39.8 KB minimum, about 60 KB free, no restart in 64 s. Was 276 bytes and health restarts, cause: Wi-Fi buffers and task stacks in internal RAM |
 | Splash shows phase text and progress bar | ok | 2026-11-23 | 432c456 | |
 | Pairing screen shows straight text | open | | | knob already paired, needs a fresh pairing to see |
 | Online in under 10 s | ok | 2026-11-23 | 432c456 | 5.2 s |
 | Last screen in under 4 s | fail | 2026-11-23 | 432c456 | splash waits for the stream, decision open |
-| Stream stays up after boot | ok | 2026-11-23 | 1500302 | stayed up for 64 s. The earlier drops came with the RAM starvation. Separate: espOS sends a single-path unsubscribe that this server rejects with an error |
-| Reflash over the USB-Serial/JTAG port, automatic reset | ok | 2026-11-23 | 1500302 | no 1200 baud reboot any more. Not possible while the USB-HID mode is on screen |
+| Stream stays up after boot | ok | 2026-11-23 | 549db49 | stayed up for 64 s. The earlier drops came with the RAM starvation. Separate: espOS sends a single-path unsubscribe that this server rejects with an error |
+| Reflash over the USB-Serial/JTAG port, automatic reset | ok | 2026-11-23 | 549db49 | no 1200 baud reboot any more. Not possible while the USB-HID mode is on screen |
 | Survives reboot and reflash with the token | ok | 2026-11-23 | 432c456 | |
 
 ## Lights
