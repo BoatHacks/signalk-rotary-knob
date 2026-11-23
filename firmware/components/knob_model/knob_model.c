@@ -17,6 +17,7 @@
 #include "freertos/queue.h"
 #include "freertos/task.h"
 #include "knob_config.h"
+#include "knob_logic.h"
 #include "knob_net.h"
 #include "knob_power.h"
 #include "lv_port.h"
@@ -95,50 +96,11 @@ static uint32_t ms_now(void) { return (uint32_t)(esp_timer_get_time() / 1000); }
  * Stream callback: runs on the espOS stream task. Copy and return, never block.
  * ---------------------------------------------------------------------------------------------------------------- */
 
-static bool parse_num(const char *j, double *out)
-{
-    if (!j) return false;
-    while (*j == ' ') j++;
-    if (!(*j == '-' || *j == '+' || *j == '.' || (*j >= '0' && *j <= '9'))) return false;
-    char *end = NULL;
-    double v = strtod(j, &end);
-    if (end == j) return false;
-    *out = v;
-    return true;
-}
-
-/* "text" -> text. Returns false when the value is not a JSON string. */
-static bool parse_str(const char *j, char *out, size_t n)
-{
-    if (!j || j[0] != '"') return false;
-    size_t i = 0;
-    for (const char *p = j + 1; *p && *p != '"' && i + 1 < n; p++) out[i++] = *p;
-    out[i] = '\0';
-    return true;
-}
-
-/* A number after "key": inside a small JSON object text. */
-static bool obj_num(const char *j, const char *key, double *out)
-{
-    char pat[24];
-    snprintf(pat, sizeof(pat), "\"%s\"", key);
-    const char *p = strstr(j, pat);
-    if (!p) return false;
-    p += strlen(pat);
-    while (*p == ' ' || *p == ':') p++;
-    return parse_num(p, out);
-}
-
-static bool obj_str(const char *j, const char *key, char *out, size_t n)
-{
-    char pat[24];
-    snprintf(pat, sizeof(pat), "\"%s\"", key);
-    const char *p = strstr(j, pat);
-    if (!p) return false;
-    p += strlen(pat);
-    while (*p == ' ' || *p == ':') p++;
-    return parse_str(p, out, n);
-}
+/* The value helpers live in knob_logic (pure C, unit tested on a host). */
+#define parse_num knob_parse_num
+#define parse_str knob_parse_str
+#define obj_num knob_obj_num
+#define obj_str knob_obj_str
 
 static void on_update(const espos_sk_update_t *u, void *arg)
 {
@@ -268,7 +230,7 @@ static void subscribe_all(void)
 
 #define RAD2DEG 57.29577951308232
 
-static bool stale_by(uint32_t now, uint32_t ms, uint32_t timeout) { return timeout != 0 && (ms == 0 || now - ms > timeout); }
+#define stale_by knob_stale_by
 
 static void build_snapshot(marine_ui_snapshot_t *s, uint32_t now)
 {
@@ -367,8 +329,8 @@ static void build_snapshot(marine_ui_snapshot_t *s, uint32_t now)
     if (s_alarm_inject) alarm = (marine_alarm_type_t)s_alarm_inject;
     /* GPS lost: the anchor watch is armed but the position has gone stale or the fix is gone. Not within the first 45 s after
      * boot, the subscriptions need a moment. A drag alarm takes precedence. */
-    if (alarm == MARINE_ALARM_NONE && m.anchor_on && now > T_BOOT_GRACE &&
-        (!m.pos_valid || now - m.pos_ms > T_GPS_LOST || (m.gps_known && !m.gps_fix))) {
+    if (alarm == MARINE_ALARM_NONE &&
+        knob_gps_lost(m.anchor_on, now, T_BOOT_GRACE, m.pos_valid, m.pos_ms, T_GPS_LOST, m.gps_known, m.gps_fix)) {
         alarm = MARINE_ALARM_GPS_LOST;
     }
     if (alarm == MARINE_ALARM_NONE) s_ack_latch = false;

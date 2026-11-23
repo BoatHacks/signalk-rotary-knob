@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 #include "knob_power.h"
 
+#include "knob_logic.h"
+
 #include "board.h"
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -62,11 +64,7 @@ static void led_task(void *arg)
                 /* On course (yellow engaged, blue standby): shown for KNOB_LED_NIGHT_FADE_HOLD_MS after the change to
                  * it, then fades linearly to off over KNOB_LED_NIGHT_FADE_MS. */
                 uint32_t el = t - s_oncourse_since_ms;
-                uint32_t permille = 1000;
-                if (el >= KNOB_LED_NIGHT_FADE_HOLD_MS) {
-                    uint32_t f = el - KNOB_LED_NIGHT_FADE_HOLD_MS;
-                    permille = f >= KNOB_LED_NIGHT_FADE_MS ? 0 : 1000 - (1000 * f) / KNOB_LED_NIGHT_FADE_MS;
-                }
+                uint32_t permille = knob_fade_permille(el, KNOB_LED_NIGHT_FADE_HOLD_MS, KNOB_LED_NIGHT_FADE_MS);
                 if (s_steer == STEER_YELLOW) { r = (uint8_t)(64 * permille / 1000); g = (uint8_t)(40 * permille / 1000); }
                 else b = (uint8_t)(64 * permille / 1000);
             }
@@ -88,11 +86,6 @@ void knob_power_init(void)
 /* --- Steady colour from the state ------------------------------------------------------------------------------ */
 #include <math.h>
 
-static bool value_stale(uint32_t now, uint32_t updated, uint32_t timeout)
-{
-    return timeout != 0 && (updated == 0 || now - updated > timeout);
-}
-
 void knob_power_apply_snapshot(const marine_ui_snapshot_t *s, marine_ui_mode_t active_mode)
 {
     static bool on_course;
@@ -101,18 +94,17 @@ void knob_power_apply_snapshot(const marine_ui_snapshot_t *s, marine_ui_mode_t a
 
     if (active_mode == MARINE_MODE_AUTOPILOT) {
         /* Steering indicator on the autopilot screen, engaged or in standby. Standby uses the set target. */
-        bool stale = value_stale(s->now_ms, s->heading_updated_ms, s->heading_timeout_ms) ||
-                     value_stale(s->now_ms, s->cts_updated_ms, s->cts_timeout_ms);
+        bool stale = knob_stale_by(s->now_ms, s->heading_updated_ms, s->heading_timeout_ms) ||
+                     knob_stale_by(s->now_ms, s->cts_updated_ms, s->cts_timeout_ms);
         if (stale) {
             on_course = false;
             if (s->ap_engaged) { r = 40; g = 24; b = 0; } /* dim amber: no usable course error */
         } else {
-            float err = fmodf(s->cts_deg - s->heading_deg + 540.0f, 360.0f) - 180.0f; /* negative: turn to port */
-            float a = fabsf(err);
-            if (on_course ? a > KNOB_LED_ON_COURSE_LEAVE_DEG : a <= KNOB_LED_ON_COURSE_ENTER_DEG) on_course = !on_course;
-            if (on_course && s->ap_engaged) { r = 64; g = 40; b = 0; steer = STEER_YELLOW; }
-            else if (on_course) { b = 64; steer = STEER_BLUE; }
-            else if (err < 0) { r = 64; steer = STEER_PORT; }
+            float err = knob_course_error(s->cts_deg, s->heading_deg); /* negative: turn to port */
+            knob_steer_t k = knob_steer_step(err, &on_course, KNOB_LED_ON_COURSE_ENTER_DEG, KNOB_LED_ON_COURSE_LEAVE_DEG);
+            if (k == KNOB_STEER_ON_COURSE && s->ap_engaged) { r = 64; g = 40; b = 0; steer = STEER_YELLOW; }
+            else if (k == KNOB_STEER_ON_COURSE) { b = 64; steer = STEER_BLUE; }
+            else if (k == KNOB_STEER_PORT) { r = 64; steer = STEER_PORT; }
             else { g = 64; steer = STEER_STBD; }
         }
     } else {
