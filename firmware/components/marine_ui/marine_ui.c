@@ -1038,8 +1038,9 @@ static lv_obj_t* build_anchor_screen(void) {
     anc_lbl_hint = anc_make_label(scr, &lv_font_montserrat_12, 54);
     anc_lbl_big = anc_make_label(scr, &lv_font_montserrat_28, 38);
 
-    // State and telemetry in straight lines just outside the watch circle (it spans y 48 to 192), 14 px (owner, 2026-11-23).
-    anc_lbl_state = anc_make_label(scr, &lv_font_montserrat_14, -98);
+    // State and telemetry in straight lines just outside the watch circle (it spans y 48 to 192), the state in 20 px, the
+    // telemetry in 14 px (owner, 2026-11-23). 28 px would reach the rim at the top.
+    anc_lbl_state = anc_make_label(scr, &lv_font_montserrat_20, -94);
     anc_lbl_telem = anc_make_label(scr, &lv_font_montserrat_14, 90);
     lv_label_set_long_mode(anc_lbl_telem, LV_LABEL_LONG_MODE_DOTS);   // the round edge leaves about 160 px at y 210
     lv_obj_set_width(anc_lbl_telem, 160);
