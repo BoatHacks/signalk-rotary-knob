@@ -91,8 +91,8 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 | Move drop point here | open | | 84adfd6 | |
 | Raise anchor | open | | 84adfd6 | |
 | Radius change while dropped goes to the server | open | | 84adfd6 | |
-| State line (20 px) and telemetry line (14 px) straight and readable, inside the round edge | open | | | were curved 12 px, changed 2026-11-23, 14 px state looked too small. `SET RADIUS` is the widest |
-| Alarm screen: `DRAGGING` / `FIX LOST` straight on top, `14 m OF 35 m` under the headline, nothing clipped | open | | | bench alarms `a` and `g` |
+| State line (20 px) and telemetry line (14 px) straight and readable, inside the round edge | ok | 2026-11-23 | 072dc9b | were curved 12 px, 14 px state looked too small |
+| Alarm screen: `DRAGGING` / `FIX LOST` straight on top, `14 m OF 35 m` under the headline, nothing clipped | ok | 2026-11-23 | 072dc9b | bench alarms `a` and `g` |
 | Boot and setup screens: straight top line (`HELM DIAL`, `JOIN WI-FI`, `CONNECTING`, `NO SERVER`, `RESET`) inside the edge | open | | | `CONNECTING` is the widest |
 | Drag alarm takes over the screen, LEDs flash, press acknowledges | open | | | bench alarm (`a`) ok on an earlier build, real alarm open |
 | Acknowledge reaches the server's Notifications API | open | | | |
