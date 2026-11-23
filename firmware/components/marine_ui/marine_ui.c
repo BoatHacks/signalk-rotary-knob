@@ -220,11 +220,10 @@ static lv_obj_t *alm_icon_warn;
 static uint8_t *alm_icon_anchor_buf = NULL;
 static uint8_t *alm_icon_warn_buf = NULL;
 static uint32_t alm_icon_col = 0xFFFFFFFFu;
-static lv_obj_t *alm_canvas_top;
+static lv_obj_t *alm_lbl_state;   // top line, straight 20 px: DRAGGING or FIX LOST
+static lv_obj_t *alm_lbl_dist;    // distance and radius under the headline (drag alarm)
 static lv_obj_t *alm_canvas_bot;
-static uint8_t *alm_buf_top = NULL;
 static uint8_t *alm_buf_bot = NULL;
-static char alm_cache_top[48] = {0};
 static char alm_cache_bot[48] = {0};
 
 // Stale, Confirm, Anchor Menu & System Screen Widgets
@@ -239,11 +238,9 @@ static uint32_t anc_res_icon_col = 0xFFFFFFFFu;
 
 static lv_obj_t *sys_tick_lines[72];
 static lv_point_precise_t sys_tick_pts[72][2];
-static lv_obj_t *sys_canvas_top;
+static lv_obj_t *sys_lbl_state;   // top line of the boot and setup screens, straight 20 px
 static lv_obj_t *sys_canvas_bot;
-static uint8_t *sys_buf_top = NULL;
 static uint8_t *sys_buf_bot = NULL;
-static char sys_cache_top[48] = {0};
 static char sys_cache_bot[48] = {0};
 static lv_obj_t *sys_pill_box;
 static lv_obj_t *sys_step_dot[3];      // connecting steps: drawn status marks (no font glyphs needed)
@@ -989,6 +986,12 @@ static void anc_set_line(lv_obj_t *l, const char *text, lv_color_t col) {
     lv_obj_set_style_text_color(l, col, 0);
 }
 
+// Top status line of the boot and setup screens: straight 20 px, like the anchor screen's.
+static void sys_set_state(const char *text, lv_color_t col) {
+    if (strcmp(lv_label_get_text(sys_lbl_state), text) != 0) lv_label_set_text(sys_lbl_state, text);
+    lv_obj_set_style_text_color(sys_lbl_state, col, 0);
+}
+
 static lv_obj_t* anc_make_label(lv_obj_t *scr, const lv_font_t *font, int y_off) {
     lv_obj_t *l = lv_label_create(scr);
     lv_label_set_text(l, "");
@@ -1039,8 +1042,8 @@ static lv_obj_t* build_anchor_screen(void) {
     anc_lbl_big = anc_make_label(scr, &lv_font_montserrat_28, 38);
 
     // State and telemetry in straight lines just outside the watch circle (it spans y 48 to 192), the state in 20 px, the
-    // telemetry in 14 px (owner, 2026-11-23). 28 px would reach the rim at the top.
-    anc_lbl_state = anc_make_label(scr, &lv_font_montserrat_20, -94);
+    // telemetry in 14 px (owner, 2026-11-23). At y 30 the round edge leaves about 130 px, 28 px would reach the rim.
+    anc_lbl_state = anc_make_label(scr, &lv_font_montserrat_20, -90);
     anc_lbl_telem = anc_make_label(scr, &lv_font_montserrat_14, 90);
     lv_label_set_long_mode(anc_lbl_telem, LV_LABEL_LONG_MODE_DOTS);   // the round edge leaves about 160 px at y 210
     lv_obj_set_width(anc_lbl_telem, 160);
@@ -1716,12 +1719,21 @@ static void build_overlays_and_system(void) {
     lv_obj_set_style_text_color(alm_lbl_title, COL_RED, 0);
     lv_obj_align(alm_lbl_title, LV_ALIGN_CENTER, 0, 40);
 
+    alm_lbl_dist = lv_label_create(ovl_alarm);
+    lv_label_set_text(alm_lbl_dist, "");
+    lv_obj_set_style_text_font(alm_lbl_dist, &lv_font_montserrat_14, 0);
+    lv_obj_align(alm_lbl_dist, LV_ALIGN_CENTER, 0, 64);
+
     alm_lbl_ack = lv_label_create(ovl_alarm);
     lv_label_set_text(alm_lbl_ack, "PRESS TO ACKNOWLEDGE");
     lv_obj_set_style_text_font(alm_lbl_ack, &lv_font_montserrat_12, 0);
-    lv_obj_align(alm_lbl_ack, LV_ALIGN_CENTER, 0, 66);
+    lv_obj_align(alm_lbl_ack, LV_ALIGN_CENTER, 0, 84);
 
-    alm_canvas_top = create_curved_canvas(ovl_alarm, LV_ALIGN_TOP_MID, &alm_buf_top);
+    // Top status line straight in 20 px like the anchor screen's (owner, 2026-11-23), short enough for the round edge.
+    alm_lbl_state = lv_label_create(ovl_alarm);
+    lv_label_set_text(alm_lbl_state, "");
+    lv_obj_set_style_text_font(alm_lbl_state, &lv_font_montserrat_20, 0);
+    lv_obj_align(alm_lbl_state, LV_ALIGN_CENTER, 0, -90);
     alm_canvas_bot = create_curved_canvas(ovl_alarm, LV_ALIGN_BOTTOM_MID, &alm_buf_bot);
 
     // 2b. Persistent Acknowledged Alarm Ring & Label (when alarm_ack_return_with_badge == true)
@@ -1878,7 +1890,10 @@ static void build_overlays_and_system(void) {
     build_radial_tick_ring(scr_system, sys_tick_lines, sys_tick_pts);
     update_radial_tick_ring(sys_tick_lines, sys_tick_pts, 0.0f, true, true);
 
-    sys_canvas_top = create_curved_canvas(scr_system, LV_ALIGN_TOP_MID, &sys_buf_top);
+    sys_lbl_state = lv_label_create(scr_system);
+    lv_label_set_text(sys_lbl_state, "");
+    lv_obj_set_style_text_font(sys_lbl_state, &lv_font_montserrat_20, 0);
+    lv_obj_align(sys_lbl_state, LV_ALIGN_CENTER, 0, -90);
     sys_canvas_bot = create_curved_canvas(scr_system, LV_ALIGN_BOTTOM_MID, &sys_buf_bot);
 
     sys_arc_prog = lv_arc_create(scr_system);
@@ -2497,11 +2512,14 @@ void marine_ui_apply_snapshot(const marine_ui_snapshot_t *snapshot) {
         if (is_drag) lv_obj_remove_flag(alm_boat_dot, LV_OBJ_FLAG_HIDDEN);
         else lv_obj_add_flag(alm_boat_dot, LV_OBJ_FLAG_HIDDEN);
 
-        char top_b[48], bot_b[48];
-        if (is_drag) snprintf(top_b, sizeof(top_b), "ANCHORED • %dm / %um", (int)roundf(snap.anchor_dist_m), snap.anchor_radius_m);
-        else snprintf(top_b, sizeof(top_b), "ANCHOR WATCH • FIX LOST");
+        char dist_b[32], bot_b[48];
+        lv_label_set_text(alm_lbl_state, is_drag ? "DRAGGING" : "FIX LOST");
+        lv_obj_set_style_text_color(alm_lbl_state, c_red(), 0);
+        if (is_drag) snprintf(dist_b, sizeof(dist_b), "%d m OF %u m", (int)roundf(snap.anchor_dist_m), snap.anchor_radius_m);
+        else dist_b[0] = '\0';
+        if (strcmp(lv_label_get_text(alm_lbl_dist), dist_b) != 0) lv_label_set_text(alm_lbl_dist, dist_b);
+        lv_obj_set_style_text_color(alm_lbl_dist, c_text(), 0);
         snprintf(bot_b, sizeof(bot_b), "%.1fm • %.1fV • %s", snap.depth_m, snap.voltage_v, is_drag ? "3D FIX" : "NO GPS FIX");
-        update_curved_canvas(alm_canvas_top, alm_cache_top, top_b, false, c_red());
         update_curved_canvas(alm_canvas_bot, alm_cache_bot, bot_b, true, is_drag ? c_muted() : c_red());
         update_stale_overlay();   // hides the stale overlay behind the full-screen alarm
         return;
@@ -2524,14 +2542,14 @@ void marine_ui_apply_snapshot(const marine_ui_snapshot_t *snapshot) {
         lv_obj_add_flag(ovl_stale, LV_OBJ_FLAG_HIDDEN);
         sys_splash_show(snap.system_screen == MARINE_SCREEN_BOOT, snap.boot_progress_pct);
         // Curved labels and the pairing text are shown per screen below
-        lv_obj_remove_flag(sys_canvas_top, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_remove_flag(sys_lbl_state, LV_OBJ_FLAG_HIDDEN);
         lv_obj_remove_flag(sys_canvas_bot, LV_OBJ_FLAG_HIDDEN);
         lv_obj_add_flag(sys_pair_big, LV_OBJ_FLAG_HIDDEN);
         lv_obj_add_flag(sys_pair_hint, LV_OBJ_FLAG_HIDDEN);
         lv_obj_add_flag(sys_pair_name, LV_OBJ_FLAG_HIDDEN);
 
         if (snap.system_screen == MARINE_SCREEN_BOOT) {
-            update_curved_canvas(sys_canvas_top, sys_cache_top, "HELM DIAL", false, c_primary());
+            sys_set_state("HELM DIAL", c_primary());
             update_curved_canvas(sys_canvas_bot, sys_cache_bot, "INITIALIZING", true, c_muted());
             lv_obj_remove_flag(sys_arc_prog, LV_OBJ_FLAG_HIDDEN);
             lv_arc_set_value(sys_arc_prog, snap.boot_progress_pct);
@@ -2539,14 +2557,14 @@ void marine_ui_apply_snapshot(const marine_ui_snapshot_t *snapshot) {
             lv_label_set_text(sys_lbl_line1, "STARTING");
             lv_label_set_text(sys_lbl_line2, "");
         } else if (snap.system_screen == MARINE_SCREEN_WIFI_PORTAL) {
-            update_curved_canvas(sys_canvas_top, sys_cache_top, "JOIN WI-FI", false, c_amber());
+            sys_set_state("JOIN WI-FI", c_amber());
             update_curved_canvas(sys_canvas_bot, sys_cache_bot, "SETUP ONLY", true, c_muted());
             lv_obj_remove_flag(sys_pill_box, LV_OBJ_FLAG_HIDDEN);
             lv_label_set_text(sys_lbl_title, snap.setup_ap_ssid[0] ? snap.setup_ap_ssid : "HelmDial-Setup");
             lv_label_set_text(sys_lbl_line1, "THEN OPEN THE");
             lv_label_set_text(sys_lbl_line2, "SETUP PAGE");
         } else if (snap.system_screen == MARINE_SCREEN_CONNECTING) {
-            update_curved_canvas(sys_canvas_top, sys_cache_top, "CONNECTING", false, c_primary());
+            sys_set_state("CONNECTING", c_primary());
             update_curved_canvas(sys_canvas_bot, sys_cache_bot, "PLEASE WAIT", true, c_muted());
             sys_set_steps(true, snap.connect_step);   // drawn marks, no glyph fonts
             lv_label_set_text(sys_lbl_title, "");
@@ -2554,7 +2572,7 @@ void marine_ui_apply_snapshot(const marine_ui_snapshot_t *snapshot) {
             lv_label_set_text(sys_lbl_line2, "");
         } else if (snap.system_screen == MARINE_SCREEN_PAIRING) {
             // Straight, large text in the middle; no curved labels on this screen.
-            lv_obj_add_flag(sys_canvas_top, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_flag(sys_lbl_state, LV_OBJ_FLAG_HIDDEN);
             lv_obj_add_flag(sys_canvas_bot, LV_OBJ_FLAG_HIDDEN);
             lv_label_set_text(sys_lbl_title, "");
             lv_label_set_text(sys_lbl_line1, "");
@@ -2567,13 +2585,13 @@ void marine_ui_apply_snapshot(const marine_ui_snapshot_t *snapshot) {
             lv_obj_set_style_text_color(sys_pair_name, c_muted(), 0);
             lv_label_set_text(sys_pair_name, snap.device_name);
         } else if (snap.system_screen == MARINE_SCREEN_CANNOT_CONNECT) {
-            update_curved_canvas(sys_canvas_top, sys_cache_top, "CONNECTION ERROR", false, c_red());
+            sys_set_state("NO SERVER", c_red());
             update_curved_canvas(sys_canvas_bot, sys_cache_bot, "RETRYING", true, c_muted());
             lv_label_set_text(sys_lbl_title, "NO SERVER");
             lv_label_set_text(sys_lbl_line1, "WI-FI OK");
             lv_label_set_text(sys_lbl_line2, "");
         } else if (snap.system_screen == MARINE_SCREEN_RESET_SETUP) {
-            update_curved_canvas(sys_canvas_top, sys_cache_top, "FACTORY RESET", false, c_red());
+            sys_set_state("RESET", c_red());
             update_curved_canvas(sys_canvas_bot, sys_cache_bot, "RELEASE TO CANCEL", true, c_muted());
             lv_obj_remove_flag(sys_arc_prog, LV_OBJ_FLAG_HIDDEN);
             lv_label_set_text(sys_lbl_title, "HOLD 5 SECONDS");

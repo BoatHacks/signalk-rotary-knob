@@ -251,7 +251,8 @@ phrases it as how long a consumer waits for a new value, so we use the 1.5.0 mea
 
 ### Boot, setup and pairing screens
 
-Same style as the mode screens (dimmed tick ring, curved labels, bold type). Implemented in `ui/marine_ui_v5` as the system
+Same style as the mode screens (dimmed tick ring, bold type), the status on top straight in 20 px (section 8), the line at the
+bottom curved. Implemented in `ui/marine_ui_v5` as the system
 screens.
 
 | Screen | Shows |
@@ -280,6 +281,9 @@ palette.
   the server clears the alarm. If the alarm state changes or a new alarm starts, the full-screen takeover returns and needs
   another acknowledge.
 - Other alarm types, if added later, use the same takeover until a lighter treatment is agreed.
+- Takeover layout: `DRAGGING` or `FIX LOST` straight on top (20 px, red), the geofence with the anchor and the boat dot, the
+  warning mark, `DRAG ALARM!` or `GPS LOST!` (28 px), the distance and radius under it for a drag alarm (`14 m OF 35 m`, 14 px),
+  `PRESS TO ACKNOWLEDGE`, and the curved telemetry line at the bottom.
 
 ## 6. Power, dimming and wake
 
@@ -327,9 +331,14 @@ Elements:
   rudder bar with a red centre tick.
 - **Anchor:** the watch circle as a plot: cyan ring when dropped, boat dot with a trail, an amber ring for the radius preview (section 3.2).
 - **Curved text, static and dynamic:** labels follow the ring: a label on the top arc (for example `HEADING (HDG)`,
-  `ANCHORED · 12 m / 35 m`, `SELECT MODE`) and one on the bottom arc (data line such as `6.4 m · 12.8 V · GPS 3D`, hints such as
-  `PRESS TO APPLY`). **Dynamic values are drawn curved too**, they are not limited to fixed labels. The large centre numerals
-  stay flat and horizontal.
+  `SELECT MODE`) and one on the bottom arc (data line such as `6.4 m · 12.8 V · GPS 3D`, hints such as `PRESS TO APPLY`).
+  **Dynamic values are drawn curved too**, they are not limited to fixed labels. The large centre numerals stay flat and
+  horizontal.
+- **Status line on top, straight** (decided 2026-11-23, the owner found the curved 12 px status hard to read): the state at the
+  top of the anchor screen, the alarm screen and the boot and setup screens is a straight 20 px label at y 30, at most about
+  130 px wide (the round edge), so the words are short: `RAISED`, `DROPPED`, `SET RADIUS`, `DRAGGING`, `FIX LOST`, `HELM DIAL`,
+  `JOIN WI-FI`, `CONNECTING`, `NO SERVER`, `RESET`. The bottom lines stay curved, except the anchor screen's telemetry line
+  (straight 14 px).
 - **Type:** bold throughout, large primary values. Secondary text is 12 to 13 px in the 240 px design space and is read only as a
   supporting line.
 - **Left out of the prototype:** the 3D bezel (it is the physical knob ring, not part of the display).
