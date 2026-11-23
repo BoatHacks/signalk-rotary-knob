@@ -15,8 +15,8 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 | Splash shows phase text and progress bar | ok | 2026-11-23 | 432c456 | |
 | Pairing screen shows straight text | open | | | knob already paired, needs a fresh pairing to see |
 | Online in under 10 s | ok | 2026-11-23 | 432c456 | 5.2 s |
-| Last screen in under 10 s (splash with the phases until the token is verified) | open | | | target was 4 s, met on 0ffc8ef at 2.5 s with the mode under an overlay. The owner preferred the splash, expect about 6 s |
-| A short `CONNECTING` over the mode after the splash, gone when the data arrives | open | | | the overlay itself seen ok on 0ffc8ef |
+| Last screen in under 10 s (splash with the phases until the token is verified) | ok | 2026-11-23 | ee2b16f | 7.4 s, of which Wi-Fi took 6.1 s on that boot (4.7 to 5 s on others). Target was 4 s, met on 0ffc8ef at 2.5 s with the mode under an overlay, the owner preferred the splash |
+| A short `CONNECTING` over the mode after the splash, gone when the data arrives | ok | 2026-11-23 | ee2b16f | about 0.5 s, seen by the owner |
 | Each mode (autopilot, lights, anchor) comes back after a reboot | open | 2026-11-23 | 0ffc8ef | autopilot (nothing stored) and lights ok, two boots each. Anchor not tried |
 | USB-HID last, host on the cable: boots into USB-HID. No host: the last non-HID mode | open | | | try with a charger and with a PC |
 | A stream drop while running shows `LINK LOST` over the mode, not the splash | ok | 2026-11-23 | 0ffc8ef | seen with the real drop about 3 s after online (see "Stream stays up after boot") |
