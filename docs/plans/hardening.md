@@ -28,8 +28,9 @@ setup AP is gone while connected, the USB IDs show the new values in the device 
 - pid.codes or another source for the USB PID (owner).
 ## Steps
 - [x] Decide the API key: optional (owner, 2026-11-23).
-- [ ] Setup through the portal on a phone, with and without a key. A key set protects the API (401 without it).
-- [ ] Verify the setup AP closes.
+- [x] Setup through the portal on a phone with a key (2026-11-23): key first, then Wi-Fi, the API answers 401 without it. Without
+      a key still to try.
+- [x] Verify the setup AP closes (log `portal down` right after the join).
 - [ ] USB VID/PID.
 - [ ] Token permission check.
 - [ ] Update ARCHITECTURE.md section 6 and the manual's setup section.

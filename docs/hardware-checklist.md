@@ -25,6 +25,17 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 | Reflash over the USB-Serial/JTAG port, automatic reset | ok | 2026-11-23 | 549db49 | no 1200 baud reboot any more. Not possible while the USB-HID mode is on screen |
 | Survives reboot and reflash with the token | ok | 2026-11-23 | 432c456 | |
 
+## Setup and security
+
+| Item | Status | Date | Commit | Notes |
+|---|---|---|---|---|
+| Wi-Fi cleared: setup network opens, `JOIN WI-FI` on screen | ok | 2026-11-23 | ee2b16f | Wi-Fi cleared through the config API, the SignalK token stayed |
+| Setup on a phone through the portal: API key first, then Wi-Fi | ok | 2026-11-23 | ee2b16f | the setup page asked for a login once the key was set |
+| Setup network closes once Wi-Fi works | ok | 2026-11-23 | ee2b16f | log `portal down` right after the join |
+| A set API key protects the REST API | ok | 2026-11-23 | ee2b16f | 401 without the key, 200 with it |
+| Back online by itself after the setup | ok | 2026-11-23 | ee2b16f | the token check had backed off while the knob was offline (`NO SERVER` for a while), it then reconnected without a reboot |
+| Setup without a key (Wi-Fi only) | open | | | the default, not tried on the phone |
+
 ## Lights
 
 | Item | Status | Date | Commit | Notes |
