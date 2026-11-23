@@ -56,6 +56,26 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 | All of it 401 without the key when one is set | ok | 2026-11-23 | fce9406 | status, mode, config, mode PUT |
 | Factory reset clears allow control | open | | | destructive, with the next fresh setup |
 
+## Settings screen (#5)
+
+| Item | Status | Date | Commit | Notes |
+|---|---|---|---|---|
+| Mode ring: slots evenly spaced, gear `SETUP` last, 5 with a USB host, 4 without, hidden during an alarm | open | | | |
+| List: turn moves and wraps, prev and next items above and below, `SETTINGS · n OF 13` | open | | | |
+| Edit: amber arc, value, `was ...`, press stores, double press cancels | open | | | |
+| Each value stored, shown on the web page at once, still there after a reboot | open | | | brightness, dim after, dim level, off after, night, LEDs, heading, HID profile |
+| A change on the web page shows on the knob | open | | | |
+| Brightness changes the active backlight at once, dim level never brighter | open | | | |
+| LEDs off: every LED dark, also during an alarm | open | | | bench alarm `a` |
+| Night mode setting: server, day, night, serial `n` still overrides for the session | open | | | |
+| Allow control off to on: press, then one click right within 5 s, any press cancels, no CONTROL ON notice | open | | | |
+| Allow control on to off: one press | open | | | |
+| Setup access point opens next to Wi-Fi, counts down, closes after 10 min or with a press | open | | | |
+| Device info and SignalK pages show sensible values | open | | | |
+| Reset setup: needs the full 5 s hold, early release does nothing | open | | | destructive, with the next fresh setup |
+| Settings usable without a SignalK link | open | | | |
+| HID profile from the HID long press survives a reboot | open | | | needs a USB host |
+
 ## Lights
 
 | Item | Status | Date | Commit | Notes |

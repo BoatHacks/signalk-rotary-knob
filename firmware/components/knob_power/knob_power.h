@@ -11,7 +11,9 @@
 typedef enum { KNOB_LED_ALARM_OFF = 0, KNOB_LED_ALARM_FAST, KNOB_LED_ALARM_SLOW } knob_led_alarm_t;
 
 void knob_power_init(void);                      /* starts the LED task, needs board_power_on() */
-void knob_power_set_backlight(uint8_t percent);  /* 0, 10 or 100 from the UI, any 0..100 is accepted */
+void knob_power_set_backlight(uint8_t percent);  /* from the UI: 100 is the active level, below it the dim level, 0 off */
+void knob_power_set_brightness(uint8_t percent); /* active brightness (settings), 10..100, what the UI's 100 means */
+void knob_power_set_leds(bool on);               /* settings: false keeps every LED dark, the alarm flash included */
 void knob_power_led_alarm(knob_led_alarm_t mode);/* fast red flash, slow red pulse, or off. Overrides the steady colour. */
 void knob_power_led_state(uint8_t r, uint8_t g, uint8_t b); /* steady colour, 0,0,0 for off (raw, see apply_snapshot) */
 void knob_power_set_night(bool night);           /* night mode: steady colours off, alarm patterns unchanged */

@@ -3,6 +3,7 @@
 #include <string.h>
 #include <math.h>
 #include "esp_heap_caps.h"
+#include "knob_logic.h"
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -45,12 +46,13 @@ typedef struct {
     void (*refresh)(void);
 } marine_mode_desc_t;
 
-// Fixed Mode Ring slots: 0=AUTO (Top), 1=LIGHT (Right), 2=ANCHOR (Bottom), 3=USB (Left)
+// Mode ring slots in ring order. The visible ones are spaced evenly, clockwise from the top (ui-design section 2).
 static const marine_ui_mode_t ring_slot_modes[MARINE_MODE_COUNT] = {
     MARINE_MODE_AUTOPILOT,
     MARINE_MODE_DIMMER,
     MARINE_MODE_ANCHOR_WATCH,
-    MARINE_MODE_USB_HID
+    MARINE_MODE_USB_HID,
+    MARINE_MODE_SETTINGS
 };
 
 static const char *rgbw_preset_names[MARINE_RGBW_PRESET_COUNT] = {
@@ -200,12 +202,11 @@ static lv_obj_t *hid_lbl_sub;
 static lv_obj_t *hid_lbl_hint;
 
 // Mode Ring Widgets (including Live Shrunk Center Preview)
-static lv_obj_t *ring_slot_boxes[4];
-static lv_obj_t *ring_slot_labels[4];
-static lv_obj_t *ring_slot_dots[4];
-static lv_obj_t *ring_slot_icons[4];
-static uint8_t *ring_icon_buf[4];
-static uint32_t ring_icon_col[4] = {0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu};
+static lv_obj_t *ring_slot_boxes[MARINE_MODE_COUNT];
+static lv_obj_t *ring_slot_labels[MARINE_MODE_COUNT];
+static lv_obj_t *ring_slot_icons[MARINE_MODE_COUNT];
+static uint8_t *ring_icon_buf[MARINE_MODE_COUNT];
+static uint32_t ring_icon_col[MARINE_MODE_COUNT] = {0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu};
 static lv_obj_t *ring_center_top;
 static lv_obj_t *ring_center_mid;
 static lv_obj_t *ring_center_bot;
@@ -302,11 +303,19 @@ static lv_obj_t* build_hid_screen(void);
 static void hid_on_input(marine_semantic_input_t ev, int32_t val);
 static void hid_refresh(void);
 
+static lv_obj_t* build_settings_screen(void);
+static void settings_on_input(marine_semantic_input_t ev, int32_t val);
+static void settings_refresh(void);
+static bool settings_takes_double(void);
+static void settings_tick(void);
+static void settings_enter(void);
+
 static const marine_mode_desc_t mode_registry[MARINE_MODE_COUNT] = {
     [MARINE_MODE_AUTOPILOT]    = { MARINE_MODE_AUTOPILOT,    "AUTO",   build_ap_screen,     ap_on_input,     ap_refresh },
     [MARINE_MODE_DIMMER]       = { MARINE_MODE_DIMMER,       "LIGHTS", build_dimmer_screen, dimmer_on_input, dimmer_refresh },
     [MARINE_MODE_ANCHOR_WATCH] = { MARINE_MODE_ANCHOR_WATCH, "ANCHOR", build_anchor_screen, anchor_on_input, anchor_refresh },
-    [MARINE_MODE_USB_HID]      = { MARINE_MODE_USB_HID,      "USB",    build_hid_screen,    hid_on_input,    hid_refresh }
+    [MARINE_MODE_USB_HID]      = { MARINE_MODE_USB_HID,      "USB",    build_hid_screen,    hid_on_input,    hid_refresh },
+    [MARINE_MODE_SETTINGS]     = { MARINE_MODE_SETTINGS,     "SETUP",  build_settings_screen, settings_on_input, settings_refresh }
 };
 
 static void emit_action(marine_ui_mode_t mode, marine_ui_action_type_t act, int32_t val, int32_t meta) {
@@ -376,7 +385,8 @@ static const char *essential_stale_reason(void) {
 
 // HID never depends on the SignalK link. Link down beats essential-value staleness.
 static stale_state_t current_stale(void) {
-    if (active_mode == MARINE_MODE_USB_HID) return STALE_NONE;
+    // HID needs the USB host only, and the settings must work without a link (the setup access point is there to fix one).
+    if (active_mode == MARINE_MODE_USB_HID || active_mode == MARINE_MODE_SETTINGS) return STALE_NONE;
     if (!snap.signalk_connected) return STALE_LINK;
     if (essential_stale_reason() != NULL) return STALE_ESSENTIAL;
     return STALE_NONE;
@@ -552,7 +562,7 @@ static void update_curved_canvas(lv_obj_t *cv, char *cache, const char *text, bo
 }
 
 // --- Drawn vector icons (no font glyphs needed): AUTO gauge, LIGHT bulb, ANCHOR, USB, WARNING triangle ---
-typedef enum { ICON_AUTO = 0, ICON_LIGHT, ICON_ANCHOR, ICON_USB, ICON_WARN, ICON_CROSS } icon_id_t;
+typedef enum { ICON_AUTO = 0, ICON_LIGHT, ICON_ANCHOR, ICON_USB, ICON_GEAR, ICON_WARN, ICON_CROSS } icon_id_t;
 
 static lv_obj_t* icon_canvas_create(lv_obj_t *parent, int size, uint8_t **out_buf) {
     size_t bytes = (size_t)size * (size_t)size * 4U;
@@ -648,6 +658,15 @@ static void icon_draw(lv_obj_t *cv, icon_id_t id, int size, lv_color_t col) {
         icon_line(&layer, IP(16), IP(14), IP(23), IP(11), w, col);
         icon_circle(&layer, II(23), II(8), II(2.2f), 0, true, col);
         break;
+    case ICON_GEAR:
+        icon_circle(&layer, II(16), II(16), II(8), w, false, col);
+        icon_circle(&layer, II(16), II(16), II(2.5f), 0, true, col);
+        for (int k = 0; k < 8; k++) {
+            float a = (float)k * (float)(M_PI / 4.0);
+            icon_line(&layer, IP(16 + 9.5f * cosf(a)), IP(16 + 9.5f * sinf(a)), IP(16 + 13.5f * cosf(a)), IP(16 + 13.5f * sinf(a)),
+                      w + 1, col);
+        }
+        break;
     case ICON_CROSS:
         icon_circle(&layer, II(16), II(16), II(13), w, false, col);
         icon_line(&layer, IP(10.5f), IP(10.5f), IP(21.5f), IP(21.5f), w, col);
@@ -706,6 +725,10 @@ static void refresh_mode_ring_center_preview(void) {
         if (g->on && g->level_pct > 0) snprintf(mid_b, sizeof(mid_b), "%u%%", (unsigned)g->level_pct);
         else snprintf(mid_b, sizeof(mid_b), "OFF");
         snprintf(bot_b, sizeof(bot_b), "GRP %u/%u", (unsigned)(idx + 1), (unsigned)(snap.dimmer_group_count ? snap.dimmer_group_count : 1));
+    } else if (active_mode == MARINE_MODE_SETTINGS) {
+        snprintf(top_b, sizeof(top_b), "SETTINGS");
+        snprintf(mid_b, sizeof(mid_b), "%d ITEMS", (int)KNOB_SET_COUNT);
+        snprintf(bot_b, sizeof(bot_b), "2x MODES");
     } else {
         snprintf(top_b, sizeof(top_b), "USB-HID");
         snprintf(mid_b, sizeof(mid_b), "%s", snap.usb_host_enumerated ? "ACTIVE" : "NO HOST");
@@ -719,18 +742,28 @@ static void refresh_mode_ring_center_preview(void) {
     lv_obj_set_style_text_color(ring_center_bot, c_text(), 0);
 }
 
+// USB only with a USB host on the cable, SETTINGS not while an alarm is active (acknowledged or not).
+static bool ring_slot_visible(int s) {
+    marine_ui_mode_t m = ring_slot_modes[s];
+    if (m == MARINE_MODE_USB_HID) return snap.usb_host_enumerated;
+    if (m == MARINE_MODE_SETTINGS) return snap.active_alarm == MARINE_ALARM_NONE;
+    return true;
+}
+
 static void refresh_mode_ring(void) {
     refresh_mode_ring_center_preview();
-    for (int s = 0; s < 4; s++) {
-        marine_ui_mode_t m = ring_slot_modes[s];
-        bool hidden = (m == MARINE_MODE_USB_HID && !snap.usb_host_enumerated);
-        if (hidden) {
+    int n = 0;
+    for (int s = 0; s < MARINE_MODE_COUNT; s++) if (ring_slot_visible(s)) n++;
+    int k = 0;
+    for (int s = 0; s < MARINE_MODE_COUNT; s++) {
+        if (!ring_slot_visible(s)) {
             lv_obj_add_flag(ring_slot_boxes[s], LV_OBJ_FLAG_HIDDEN);
-            lv_obj_remove_flag(ring_slot_dots[s], LV_OBJ_FLAG_HIDDEN);
             continue;
         }
+        float a = (float)(-M_PI / 2.0) + (float)k * 2.0f * (float)M_PI / (float)n;
+        k++;
+        lv_obj_align(ring_slot_boxes[s], LV_ALIGN_CENTER, (int)lroundf(86.0f * cosf(a)), (int)lroundf(86.0f * sinf(a)));
         lv_obj_remove_flag(ring_slot_boxes[s], LV_OBJ_FLAG_HIDDEN);
-        lv_obj_add_flag(ring_slot_dots[s], LV_OBJ_FLAG_HIDDEN);
 
         bool sel = (s == ring_selected_slot);
         lv_obj_set_style_border_width(ring_slot_boxes[s], sel ? 2 : 0, 0);
@@ -740,7 +773,7 @@ static void refresh_mode_ring(void) {
         lv_obj_set_style_shadow_width(ring_slot_boxes[s], (sel && snap.fx_glow_enabled) ? 16 : 0, 0);
         lv_obj_set_style_shadow_color(ring_slot_boxes[s], c_primary(), 0);
         lv_obj_set_style_text_color(ring_slot_labels[s], sel ? c_primary() : c_text(), 0);
-        static const icon_id_t slot_icons[4] = { ICON_AUTO, ICON_LIGHT, ICON_ANCHOR, ICON_USB };
+        static const icon_id_t slot_icons[MARINE_MODE_COUNT] = { ICON_AUTO, ICON_LIGHT, ICON_ANCHOR, ICON_USB, ICON_GEAR };
         icon_recolor(ring_slot_icons[s], slot_icons[s], 28, sel ? c_primary() : c_text(), &ring_icon_col[s]);
     }
 }
@@ -748,7 +781,7 @@ static void refresh_mode_ring(void) {
 static void open_mode_ring(void) {
     mode_ring_open = true;
     ring_opened_ms = snap.now_ms;
-    for (uint8_t s = 0; s < 4; s++) {
+    for (uint8_t s = 0; s < MARINE_MODE_COUNT; s++) {
         if (ring_slot_modes[s] == active_mode) {
             ring_selected_slot = s;
             break;
@@ -766,6 +799,7 @@ static void close_mode_ring(bool commit) {
         marine_ui_mode_t was = active_mode;
         active_mode = ring_slot_modes[ring_selected_slot];
         if (active_mode != was) emit_action(active_mode, MARINE_ACT_MODE_CHANGED, active_mode, 0);
+        if (active_mode == MARINE_MODE_SETTINGS) settings_enter();
         anchor_preview_active = false;
         cancel_transients();
         lv_screen_load_anim(scr_modes[active_mode], LV_SCR_LOAD_ANIM_FADE_IN, 120, 0, false);
@@ -1651,14 +1685,12 @@ static void build_overlays_and_system(void) {
     lv_obj_set_style_text_font(ring_center_bot, &lv_font_montserrat_12, 0);
     lv_obj_align(ring_center_bot, LV_ALIGN_BOTTOM_MID, 0, -14);
 
-    const lv_coord_t slot_dx[4] = { 0, 86, 0, -86 };
-    const lv_coord_t slot_dy[4] = { -86, 0, 86, 0 };
-    for (int s = 0; s < 4; s++) {
+    for (int s = 0; s < MARINE_MODE_COUNT; s++) {   // positions are set by refresh_mode_ring() from the visible slots
         ring_slot_boxes[s] = lv_obj_create(ovl_mode_ring);
         lv_obj_set_size(ring_slot_boxes[s], 54, 48);          // drawn icon (28 px) above the label
         lv_obj_set_style_radius(ring_slot_boxes[s], 6, 0);
         lv_obj_set_style_pad_all(ring_slot_boxes[s], 0, 0);
-        lv_obj_align(ring_slot_boxes[s], LV_ALIGN_CENTER, slot_dx[s], slot_dy[s]);
+        lv_obj_align(ring_slot_boxes[s], LV_ALIGN_CENTER, 0, -86);
         lv_obj_remove_flag(ring_slot_boxes[s], LV_OBJ_FLAG_SCROLLABLE);
 
         ring_slot_icons[s] = icon_canvas_create(ring_slot_boxes[s], 28, &ring_icon_buf[s]);
@@ -1669,14 +1701,6 @@ static void build_overlays_and_system(void) {
         lv_obj_set_style_text_font(ring_slot_labels[s], &lv_font_montserrat_12, 0);
         lv_obj_align(ring_slot_labels[s], LV_ALIGN_BOTTOM_MID, 0, -2);
 
-        ring_slot_dots[s] = lv_obj_create(ovl_mode_ring);
-        lv_obj_set_size(ring_slot_dots[s], 8, 8);
-        lv_obj_set_style_radius(ring_slot_dots[s], LV_RADIUS_CIRCLE, 0);
-        lv_obj_set_style_bg_color(ring_slot_dots[s], COL_TEXT_MUTED, 0);
-        lv_obj_set_style_bg_opa(ring_slot_dots[s], LV_OPA_30, 0);
-        lv_obj_set_style_border_width(ring_slot_dots[s], 0, 0);
-        lv_obj_align(ring_slot_dots[s], LV_ALIGN_CENTER, slot_dx[s], slot_dy[s]);
-        lv_obj_add_flag(ring_slot_dots[s], LV_OBJ_FLAG_HIDDEN);
     }
 
     // 2. Full-Screen Alarm Takeover
@@ -2051,6 +2075,294 @@ static void cancel_transients(void) {
     anchor_preview_active = false;
 }
 
+// --- Settings screen (#5, ui-design section 3.5). A list of what a skipper changes at the helm. Values come from the snapshot
+// (setting[]), changes go out as MARINE_ACT_SETTING_SET and come back through the snapshot once stored. ---
+typedef enum { SET_LIST = 0, SET_EDIT, SET_CONFIRM, SET_PAGE, SET_RESET } set_view_t;
+
+#define SET_CONFIRM_MS 5000
+#define SET_RESET_HOLD_MS 5000
+
+static lv_obj_t *set_canvas_top, *set_canvas_bot;
+static uint8_t *set_buf_top, *set_buf_bot;
+static char set_cache_top[48], set_cache_bot[48];
+static lv_obj_t *set_lbl_prev, *set_lbl_next;      // list: the items before and after the focused one
+static lv_obj_t *set_pill, *set_lbl_name, *set_lbl_value;
+static lv_obj_t *set_arc;                         // edit (amber), confirm countdown (cyan), reset hold (red)
+static lv_obj_t *set_lbl_big, *set_lbl_line1, *set_lbl_line2, *set_lbl_page;
+
+static set_view_t set_view = SET_LIST;
+static int set_index = 0;
+static int set_edit_value = 0;
+static int set_edit_was = 0;
+static uint32_t set_confirm_ms = 0;
+static bool set_reset_holding = false;
+
+static void set_show(lv_obj_t *o, bool on) {
+    if (on) lv_obj_remove_flag(o, LV_OBJ_FLAG_HIDDEN);
+    else lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
+}
+
+static void set_label(lv_obj_t *l, const char *t, lv_color_t col) {
+    if (strcmp(lv_label_get_text(l), t) != 0) lv_label_set_text(l, t);
+    lv_obj_set_style_text_color(l, col, 0);
+}
+
+static lv_obj_t *set_make_label(lv_obj_t *scr, const lv_font_t *f, int y) {
+    lv_obj_t *l = lv_label_create(scr);
+    lv_label_set_text(l, "");
+    lv_obj_set_style_text_font(l, f, 0);
+    lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_align(l, LV_ALIGN_CENTER, 0, y);
+    return l;
+}
+
+static lv_obj_t* build_settings_screen(void) {
+    lv_obj_t *scr = lv_obj_create(NULL);
+    lv_obj_set_size(scr, 240, 240);
+    lv_obj_set_style_bg_color(scr, COL_BG, 0);
+    lv_obj_remove_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
+
+    set_arc = lv_arc_create(scr);
+    lv_obj_set_size(set_arc, 200, 200);
+    lv_obj_center(set_arc);
+    lv_arc_set_bg_angles(set_arc, 135, 45);
+    lv_obj_set_style_arc_width(set_arc, 8, LV_PART_MAIN);
+    lv_obj_set_style_arc_width(set_arc, 8, LV_PART_INDICATOR);
+    lv_obj_set_style_arc_color(set_arc, lv_color_hex(0x16263E), LV_PART_MAIN);
+    lv_obj_remove_style(set_arc, NULL, LV_PART_KNOB);
+    lv_obj_remove_flag(set_arc, LV_OBJ_FLAG_CLICKABLE);
+
+    set_lbl_prev = set_make_label(scr, &lv_font_montserrat_14, -52);
+    set_lbl_next = set_make_label(scr, &lv_font_montserrat_14, 52);
+
+    set_pill = lv_obj_create(scr);
+    lv_obj_set_size(set_pill, 190, 56);
+    lv_obj_center(set_pill);
+    lv_obj_set_style_radius(set_pill, 28, 0);
+    lv_obj_set_style_border_width(set_pill, 2, 0);
+    lv_obj_set_style_pad_all(set_pill, 0, 0);
+    lv_obj_remove_flag(set_pill, LV_OBJ_FLAG_SCROLLABLE);
+    set_lbl_name = lv_label_create(set_pill);
+    lv_obj_set_style_text_font(set_lbl_name, &lv_font_montserrat_12, 0);
+    lv_obj_align(set_lbl_name, LV_ALIGN_TOP_MID, 0, 7);
+    set_lbl_value = lv_label_create(set_pill);
+    lv_obj_set_style_text_font(set_lbl_value, &lv_font_montserrat_20, 0);
+    lv_obj_align(set_lbl_value, LV_ALIGN_TOP_MID, 0, 24);
+
+    set_lbl_big = set_make_label(scr, &lv_font_montserrat_28, -8);
+    set_lbl_line1 = set_make_label(scr, &lv_font_montserrat_14, 26);
+    set_lbl_line2 = set_make_label(scr, &lv_font_montserrat_12, 46);
+    set_lbl_page = set_make_label(scr, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_line_space(set_lbl_page, 4, 0);
+
+    set_canvas_top = create_curved_canvas(scr, LV_ALIGN_TOP_MID, &set_buf_top);
+    set_canvas_bot = create_curved_canvas(scr, LV_ALIGN_BOTTOM_MID, &set_buf_bot);
+    return scr;
+}
+
+// What the list shows as the item's value.
+static void set_value_text(int item, char *out, size_t n) {
+    if (item == KNOB_SET_SETUP_AP) {
+        if (snap.setup_ap_open && snap.setup_ap_left_s) snprintf(out, n, "OPEN %u:%02u", snap.setup_ap_left_s / 60, snap.setup_ap_left_s % 60);
+        else snprintf(out, n, "%s", snap.setup_ap_open ? "OPEN" : "CLOSED");
+    } else if (item == KNOB_SET_DEVICE_INFO || item == KNOB_SET_SIGNALK) {
+        snprintf(out, n, "SHOW");
+    } else if (item == KNOB_SET_RESET) {
+        snprintf(out, n, "HOLD 5 s");
+    } else {
+        knob_setting_format((knob_setting_t)item, snap.setting[item], out, n);
+    }
+}
+
+static void settings_refresh(void) {
+    if (!set_canvas_top) return;
+    char top[48], bot[48], b[160];
+    const knob_setting_desc_t *d = knob_setting_desc((knob_setting_t)set_index);
+    bool list = set_view == SET_LIST;
+    set_show(set_lbl_prev, list);
+    set_show(set_lbl_next, list);
+    set_show(set_pill, list);
+    set_show(set_arc, set_view == SET_EDIT || set_view == SET_CONFIRM || set_view == SET_RESET);
+    set_show(set_lbl_big, set_view == SET_EDIT || set_view == SET_CONFIRM || set_view == SET_RESET);
+    set_show(set_lbl_line1, set_view != SET_LIST && set_view != SET_PAGE);
+    set_show(set_lbl_line2, set_view != SET_LIST && set_view != SET_PAGE);
+    set_show(set_lbl_page, set_view == SET_PAGE);
+
+    switch (set_view) {
+    case SET_LIST:
+        snprintf(top, sizeof(top), "SETTINGS · %d OF %d", set_index + 1, (int)KNOB_SET_COUNT);
+        snprintf(bot, sizeof(bot), "%s · 2x: BACK", d->kind == KNOB_KIND_PAGE ? "PRESS: OPEN" : "PRESS: EDIT");
+        set_label(set_lbl_prev, knob_setting_desc((knob_setting_t)knob_list_wrap(set_index, -1, KNOB_SET_COUNT))->name, c_muted());
+        set_label(set_lbl_next, knob_setting_desc((knob_setting_t)knob_list_wrap(set_index, 1, KNOB_SET_COUNT))->name, c_muted());
+        lv_obj_set_style_bg_color(set_pill, snap.night_palette ? lv_color_hex(0x050000) : COL_CARD, 0);
+        lv_obj_set_style_border_color(set_pill, c_primary(), 0);
+        set_label(set_lbl_name, d->name, c_text());
+        set_value_text(set_index, b, sizeof(b));
+        set_label(set_lbl_value, b, c_primary());
+        break;
+    case SET_EDIT: {
+        snprintf(top, sizeof(top), "%s", d->name);
+        snprintf(bot, sizeof(bot), "PRESS: STORE · 2x: CANCEL");
+        knob_setting_format((knob_setting_t)set_index, set_edit_value, b, sizeof(b));
+        set_label(set_lbl_big, b, c_amber());
+        knob_setting_format((knob_setting_t)set_index, set_edit_was, b, sizeof(b));
+        char was[sizeof(b) + 8];
+        snprintf(was, sizeof(was), "was %s", b);
+        set_label(set_lbl_line1, was, c_muted());
+        set_label(set_lbl_line2, "", c_muted());
+        int pos = 0, n = d->n_values > 1 ? d->n_values : 2;
+        if (d->kind == KNOB_KIND_NUMBER) {
+            for (int i = 0; i < d->n_values; i++) if (d->values[i] <= set_edit_value) pos = i;
+        } else {
+            pos = set_edit_value;
+        }
+        lv_arc_set_range(set_arc, 0, n - 1);
+        lv_arc_set_value(set_arc, pos);
+        lv_obj_set_style_arc_color(set_arc, c_amber(), LV_PART_INDICATOR);
+        break;
+    }
+    case SET_CONFIRM: {
+        snprintf(top, sizeof(top), "ALLOW CONTROL");
+        snprintf(bot, sizeof(bot), "5 s · ANY PRESS CANCELS");
+        set_label(set_lbl_big, "TURN RIGHT", c_primary());
+        set_label(set_lbl_line1, "to allow", c_text());
+        set_label(set_lbl_line2, "Autopilot and anchor", c_muted());
+        uint32_t el = snap.now_ms - set_confirm_ms;
+        lv_arc_set_range(set_arc, 0, SET_CONFIRM_MS);
+        lv_arc_set_value(set_arc, el >= SET_CONFIRM_MS ? 0 : (int32_t)(SET_CONFIRM_MS - el));
+        lv_obj_set_style_arc_color(set_arc, c_primary(), LV_PART_INDICATOR);
+        break;
+    }
+    case SET_PAGE:
+        if (set_index == KNOB_SET_DEVICE_INFO) {
+            snprintf(top, sizeof(top), "DEVICE INFO");
+            uint32_t up = snap.info_uptime_s;
+            if (snap.info_wifi[0]) {
+                snprintf(b, sizeof(b), "FW %s\n%s %d dBm\n%s\n%lu KB FREE\nUP %luh %02lum",
+                         snap.info_firmware, snap.info_wifi, (int)snap.info_rssi, snap.info_ip, (unsigned long)snap.info_free_kb,
+                         (unsigned long)(up / 3600), (unsigned long)((up / 60) % 60));
+            } else {
+                snprintf(b, sizeof(b), "FW %s\nNO WI-FI\n%lu KB FREE\nUP %luh %02lum", snap.info_firmware,
+                         (unsigned long)snap.info_free_kb, (unsigned long)(up / 3600), (unsigned long)((up / 60) % 60));
+            }
+        } else {
+            snprintf(top, sizeof(top), "SIGNALK");
+            snprintf(b, sizeof(b), "%s\nLINK %s\nTOKEN %s\nCONTROL %s", snap.info_server[0] ? snap.info_server : "NO SERVER",
+                     snap.info_link, snap.info_token, snap.info_allow_control ? "ALLOWED" : "OFF");
+            for (char *q = b; *q; q++) if (*q >= 'a' && *q <= 'z') *q = (char)(*q - 32);
+        }
+        snprintf(bot, sizeof(bot), "PRESS: BACK");
+        set_label(set_lbl_page, b, c_text());
+        break;
+    case SET_RESET: {
+        snprintf(top, sizeof(top), "RESET SETUP");
+        snprintf(bot, sizeof(bot), "PRESS: BACK");
+        set_label(set_lbl_big, "HOLD 5 s", c_red());
+        set_label(set_lbl_line1, "CLEARS WI-FI", c_text());
+        set_label(set_lbl_line2, "AND PAIRING", c_text());
+        uint32_t held = (set_reset_holding && btn_is_down) ? snap.now_ms - btn_down_ms : 0;
+        lv_arc_set_range(set_arc, 0, SET_RESET_HOLD_MS);
+        lv_arc_set_value(set_arc, held > SET_RESET_HOLD_MS ? SET_RESET_HOLD_MS : (int32_t)held);
+        lv_obj_set_style_arc_color(set_arc, c_red(), LV_PART_INDICATOR);
+        break;
+    }
+    }
+    update_curved_canvas(set_canvas_top, set_cache_top, top, false, set_view == SET_LIST ? c_muted() : c_text());
+    update_curved_canvas(set_canvas_bot, set_cache_bot, bot, true, c_muted());
+}
+
+// Opening the settings always starts in the list, never in an edit left behind.
+static void settings_enter(void) {
+    set_view = SET_LIST;
+    set_reset_holding = false;
+}
+
+// The settings screen keeps a double press for itself while it edits, confirms or shows a page (cancel or back). In the
+// list a double press opens the mode ring like everywhere.
+static bool settings_takes_double(void) {
+    return active_mode == MARINE_MODE_SETTINGS && set_view != SET_LIST;
+}
+
+static void settings_on_input(marine_semantic_input_t ev, int32_t val) {
+    const knob_setting_desc_t *d = knob_setting_desc((knob_setting_t)set_index);
+    switch (set_view) {
+    case SET_LIST:
+        if (ev == MARINE_INPUT_TURN) {
+            set_index = knob_list_wrap(set_index, val, KNOB_SET_COUNT);
+        } else if (ev == MARINE_INPUT_SINGLE_PRESS) {
+            if (set_index == KNOB_SET_ALLOW_CONTROL) {
+                if (snap.setting[KNOB_SET_ALLOW_CONTROL]) {
+                    emit_action(MARINE_MODE_SETTINGS, MARINE_ACT_SETTING_SET, KNOB_SET_ALLOW_CONTROL, 0); // on to off: one press
+                } else {
+                    set_view = SET_CONFIRM;
+                    set_confirm_ms = snap.now_ms;
+                }
+            } else if (set_index == KNOB_SET_SETUP_AP) {
+                emit_action(MARINE_MODE_SETTINGS, MARINE_ACT_SETUP_AP, snap.setup_ap_open ? 0 : 1, 0);
+            } else if (set_index == KNOB_SET_RESET) {
+                set_view = SET_RESET;
+                set_reset_holding = false;
+            } else if (d->kind == KNOB_KIND_PAGE) {
+                set_view = SET_PAGE;
+            } else {
+                set_view = SET_EDIT;
+                set_edit_value = set_edit_was = snap.setting[set_index];
+            }
+        }
+        break;
+    case SET_EDIT:
+        if (ev == MARINE_INPUT_TURN) {
+            set_edit_value = knob_setting_step((knob_setting_t)set_index, set_edit_value, val);
+        } else if (ev == MARINE_INPUT_SINGLE_PRESS) {
+            if (set_edit_value != set_edit_was) {
+                emit_action(MARINE_MODE_SETTINGS, MARINE_ACT_SETTING_SET, set_index, set_edit_value);
+            }
+            set_view = SET_LIST;
+        } else if (ev == MARINE_INPUT_DOUBLE_PRESS) {
+            set_view = SET_LIST;   // cancel, nothing stored
+        }
+        break;
+    case SET_CONFIRM: {
+        knob_confirm_ev_t ce = ev == MARINE_INPUT_TURN ? KNOB_CONFIRM_EV_TURN : KNOB_CONFIRM_EV_PRESS;
+        knob_confirm_t r = knob_confirm_step(set_confirm_ms, snap.now_ms, SET_CONFIRM_MS, ce, (int)val);
+        if (r == KNOB_CONFIRM_DONE) {
+            emit_action(MARINE_MODE_SETTINGS, MARINE_ACT_SETTING_SET, KNOB_SET_ALLOW_CONTROL, 1);
+            set_view = SET_LIST;
+        } else if (r == KNOB_CONFIRM_CANCELLED) {
+            set_view = SET_LIST;
+        }
+        break;
+    }
+    case SET_PAGE:
+        if (ev == MARINE_INPUT_SINGLE_PRESS || ev == MARINE_INPUT_DOUBLE_PRESS) set_view = SET_LIST;
+        break;
+    case SET_RESET:
+        if (ev == MARINE_INPUT_SINGLE_PRESS || ev == MARINE_INPUT_DOUBLE_PRESS) set_view = SET_LIST;
+        break;
+    }
+    settings_refresh();
+}
+
+// Timers of the settings screen: the confirm turn runs out, the reset hold fills. Called from marine_ui_tick().
+static void settings_tick(void) {
+    if (active_mode != MARINE_MODE_SETTINGS || snap.system_screen != MARINE_SCREEN_OPERATIONAL || mode_ring_open) return;
+    if (set_view == SET_CONFIRM) {
+        if (knob_confirm_step(set_confirm_ms, snap.now_ms, SET_CONFIRM_MS, KNOB_CONFIRM_EV_TICK, 0) == KNOB_CONFIRM_CANCELLED) {
+            set_view = SET_LIST;
+        }
+        settings_refresh();
+    } else if (set_view == SET_RESET) {
+        if (btn_is_down && !set_reset_holding) set_reset_holding = true;
+        if (!btn_is_down) set_reset_holding = false;
+        if (set_reset_holding && snap.now_ms - btn_down_ms >= SET_RESET_HOLD_MS) {
+            set_reset_holding = false;
+            set_view = SET_LIST;
+            emit_action(MARINE_MODE_SETTINGS, MARINE_ACT_SYS_FACTORY_RESET, 1, 0);   // reset setup: Wi-Fi and pairing
+        }
+        settings_refresh();
+    }
+}
+
 // --- CONTROL ON notice: allow control was switched on from the web page or the API (ui-design section 4) ---
 static void build_control_notice(void) {
     ovl_ctl_ring = lv_obj_create(lv_layer_top());
@@ -2270,6 +2582,11 @@ static void dispatch_semantic(marine_semantic_input_t ev, int32_t val) {
     // Stale does NOT block the mode ring (below): the user can always leave a stale mode. Only the mode's own
     // controls are gated further down. HID mode is never stale (it needs the USB host, not the SignalK link).
 
+    if (ev == MARINE_INPUT_DOUBLE_PRESS && !mode_ring_open && settings_takes_double()) {
+        settings_on_input(ev, 0);   // cancel the edit or leave the page, the ring opens from the list only
+        return;
+    }
+
     if (ev == MARINE_INPUT_DOUBLE_PRESS) {
         anchor_dialogs_close();
         if (mode_ring_open) close_mode_ring(false);
@@ -2280,9 +2597,9 @@ static void dispatch_semantic(marine_semantic_input_t ev, int32_t val) {
     if (mode_ring_open) {
         if (ev == MARINE_INPUT_TURN) {
             ring_opened_ms = snap.now_ms;
-            for (int i = 1; i <= 4; i++) {
-                uint8_t next = (uint8_t)((ring_selected_slot + val * i + 16) % 4);
-                if (ring_slot_modes[next] == MARINE_MODE_USB_HID && !snap.usb_host_enumerated) continue;
+            for (int i = 1; i <= MARINE_MODE_COUNT; i++) {
+                uint8_t next = (uint8_t)knob_list_wrap(ring_selected_slot, val * i, MARINE_MODE_COUNT);
+                if (!ring_slot_visible(next)) continue;
                 ring_selected_slot = next;
                 break;
             }
@@ -2618,6 +2935,7 @@ void marine_ui_apply_snapshot(const marine_ui_snapshot_t *snapshot) {
 
 void marine_ui_tick(uint32_t now_ms) {
     snap.now_ms = now_ms;
+    settings_tick();
 
     if (ctl_notice_on && (now_ms >= ctl_notice_until_ms || is_full_alarm_blocking() ||
                           snap.system_screen != MARINE_SCREEN_OPERATIONAL)) {

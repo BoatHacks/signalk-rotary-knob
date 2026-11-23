@@ -16,3 +16,4 @@ void knob_hid_turn(int delta);      /* signed steps, clockwise positive */
 void knob_hid_press(void);
 void knob_hid_next_profile(void);
 usb_hid_profile_t knob_hid_profile(void);
+void knob_hid_set_profile(usb_hid_profile_t p); /* the stored setting knob.hid_profile */

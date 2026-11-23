@@ -88,6 +88,18 @@ work. Values the boat does not publish show `---`.
 
 ## 6. Settings and allow control
 
+- **Settings on the knob.** Double press for the mode ring, choose `SETUP` (the gear, last slot). Turn to move through the list,
+  press to edit, turn to change, press to store, double press to cancel an edit or to leave. The list: brightness, dim after,
+  dim level, off after, night mode (server, day or night), LEDs (off keeps every LED dark, the alarm flash included), heading
+  (true or magnetic), HID profile, allow control, setup access point, device info, SignalK, reset setup. What you store here
+  shows on the settings page at once, and the other way round.
+  - *Allow control* off to on is a press and then one click to the right within 5 seconds, any press cancels. On to off is one
+    press.
+  - *Setup access point* opens the knob's own setup network for 10 minutes next to your Wi-Fi, so a phone can reach the settings
+    page. Press again to close it.
+  - *Reset setup*: hold the button for 5 seconds on its page. The knob forgets the Wi-Fi and its SignalK approval and restarts
+    into setup.
+
 - **Settings page.** Open `http://<knob name>.local` in a browser on the same network. The *Rotary knob* section has the autopilot id,
   the heading reference, the default anchor radius, the idle dim time, the dim level, the time until the backlight goes off, and six
   light channels. Changes apply at once, the light channels after a restart. The page is open to anyone on the boat network. If you want a password, set an

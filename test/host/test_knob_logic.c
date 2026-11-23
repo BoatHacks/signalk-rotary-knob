@@ -187,7 +187,8 @@ static void test_mode_names(void)
     TEST_ASSERT_EQUAL_INT(-1, knob_mode_from_name(""));
     TEST_ASSERT_EQUAL_INT(-1, knob_mode_from_name(NULL));
     TEST_ASSERT_EQUAL_STRING("lights", knob_mode_name(1));
-    TEST_ASSERT_EQUAL_STRING("unknown", knob_mode_name(4));
+    TEST_ASSERT_EQUAL_STRING("settings", knob_mode_name(4));
+    TEST_ASSERT_EQUAL_STRING("unknown", knob_mode_name(5));
     TEST_ASSERT_EQUAL_STRING("unknown", knob_mode_name(-1));
 }
 
@@ -204,6 +205,7 @@ static void test_mode_request(void)
     TEST_ASSERT_EQUAL_INT(KNOB_MODE_REQ_OK, knob_mode_request("{\"mode\":\"hid\"}", true, &m));
     TEST_ASSERT_EQUAL_INT(3, m);
     TEST_ASSERT_EQUAL_INT(KNOB_MODE_REQ_BAD, knob_mode_request("{\"mode\":\"engage\"}", true, &m));
+    TEST_ASSERT_EQUAL_INT(KNOB_MODE_REQ_BAD, knob_mode_request("{\"mode\":\"settings\"}", true, &m));
     TEST_ASSERT_EQUAL_INT(KNOB_MODE_REQ_BAD, knob_mode_request("{\"mode\":2}", true, &m));
     TEST_ASSERT_EQUAL_INT(KNOB_MODE_REQ_BAD, knob_mode_request("{}", true, &m));
     TEST_ASSERT_EQUAL_INT(KNOB_MODE_REQ_BAD, knob_mode_request("", true, &m));
@@ -216,6 +218,67 @@ static void test_allow_control(void)
     TEST_ASSERT_TRUE(knob_allow_control(true, -1));
     TEST_ASSERT_TRUE(knob_allow_control(false, 1));   /* serial override on for this session */
     TEST_ASSERT_FALSE(knob_allow_control(true, 0));   /* serial override off beats the stored on */
+}
+
+/* ---- Settings screen ---- */
+
+static void test_list_wrap(void)
+{
+    TEST_ASSERT_EQUAL_INT(1, knob_list_wrap(0, 1, 13));
+    TEST_ASSERT_EQUAL_INT(0, knob_list_wrap(12, 1, 13));  /* past the end to the first */
+    TEST_ASSERT_EQUAL_INT(12, knob_list_wrap(0, -1, 13)); /* before the first to the last */
+    TEST_ASSERT_EQUAL_INT(3, knob_list_wrap(12, 4, 13));
+    TEST_ASSERT_EQUAL_INT(0, knob_list_wrap(5, 1, 0));    /* empty list */
+}
+
+static void test_setting_steps(void)
+{
+    TEST_ASSERT_EQUAL_INT(90, knob_setting_step(KNOB_SET_BRIGHTNESS, 80, 1));
+    TEST_ASSERT_EQUAL_INT(70, knob_setting_step(KNOB_SET_BRIGHTNESS, 80, -1));
+    TEST_ASSERT_EQUAL_INT(100, knob_setting_step(KNOB_SET_BRIGHTNESS, 100, 1)); /* clamped */
+    TEST_ASSERT_EQUAL_INT(10, knob_setting_step(KNOB_SET_BRIGHTNESS, 10, -3));
+    TEST_ASSERT_EQUAL_INT(30, knob_setting_step(KNOB_SET_DIM_AFTER, 25, 1));    /* between 20 and 30: up to 30 */
+    TEST_ASSERT_EQUAL_INT(20, knob_setting_step(KNOB_SET_DIM_AFTER, 25, -1));   /* and down to 20 */
+    TEST_ASSERT_EQUAL_INT(45, knob_setting_step(KNOB_SET_DIM_AFTER, 25, 2));
+    TEST_ASSERT_EQUAL_INT(5, knob_setting_step(KNOB_SET_DIM_AFTER, 1, -1));     /* below the list */
+    TEST_ASSERT_EQUAL_INT(5, knob_setting_step(KNOB_SET_DIM_AFTER, 1, 1));      /* below the list, up: the first step */
+    TEST_ASSERT_EQUAL_INT(3600, knob_setting_step(KNOB_SET_DIM_AFTER, 9999, 1));/* above the list */
+    TEST_ASSERT_EQUAL_INT(1, knob_setting_step(KNOB_SET_OFF_AFTER, 0, 1));
+    TEST_ASSERT_EQUAL_INT(2, knob_setting_step(KNOB_SET_NIGHT, 1, 1));
+    TEST_ASSERT_EQUAL_INT(2, knob_setting_step(KNOB_SET_NIGHT, 2, 1));          /* choices clamp too */
+    TEST_ASSERT_EQUAL_INT(0, knob_setting_step(KNOB_SET_LEDS, 1, -5));
+    TEST_ASSERT_EQUAL_INT(7, knob_setting_step(KNOB_SET_RESET, 7, 1));          /* not a value */
+}
+
+static void test_setting_format(void)
+{
+    char b[24];
+    knob_setting_format(KNOB_SET_BRIGHTNESS, 80, b, sizeof(b));
+    TEST_ASSERT_EQUAL_STRING("80 %", b);
+    knob_setting_format(KNOB_SET_OFF_AFTER, 0, b, sizeof(b));
+    TEST_ASSERT_EQUAL_STRING("NEVER", b);
+    knob_setting_format(KNOB_SET_OFF_AFTER, 10, b, sizeof(b));
+    TEST_ASSERT_EQUAL_STRING("10 min", b);
+    knob_setting_format(KNOB_SET_NIGHT, 0, b, sizeof(b));
+    TEST_ASSERT_EQUAL_STRING("SERVER", b);
+    knob_setting_format(KNOB_SET_HEADING, 1, b, sizeof(b));
+    TEST_ASSERT_EQUAL_STRING("MAGNETIC", b);
+    knob_setting_format(KNOB_SET_LEDS, 5, b, sizeof(b));
+    TEST_ASSERT_EQUAL_STRING("?", b);
+    knob_setting_format(KNOB_SET_DEVICE_INFO, 0, b, sizeof(b));
+    TEST_ASSERT_EQUAL_STRING("", b);
+    TEST_ASSERT_NULL(knob_setting_desc(KNOB_SET_COUNT));
+}
+
+static void test_confirm_turn(void)
+{
+    TEST_ASSERT_EQUAL_INT(KNOB_CONFIRM_WAITING, knob_confirm_step(1000, 2000, 5000, KNOB_CONFIRM_EV_TICK, 0));
+    TEST_ASSERT_EQUAL_INT(KNOB_CONFIRM_DONE, knob_confirm_step(1000, 2000, 5000, KNOB_CONFIRM_EV_TURN, 1));
+    TEST_ASSERT_EQUAL_INT(KNOB_CONFIRM_WAITING, knob_confirm_step(1000, 2000, 5000, KNOB_CONFIRM_EV_TURN, -1)); /* left: ignored */
+    TEST_ASSERT_EQUAL_INT(KNOB_CONFIRM_CANCELLED, knob_confirm_step(1000, 2000, 5000, KNOB_CONFIRM_EV_PRESS, 0));
+    TEST_ASSERT_EQUAL_INT(KNOB_CONFIRM_CANCELLED, knob_confirm_step(1000, 6000, 5000, KNOB_CONFIRM_EV_TURN, 1)); /* too late */
+    TEST_ASSERT_EQUAL_INT(KNOB_CONFIRM_CANCELLED, knob_confirm_step(1000, 6000, 5000, KNOB_CONFIRM_EV_TICK, 0));
+    TEST_ASSERT_EQUAL_INT(KNOB_CONFIRM_DONE, knob_confirm_step(0xFFFFF000u, 0x00000100u, 5000, KNOB_CONFIRM_EV_TURN, 1)); /* clock wrap */
 }
 
 int main(void)
@@ -238,5 +301,9 @@ int main(void)
     RUN_TEST(test_mode_names);
     RUN_TEST(test_mode_request);
     RUN_TEST(test_allow_control);
+    RUN_TEST(test_list_wrap);
+    RUN_TEST(test_setting_steps);
+    RUN_TEST(test_setting_format);
+    RUN_TEST(test_confirm_turn);
     return UNITY_END();
 }

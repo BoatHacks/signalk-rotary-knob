@@ -35,7 +35,9 @@ switcher, scaled to the number of visible modes (and the position text, for exam
 
 The HID mode is listed only while a USB host has enumerated the knob (section 3.4). Without a host it is hidden from the ring.
 
-The last slot is **Settings** (gear icon, section 3.5), hidden while an alarm is active.
+The last slot is **Settings** (gear icon, label `SETUP` because `SETTINGS` does not fit the 54 px slot, section 3.5), hidden
+while an alarm is active. Agreed 2026-11-23 from a mockup: the visible slots are spaced evenly at r 86, clockwise from the top
+(5 with a USB host, 4 without). The centre shows the mode you are in.
 
 ## 3. Modes
 
@@ -174,16 +176,25 @@ Look:
 | Long press | Not used | Not used |
 
 Items, in order: active brightness, dim after, dim level, off after, night mode (server, day, night), LEDs (on or off, all
-modes), heading reference (true or magnetic), HID profile, allow control, demo mode, setup access point, device info,
-SignalK, reset setup.
+modes), heading reference (true or magnetic), HID profile, allow control, setup access point, device info, SignalK, reset
+setup. Demo mode joins after allow control with #4.
+
+Steps a turn moves through (clamped at the ends): brightness 10 to 100 % in tens; dim after 5, 10, 15, 20, 30, 45 s, 1, 1.5, 2,
+5, 10, 30, 60 min; dim level 1, 2, 5, 10, 15, 20, 30, 40, 50, 60, 80, 100 %; off after never, 1, 2, 5, 10, 15, 30, 60, 120, 240
+min. Values from the web page that sit between two steps move to the nearer step in the turn's direction.
 
 - **Allow control:** off to on is a press and then one click right within 5 s. On to off is one press.
 - **LEDs off** turns off every LED in every mode, the alarm flash included: an alarm then shows on the screen only.
-- **Setup access point:** opens the espOS setup AP next to the current Wi-Fi so a phone reaches the settings page, nothing is
-  cleared. It closes after 10 minutes or when the item is left. It stays shut if the AP is disabled on the web page.
+- **Setup access point:** a press opens the espOS setup AP next to the current Wi-Fi so a phone reaches the settings page,
+  nothing is cleared. The value shows `OPEN 9:59` counting down. It closes after 10 minutes or with another press on the item.
+  It stays shut if the AP is disabled on the web page.
 - **Device info** and **SignalK** are read-only pages: firmware, Wi-Fi network and signal, IP, free RAM, uptime; server, link
   state, token state, allow control.
-- **Reset setup** keeps the 5 s hold-to-confirm (section 4, boot screens).
+- **Reset setup:** a press opens a page with a red arc that fills while the button is held, `HOLD 5 s`, `CLEARS WI-FI`,
+  `AND PAIRING`. Released early nothing happens, a short press goes back. After 5 s the knob forgets the Wi-Fi networks and the
+  SignalK token and restarts into the setup access point.
+- The settings work without a SignalK link (no stale overlay), so the setup access point and the info pages are always
+  reachable.
 - Nothing here changes autopilot or anchor state or acknowledges an alarm. An alarm takes over the screen as everywhere.
 
 ### 3.6 Volume

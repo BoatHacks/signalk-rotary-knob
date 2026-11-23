@@ -25,11 +25,30 @@ enum { STEER_NONE = 0, STEER_PORT, STEER_STBD, STEER_YELLOW, STEER_BLUE };
 static volatile uint8_t s_steer;
 static volatile uint32_t s_oncourse_since_ms; /* when the indicator last changed to yellow or blue */
 
+static volatile uint8_t s_full_pct = 100;  /* active brightness from the settings */
+static volatile uint8_t s_req_pct = 100;   /* what the UI asked for last */
+static volatile bool s_leds_on = true;     /* settings: false keeps every LED dark, the alarm included */
+
+static void apply_backlight(void)
+{
+    uint8_t p = s_req_pct;
+    if (p >= 100 || p > s_full_pct) p = s_full_pct; /* 100 is "active", the dim level never beats it */
+    board_backlight_set(p);
+}
+
 void knob_power_set_backlight(uint8_t percent)
 {
-    if (percent > 100) percent = 100;
-    board_backlight_set(percent);
+    s_req_pct = percent > 100 ? 100 : percent;
+    apply_backlight();
 }
+
+void knob_power_set_brightness(uint8_t percent)
+{
+    s_full_pct = percent < 10 ? 10 : percent > 100 ? 100 : percent;
+    apply_backlight();
+}
+
+void knob_power_set_leds(bool on) { s_leds_on = on; }
 
 void knob_power_led_alarm(knob_led_alarm_t mode) { s_alarm = mode; }
 
@@ -72,6 +91,7 @@ static void led_task(void *arg)
             }
             break;
         }
+        if (!s_leds_on) r = g = b = 0;
         for (int i = 0; i < BOARD_LED_COUNT; i++) board_led_set(i, r, g, b);
         board_led_show();
         vTaskDelay(pdMS_TO_TICKS(LED_PERIOD_MS));

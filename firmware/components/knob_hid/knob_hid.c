@@ -121,3 +121,10 @@ void knob_hid_next_profile(void)
 }
 
 usb_hid_profile_t knob_hid_profile(void) { return s_profile; }
+
+void knob_hid_set_profile(usb_hid_profile_t p)
+{
+    if (p >= HID_PROFILE_COUNT || p == s_profile) return;
+    s_profile = p;
+    ESP_LOGI(TAG, "profile %d", (int)s_profile);
+}

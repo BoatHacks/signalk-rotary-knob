@@ -23,6 +23,10 @@ typedef struct {
     uint32_t dim_after_ms;   /* idle time before the backlight dims */
     uint8_t dim_level_pct;
     uint32_t off_after_ms;   /* idle time before the backlight goes off, 0 = never */
+    uint8_t brightness_pct;  /* backlight while in use */
+    uint8_t night_mode;      /* 0 follow environment.mode, 1 day, 2 night */
+    bool leds_on;            /* false: every LED dark, the alarm included */
+    uint8_t hid_profile;     /* usb_hid_profile_t: 0 chartplotter, 1 media, 2 nav */
     int n_lights;            /* channels with a non-empty path, compacted to the front of lights[] */
     knob_cfg_light_t lights[KNOB_CFG_MAX_LIGHTS];
 } knob_cfg_t;
@@ -30,6 +34,16 @@ typedef struct {
 /* Reads the settings. Falls back to the descriptor defaults, so it always fills in something usable. Reads the settings store:
  * call it from a task whose stack is in internal RAM. */
 void knob_config_load(knob_cfg_t *out);
+
+/* Writes one key of the knob namespace (the settings screen). The change reaches the watcher like any other. Writes flash:
+ * call it from a task whose stack is in internal RAM (the LVGL task). */
+bool knob_config_set_int(const char *key, int32_t v);
+bool knob_config_set_bool(const char *key, bool v);
+bool knob_config_set_str(const char *key, const char *v);
+
+/* Reset setup: forgets the Wi-Fi networks (espOS's wifi.ssid0..3 and their passwords), so the setup access point opens at the
+ * next start. Writes flash: internal RAM stack only. */
+void knob_config_clear_wifi(void);
 
 /* Calls cb(key) after every committed change of a key in the "knob" namespace, from the settings page, the config API or an
  * import. It runs on the writer's task (espOS's httpd task, stack in internal RAM), so it may call knob_config_load(). One

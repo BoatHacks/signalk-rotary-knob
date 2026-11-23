@@ -112,8 +112,10 @@ target.
 ### 2.7 knob_power
 Backlight level (`ACTIVE` 60 %, `DIM` 10 % defaults, configurable), idle timer from the input task's activity stamp, overrides
 (never fully off while the autopilot is engaged or an alarm is active, alarm wakes the screen), day/night level from
-`environment.mode`. Executes `MARINE_ACT_POWER_SET_BACKLIGHT` from the UI. Also owns the LED patterns
-(`MARINE_ACT_ALARM_LED_PULSE` / `_SLOW_PULSE`, state colours, turn feedback, off in night mode) on a small timer task.
+`environment.mode`. Executes `MARINE_ACT_POWER_SET_BACKLIGHT` from the UI: 100 means the active brightness
+(`knob.brightness_pct`), lower values the dim level, which never exceeds it. Also owns the LED patterns
+(`MARINE_ACT_ALARM_LED_PULSE` / `_SLOW_PULSE`, state colours, turn feedback, off in night mode) on a small timer task, and the
+global LED switch (`knob.leds_on`): off keeps every LED dark, the alarm patterns included.
 
 ### 2.8 knob_usb and knob_hid
 TinyUSB composite (esp_tinyusb 2.x): CDC for logs and one HID interface with three reports (keyboard, mouse, consumer control).
@@ -141,6 +143,17 @@ Live reload: `knob_config_watch()` subscribes to the knob namespace. The callbac
 so it may read the settings store) and copies the changed settings into the model under its spinlock. The autopilot id reaches
 the actions task through a hook that copies it, so a change never tears a request. The light channels are left as loaded at
 boot. When `allow_control` goes on, the model counts it in the snapshot (`control_on_seq`) and marine_ui shows `CONTROL ON`.
+
+### 2.9b Settings screen (#5)
+marine_ui's settings mode shows the list from `knob_logic` (items, value steps, confirm turn) and the values from the snapshot
+(`setting[]`, filled by knob_model only while the screen is open, plus the read-only info). A change goes out as
+`MARINE_ACT_SETTING_SET`. The action arrives on the input task, whose stack is in PSRAM, so knob_model hands the write to the
+LVGL task with `lv_async_call`. The write reaches `knob_config_watch` like a change from the web page, and the model applies it
+(backlight, LEDs, HID profile, night mode, dim times) after releasing its own mutex. Writes from the knob are flagged, so allow
+control switched on at the knob shows no CONTROL ON notice. `MARINE_ACT_SETUP_AP` calls `espos_wifi_portal_open(true)` and the
+model gives the access point back to espOS's policy after 10 minutes. Reset setup (`MARINE_ACT_SYS_FACTORY_RESET`, also from
+the boot hold) clears `wifi.ssid0..3`, forgets the SignalK token and restarts, on the LVGL task. The HID profile is stored too
+(`knob.hid_profile`), the HID long press writes it the same way.
 
 ### 2.10 main
 `app_main` order, chosen for time to first pixels:

@@ -102,7 +102,7 @@ bool knob_boot_hid(bool hid_last, bool host_present, uint32_t now_ms, uint32_t w
     return hid_last && host_present && now_ms < window_ms && !user_changed_mode;
 }
 
-static const char *const s_mode_names[KNOB_MODE_COUNT] = { "autopilot", "lights", "anchor", "hid" };
+static const char *const s_mode_names[KNOB_MODE_COUNT] = { "autopilot", "lights", "anchor", "hid", "settings" };
 
 int knob_mode_from_name(const char *name)
 {
@@ -123,7 +123,7 @@ knob_mode_req_t knob_mode_request(const char *json, bool usb_host, int *mode)
     char name[16];
     if (!json || !knob_obj_str(json, "mode", name, sizeof(name))) return KNOB_MODE_REQ_BAD;
     int m = knob_mode_from_name(name);
-    if (m < 0) return KNOB_MODE_REQ_BAD;
+    if (m < 0 || m == KNOB_MODE_SETTINGS) return KNOB_MODE_REQ_BAD; /* the settings screen is opened on the knob only */
     if (m == KNOB_MODE_HID && !usb_host) return KNOB_MODE_REQ_NO_HOST;
     *mode = m;
     return KNOB_MODE_REQ_OK;
@@ -132,4 +132,89 @@ knob_mode_req_t knob_mode_request(const char *json, bool usb_host, int *mode)
 bool knob_allow_control(bool stored, int override)
 {
     return override < 0 ? stored : override != 0;
+}
+
+static const int s_brightness[] = { 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 };
+static const int s_dim_after[] = { 5, 10, 15, 20, 30, 45, 60, 90, 120, 300, 600, 1800, 3600 };
+static const int s_dim_level[] = { 1, 2, 5, 10, 15, 20, 30, 40, 50, 60, 80, 100 };
+static const int s_off_after[] = { 0, 1, 2, 5, 10, 15, 30, 60, 120, 240 };
+static const char *const s_night_w[] = { "SERVER", "DAY", "NIGHT" };
+static const char *const s_onoff_w[] = { "OFF", "ON" };
+static const char *const s_heading_w[] = { "TRUE", "MAGNETIC" };
+static const char *const s_hid_w[] = { "CHARTPLOTTER", "MEDIA", "NAV KEYS" };
+
+#define N(a) ((int)(sizeof(a) / sizeof((a)[0])))
+static const knob_setting_desc_t s_settings[KNOB_SET_COUNT] = {
+    [KNOB_SET_BRIGHTNESS] = { "BRIGHTNESS", KNOB_KIND_NUMBER, "%", s_brightness, N(s_brightness), NULL },
+    [KNOB_SET_DIM_AFTER] = { "DIM AFTER", KNOB_KIND_NUMBER, "s", s_dim_after, N(s_dim_after), NULL },
+    [KNOB_SET_DIM_LEVEL] = { "DIM LEVEL", KNOB_KIND_NUMBER, "%", s_dim_level, N(s_dim_level), NULL },
+    [KNOB_SET_OFF_AFTER] = { "OFF AFTER", KNOB_KIND_NUMBER, "min", s_off_after, N(s_off_after), NULL },
+    [KNOB_SET_NIGHT] = { "NIGHT MODE", KNOB_KIND_CHOICE, NULL, NULL, 3, s_night_w },
+    [KNOB_SET_LEDS] = { "LEDS", KNOB_KIND_CHOICE, NULL, NULL, 2, s_onoff_w },
+    [KNOB_SET_HEADING] = { "HEADING", KNOB_KIND_CHOICE, NULL, NULL, 2, s_heading_w },
+    [KNOB_SET_HID_PROFILE] = { "HID PROFILE", KNOB_KIND_CHOICE, NULL, NULL, 3, s_hid_w },
+    [KNOB_SET_ALLOW_CONTROL] = { "ALLOW CONTROL", KNOB_KIND_CHOICE, NULL, NULL, 2, s_onoff_w },
+    [KNOB_SET_SETUP_AP] = { "SETUP ACCESS POINT", KNOB_KIND_ACTION, NULL, NULL, 0, NULL },
+    [KNOB_SET_DEVICE_INFO] = { "DEVICE INFO", KNOB_KIND_PAGE, NULL, NULL, 0, NULL },
+    [KNOB_SET_SIGNALK] = { "SIGNALK", KNOB_KIND_PAGE, NULL, NULL, 0, NULL },
+    [KNOB_SET_RESET] = { "RESET SETUP", KNOB_KIND_ACTION, NULL, NULL, 0, NULL },
+};
+
+const knob_setting_desc_t *knob_setting_desc(knob_setting_t s)
+{
+    return (s >= 0 && s < KNOB_SET_COUNT) ? &s_settings[s] : NULL;
+}
+
+int knob_list_wrap(int index, int delta, int count)
+{
+    if (count <= 0) return 0;
+    int i = (index + delta) % count;
+    return i < 0 ? i + count : i;
+}
+
+int knob_setting_step(knob_setting_t s, int value, int delta)
+{
+    const knob_setting_desc_t *d = knob_setting_desc(s);
+    if (!d || delta == 0) return value;
+    if (d->kind == KNOB_KIND_CHOICE) {
+        int v = value + delta;
+        if (v < 0) v = 0;
+        if (v > d->n_values - 1) v = d->n_values - 1;
+        return v;
+    }
+    if (d->kind != KNOB_KIND_NUMBER) return value;
+    /* Position in the list: the exact step, or between two steps. */
+    int lo = -1, hi = d->n_values; /* largest step <= value, smallest step >= value */
+    for (int i = 0; i < d->n_values; i++) {
+        if (d->values[i] <= value) lo = i;
+        if (d->values[i] >= value && hi == d->n_values) hi = i;
+    }
+    int i;
+    if (delta > 0) i = (lo >= 0 && d->values[lo] == value) ? lo + delta : hi + delta - 1;
+    else i = (hi < d->n_values && d->values[hi] == value) ? hi + delta : lo + delta + 1;
+    if (i < 0) i = 0;
+    if (i > d->n_values - 1) i = d->n_values - 1;
+    return d->values[i];
+}
+
+void knob_setting_format(knob_setting_t s, int value, char *out, size_t n)
+{
+    const knob_setting_desc_t *d = knob_setting_desc(s);
+    if (!out || n == 0) return;
+    out[0] = '\0';
+    if (!d) return;
+    if (d->kind == KNOB_KIND_CHOICE) {
+        snprintf(out, n, "%s", (value >= 0 && value < d->n_values) ? d->words[value] : "?");
+    } else if (d->kind == KNOB_KIND_NUMBER) {
+        if (s == KNOB_SET_OFF_AFTER && value == 0) snprintf(out, n, "NEVER");
+        else snprintf(out, n, "%d %s", value, d->unit);
+    }
+}
+
+knob_confirm_t knob_confirm_step(uint32_t started_ms, uint32_t now_ms, uint32_t window_ms, knob_confirm_ev_t ev, int turn)
+{
+    if (now_ms - started_ms >= window_ms) return KNOB_CONFIRM_CANCELLED;
+    if (ev == KNOB_CONFIRM_EV_PRESS) return KNOB_CONFIRM_CANCELLED;
+    if (ev == KNOB_CONFIRM_EV_TURN && turn > 0) return KNOB_CONFIRM_DONE;
+    return KNOB_CONFIRM_WAITING;
 }

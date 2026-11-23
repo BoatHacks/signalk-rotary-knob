@@ -78,6 +78,51 @@
    "restart_required": false
   },
   {
+   "name": "brightness_pct",
+   "type": "int",
+   "default": 100,
+   "min": 10,
+   "max": 100,
+   "unit": "%",
+   "title": "Active brightness",
+   "description": "Backlight while in use. The knob's settings screen changes it too.",
+   "restart_required": false
+  },
+  {
+   "name": "night_mode",
+   "type": "string",
+   "default": "server",
+   "enum": [
+    "server",
+    "day",
+    "night"
+   ],
+   "title": "Night mode",
+   "description": "server = follow environment.mode from SignalK, day or night = fixed. The serial command n overrides it until the next restart.",
+   "restart_required": false
+  },
+  {
+   "name": "leds_on",
+   "type": "bool",
+   "default": true,
+   "title": "LEDs",
+   "description": "Off = every LED stays dark in every mode, the alarm flash included: an alarm then shows on the screen only.",
+   "restart_required": false
+  },
+  {
+   "name": "hid_profile",
+   "type": "string",
+   "default": "chartplotter",
+   "enum": [
+    "chartplotter",
+    "media",
+    "nav"
+   ],
+   "title": "USB-HID profile",
+   "description": "What the dial does in the USB-HID mode: chartplotter (mouse wheel and click), media (volume and mute) or nav (arrow keys and enter).",
+   "restart_required": false
+  },
+  {
    "name": "light1_name",
    "type": "string",
    "default": "RELAY 1",

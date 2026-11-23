@@ -47,11 +47,15 @@ else stays on the web settings page. Design agreed 2026-11-23, written into docs
 None.
 
 ## Steps
-- [ ] knob_config keys: `allow_control`, `leds_on`, `demo` and the display keys, setters plus reload (shared with #3).
-- [ ] knob_power: global LED switch (above the alarm in priority).
-- [ ] marine_ui: settings screen (list, edit, confirm turn, read-only pages) and the ring slot.
-- [ ] main: setup AP item with the 10 minute close.
-- [ ] Update the manual.
+- [x] knob_config keys: `brightness_pct`, `night_mode`, `leds_on`, `hid_profile` next to #3's `allow_control`, setters plus
+      reload. `demo` comes with #4, its item too.
+- [x] knob_logic: items, value steps, list wrap, confirm turn, with host tests.
+- [x] knob_power: global LED switch (above the alarm in priority) and the active brightness.
+- [x] marine_ui: settings screen (list, edit, confirm turn, read-only pages, reset hold) and the ring with evenly spaced slots
+      (mockup agreed 2026-11-23).
+- [x] knob_model: setup AP item with the 10 minute close, reset setup wired (it only logged before), HID profile stored.
+- [x] Update the manual, ui-design 2 and 3.5, ARCHITECTURE 2.7 and 2.9b.
+- [ ] Flash and go through the hardware checklist section "Settings screen".
 
 ## Files
 `firmware/components/marine_ui/*`, `firmware/components/knob_config/*`, `firmware/components/knob_power/*`,

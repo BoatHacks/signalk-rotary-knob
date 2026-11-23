@@ -20,6 +20,9 @@
 #include "knob_actions.h"
 #include "knob_config.h"
 #include "knob_hid.h"
+#include "espos_wifi.h"
+#include "esp_app_desc.h"
+#include "esp_system.h"
 #include "knob_logic.h"
 #include "knob_net.h"
 #include "knob_power.h"
@@ -88,7 +91,12 @@ static volatile uint16_t s_control_on_seq;  /* counts allow control going on fro
 static volatile int s_last_alarm;            /* marine_alarm_type_t of the latest snapshot, for the status API */
 static volatile bool s_boot_hid;        /* USB-HID was the last mode and the boot window is open */
 static marine_ui_mode_t s_boot_mode;    /* the mode restored at boot */
-static volatile int s_night_override;   /* 0 follow the server, 1 night, 2 day */
+static volatile int s_night_override;   /* 0 follow the server, 1 night, 2 day: the stored night_mode, serial n changes it
+                                           for the session */
+static volatile bool s_write_from_knob;  /* a setting is being stored from the settings screen (no CONTROL ON notice) */
+static volatile uint32_t s_ap_until_ms;  /* the setup access point opened from the settings closes then, 0 = not open */
+#define T_SETUP_AP 600000                /* 10 min */
+static void setup_ap(bool open);
 static volatile int s_alarm_inject;     /* 0 none, else marine_alarm_type_t */
 static volatile bool s_ack_latch;
 
@@ -237,6 +245,55 @@ static void subscribe_all(void)
 
 #define stale_by knob_stale_by
 
+/* The settings screen's values and read-only pages. Only while it is open: espOS status copies are cheap but not free. */
+static void settings_snapshot(marine_ui_snapshot_t *s, const knob_net_status_t *ns)
+{
+    knob_cfg_t c;
+    portENTER_CRITICAL(&s_mux);
+    c = s_cfg;
+    portEXIT_CRITICAL(&s_mux);
+    s->setting[KNOB_SET_BRIGHTNESS] = c.brightness_pct;
+    s->setting[KNOB_SET_DIM_AFTER] = (int16_t)(c.dim_after_ms / 1000);
+    s->setting[KNOB_SET_DIM_LEVEL] = c.dim_level_pct;
+    s->setting[KNOB_SET_OFF_AFTER] = (int16_t)(c.off_after_ms / 60000);
+    s->setting[KNOB_SET_NIGHT] = c.night_mode;
+    s->setting[KNOB_SET_LEDS] = c.leds_on ? 1 : 0;
+    s->setting[KNOB_SET_HEADING] = c.heading_true ? 0 : 1;
+    s->setting[KNOB_SET_HID_PROFILE] = c.hid_profile;
+    s->setting[KNOB_SET_ALLOW_CONTROL] = c.allow_control ? 1 : 0;
+
+    espos_wifi_status_t w;
+    if (espos_wifi_get_status(&w) == ESP_OK) {
+        s->setup_ap_open = w.sm.portal_active;
+        if (w.sm.state == ESPOS_WIFI_ST_CONNECTED) {
+            strncpy(s->info_wifi, w.sm.link.ssid, sizeof(s->info_wifi) - 1);
+            strncpy(s->info_ip, w.sm.ip.ip, sizeof(s->info_ip) - 1);
+            s->info_rssi = w.rssi;
+        }
+    }
+    uint32_t left = s_ap_until_ms ? s_ap_until_ms - ms_now() : 0;
+    s->setup_ap_left_s = (s_ap_until_ms && (int32_t)left > 0) ? (uint16_t)(left / 1000) : 0;
+    const esp_app_desc_t *app = esp_app_get_description();
+    if (app) strncpy(s->info_firmware, app->version, sizeof(s->info_firmware) - 1);
+    s->info_free_kb = (uint32_t)(heap_caps_get_free_size(MALLOC_CAP_INTERNAL) / 1024);
+    s->info_uptime_s = ms_now() / 1000;
+    espos_sk_server_t srv;
+    if (espos_sk_get_server(&srv) == ESP_OK && srv.host[0]) {
+        char port[8];
+        snprintf(port, sizeof(port), ":%u", (unsigned)srv.port);
+        size_t hl = strnlen(srv.host, sizeof(s->info_server) - sizeof(port)); /* a long host name is cut, the port stays */
+        memcpy(s->info_server, srv.host, hl);
+        memcpy(s->info_server + hl, port, strlen(port) + 1);
+    }
+    knob_model_status_t st;
+    knob_model_get_status(&st);
+    strncpy(s->info_link, st.link, sizeof(s->info_link) - 1);
+    const char *t = ns->token_state;
+    strncpy(s->info_token, !strcmp(t, "approved") || !strcmp(t, "open") ? "approved" : !strcmp(t, "pending") ? "waiting"
+                           : t[0] ? t : "none", sizeof(s->info_token) - 1);
+    s->info_allow_control = knob_actions_is_live();
+}
+
 static void build_snapshot(marine_ui_snapshot_t *s, uint32_t now)
 {
     model_t m;
@@ -249,6 +306,7 @@ static void build_snapshot(marine_ui_snapshot_t *s, uint32_t now)
 
     s->now_ms = now;
     s->control_on_seq = s_control_on_seq;
+    if (marine_ui_get_active_mode() == MARINE_MODE_SETTINGS) settings_snapshot(s, &ns);
     s->fx_glass_enabled = true;
     s->fx_glow_enabled = true;
     s->fx_ring_pulse_enabled = true;
@@ -395,6 +453,7 @@ static void model_task(void *arg)
                 s_boot_hid = false;
             }
         }
+        if (s_ap_until_ms && (int32_t)(ms_now() - s_ap_until_ms) >= 0) setup_ap(false);
         knob_power_apply_snapshot(&snap, mode);
         usb_dev_set_hid(mode == MARINE_MODE_USB_HID); /* a HID device only while the USB-HID mode is on screen */
         s_phase = 2;
@@ -472,7 +531,61 @@ static volatile int s_mode_to_save;
 static void save_mode_async(void *arg)
 {
     (void)arg;
+    if (s_mode_to_save == MARINE_MODE_SETTINGS) return; /* a boot never opens the settings */
     knob_config_save_last_mode(s_mode_to_save, s_mode_to_save == MARINE_MODE_USB_HID);
+}
+
+/* A setting from the settings screen, stored on the LVGL task (internal RAM stack, may write flash). arg packs the item in the
+ * high half and the value in the low half. */
+static void setting_write_async(void *arg)
+{
+    uint32_t a = (uint32_t)(uintptr_t)arg;
+    knob_setting_t item = (knob_setting_t)(a >> 16);
+    int v = (int)(int16_t)(a & 0xFFFF);
+    static const char *const night[] = { "server", "day", "night" };
+    static const char *const hid[] = { "chartplotter", "media", "nav" };
+    s_write_from_knob = true;
+    switch (item) {
+    case KNOB_SET_BRIGHTNESS: knob_config_set_int("brightness_pct", v); break;
+    case KNOB_SET_DIM_AFTER: knob_config_set_int("dim_after_s", v); break;
+    case KNOB_SET_DIM_LEVEL: knob_config_set_int("dim_level_pct", v); break;
+    case KNOB_SET_OFF_AFTER: knob_config_set_int("off_after_min", v); break;
+    case KNOB_SET_NIGHT: if (v >= 0 && v < 3) knob_config_set_str("night_mode", night[v]); break;
+    case KNOB_SET_LEDS: knob_config_set_bool("leds_on", v != 0); break;
+    case KNOB_SET_HEADING: knob_config_set_str("heading_source", v ? "magnetic" : "true"); break;
+    case KNOB_SET_HID_PROFILE: if (v >= 0 && v < 3) knob_config_set_str("hid_profile", hid[v]); break;
+    case KNOB_SET_ALLOW_CONTROL: knob_config_set_bool("allow_control", v != 0); break;
+    default: break;
+    }
+    s_write_from_knob = false;
+}
+
+static void queue_setting(knob_setting_t item, int value)
+{
+    lv_async_call(setting_write_async, (void *)(uintptr_t)(((uint32_t)item << 16) | ((uint32_t)value & 0xFFFF)));
+}
+
+/* Reset setup: forget the Wi-Fi networks and the SignalK token, then restart into the setup access point. LVGL task. */
+static void reset_setup_async(void *arg)
+{
+    (void)arg;
+    ESP_LOGW(TAG, "reset setup: Wi-Fi and pairing cleared, restarting");
+    knob_config_clear_wifi();
+    espos_sk_forget_token();
+    vTaskDelay(pdMS_TO_TICKS(300)); /* let the log line out */
+    esp_restart();
+}
+
+static void setup_ap(bool open)
+{
+    if (open) {
+        if (espos_wifi_portal_open(true) == ESP_OK) s_ap_until_ms = ms_now() + T_SETUP_AP;
+        ESP_LOGI(TAG, "setup access point opened from the knob for 10 min");
+    } else if (s_ap_until_ms) {
+        s_ap_until_ms = 0;
+        espos_wifi_portal_auto();
+        ESP_LOGI(TAG, "setup access point back to automatic");
+    }
 }
 
 void knob_model_action_cb(const marine_ui_action_t *act, void *ctx)
@@ -489,6 +602,12 @@ void knob_model_action_cb(const marine_ui_action_t *act, void *ctx)
          * in internal RAM, so the write is handed to it. */
         s_mode_to_save = (int)act->value;
         lv_async_call(save_mode_async, NULL);
+        return;
+    case MARINE_ACT_SETTING_SET: queue_setting((knob_setting_t)act->value, (int)act->meta); return;
+    case MARINE_ACT_SETUP_AP: setup_ap(act->value != 0); return;
+    case MARINE_ACT_SYS_FACTORY_RESET: lv_async_call(reset_setup_async, NULL); return;
+    case MARINE_ACT_HID_NEXT_PROFILE: /* stored, so it survives a restart. The change applies through the watcher. */
+        queue_setting(KNOB_SET_HID_PROFILE, (knob_hid_profile() + 1) % HID_PROFILE_COUNT);
         return;
     case MARINE_ACT_ALARM_ACK: s_ack_latch = true; break; /* and the server call below */
     default: break;
@@ -523,7 +642,7 @@ void knob_model_get_status(knob_model_status_t *out)
 void knob_model_restore_mode(void)
 {
     int stored = knob_config_last_mode();
-    s_boot_mode = (marine_ui_mode_t)knob_boot_mode(stored, MARINE_MODE_COUNT, MARINE_MODE_USB_HID);
+    s_boot_mode = (marine_ui_mode_t)knob_boot_mode(stored, MARINE_MODE_SETTINGS, MARINE_MODE_USB_HID);
     ESP_LOGI(TAG, "boot mode %d (stored %d, USB-HID last %d)", (int)s_boot_mode, stored, (int)knob_config_last_hid());
     lv_port_lock();
     marine_ui_set_mode(s_boot_mode);
@@ -578,6 +697,26 @@ void knob_model_start(void)
 /* A key of the knob namespace changed (settings page, config API, import). Runs on espOS's httpd task, whose stack is in
  * internal RAM, so it may read the settings store. The light channels stay as loaded at boot: new paths would need new
  * subscriptions, and this server closes the stream on an unsubscribe (ARCHITECTURE.md section 9). */
+static int night_override_of(uint8_t night_mode) { return night_mode == 1 ? 2 : night_mode == 2 ? 1 : 0; }
+
+/* Applies the settings that act outside the model (backlight, LEDs, HID, night). Not under any model lock: it may take the
+ * LVGL lock. */
+static void apply_device_settings(const knob_cfg_t *cfg)
+{
+    knob_power_set_brightness(cfg->brightness_pct);
+    knob_power_set_leds(cfg->leds_on);
+    knob_hid_set_profile((usb_hid_profile_t)cfg->hid_profile);
+    s_night_override = night_override_of(cfg->night_mode);
+    lv_port_lock();
+    marine_ui_set_power(cfg->dim_after_ms, cfg->dim_level_pct, cfg->off_after_ms);
+    lv_port_unlock();
+}
+
+/* A key of the knob namespace changed (settings page, config API, import, or the knob's settings screen). Runs on the
+ * writer's task: espOS's httpd task or, for the settings screen, the LVGL task. Both have internal RAM stacks, so it may read
+ * the settings store. The light channels stay as loaded at boot: new paths would need new subscriptions, and this server
+ * closes the stream on an unsubscribe (ARCHITECTURE.md section 9). The mutex only covers the load and the copy, never the
+ * LVGL lock, so a write from the LVGL task cannot wait on an httpd change that waits for the LVGL task. */
 static void on_config_key(const char *key)
 {
     static SemaphoreHandle_t lock;
@@ -586,6 +725,7 @@ static void on_config_key(const char *key)
     if (!lock) return;
     xSemaphoreTake(lock, portMAX_DELAY);
     knob_config_load(&cfg);
+    knob_cfg_t now = cfg; /* the copy applied below, after the mutex is released */
     portENTER_CRITICAL(&s_mux);
     bool was_allowed = s_cfg.allow_control;
     s_cfg.allow_control = cfg.allow_control;
@@ -595,25 +735,28 @@ static void on_config_key(const char *key)
     s_cfg.dim_after_ms = cfg.dim_after_ms;
     s_cfg.dim_level_pct = cfg.dim_level_pct;
     s_cfg.off_after_ms = cfg.off_after_ms;
+    s_cfg.brightness_pct = cfg.brightness_pct;
+    s_cfg.night_mode = cfg.night_mode;
+    s_cfg.leds_on = cfg.leds_on;
+    s_cfg.hid_profile = cfg.hid_profile;
     portEXIT_CRITICAL(&s_mux);
-    ESP_LOGI(TAG, "setting knob.%s changed", key);
+    xSemaphoreGive(lock);
+    bool from_knob = s_write_from_knob;
+    ESP_LOGI(TAG, "setting knob.%s changed (%s)", key, from_knob ? "knob" : "web page or API");
 
     if (!strcmp(key, "allow_control")) {
-        knob_actions_set_allow_control(cfg.allow_control, "web page or API");
-        if (cfg.allow_control && !was_allowed) {
+        knob_actions_set_allow_control(now.allow_control, from_knob ? "knob" : "web page or API");
+        if (now.allow_control && !was_allowed && !from_knob) {
             uint16_t n = (uint16_t)(s_control_on_seq + 1);
             s_control_on_seq = n ? n : 1; /* 0 means never */
         }
     } else if (!strcmp(key, "anchor_radius")) {
-        knob_actions_set_anchor_radius(cfg.anchor_radius_m);
-    } else if (!strncmp(key, "dim_", 4) || !strcmp(key, "off_after_min")) {
-        lv_port_lock();
-        marine_ui_set_power(cfg.dim_after_ms, cfg.dim_level_pct, cfg.off_after_ms);
-        lv_port_unlock();
+        knob_actions_set_anchor_radius(now.anchor_radius_m);
     } else if (!strncmp(key, "light", 5)) {
         ESP_LOGW(TAG, "light channel settings apply after a restart");
+    } else {
+        apply_device_settings(&now);
     }
-    xSemaphoreGive(lock);
 }
 
 void knob_model_subscribe(void)
@@ -626,9 +769,7 @@ void knob_model_subscribe(void)
     portEXIT_CRITICAL(&s_mux);
     knob_actions_set_anchor_radius(s_cfg.anchor_radius_m);
     knob_actions_set_allow_control(cfg.allow_control, "boot");
-    lv_port_lock();
-    marine_ui_set_power(cfg.dim_after_ms, cfg.dim_level_pct, cfg.off_after_ms);
-    lv_port_unlock();
+    apply_device_settings(&cfg);
     knob_config_watch(on_config_key);
     subscribe_all();
     ESP_LOGI(TAG, "subscribed, %d light channel(s), autopilot '%s'", N_LIGHTS, s_cfg.autopilot_id);

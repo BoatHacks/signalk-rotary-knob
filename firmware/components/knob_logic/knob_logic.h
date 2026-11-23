@@ -61,17 +61,18 @@ bool knob_boot_hid(bool hid_last, bool host_present, uint32_t now_ms, uint32_t w
 
 /* --- Mode API and allow control (#3) --- */
 
-/* Mode numbers follow marine_ui_mode_t: 0 autopilot, 1 lights, 2 anchor, 3 hid. The names are the API's. */
-#define KNOB_MODE_COUNT 4
+/* Mode numbers follow marine_ui_mode_t: 0 autopilot, 1 lights, 2 anchor, 3 hid, 4 settings. The names are the API's. */
+#define KNOB_MODE_COUNT 5
 #define KNOB_MODE_HID 3
-/* "autopilot", "lights", "anchor" or "hid" to 0..3, -1 for anything else (case sensitive). */
+#define KNOB_MODE_SETTINGS 4
+/* "autopilot", "lights", "anchor", "hid" or "settings" to 0..4, -1 for anything else (case sensitive). */
 int knob_mode_from_name(const char *name);
 /* 0..3 to its API name, "unknown" otherwise. */
 const char *knob_mode_name(int mode);
 
 typedef enum {
     KNOB_MODE_REQ_OK = 0,
-    KNOB_MODE_REQ_BAD,      /* not a JSON object with a "mode" string, or an unknown name: 400 */
+    KNOB_MODE_REQ_BAD,      /* not a JSON object with a "mode" string, an unknown name, or settings: 400 */
     KNOB_MODE_REQ_NO_HOST,  /* USB-HID without a USB host on the cable: 409 */
 } knob_mode_req_t;
 /* Checks a PUT /api/v1/knob/mode body such as {"mode":"anchor"}. *mode is set when the result is OK. */
@@ -80,6 +81,52 @@ knob_mode_req_t knob_mode_request(const char *json, bool usb_host, int *mode);
 /* Whether autopilot and anchor commands may leave the knob: the stored allow control setting, unless the serial bench
  * override is set for this session (override -1 none, 0 off, 1 on). */
 bool knob_allow_control(bool stored, int override);
+
+/* --- Settings screen (#5, docs/ui-design.md section 3.5) --- */
+
+/* The items, in the order of the list. */
+typedef enum {
+    KNOB_SET_BRIGHTNESS = 0, /* active brightness, % */
+    KNOB_SET_DIM_AFTER,      /* s */
+    KNOB_SET_DIM_LEVEL,      /* % */
+    KNOB_SET_OFF_AFTER,      /* min, 0 = never */
+    KNOB_SET_NIGHT,          /* 0 follow the server, 1 day, 2 night */
+    KNOB_SET_LEDS,           /* 0 off (every LED, the alarm included), 1 on */
+    KNOB_SET_HEADING,        /* 0 true, 1 magnetic */
+    KNOB_SET_HID_PROFILE,    /* 0 chartplotter, 1 media, 2 navigation keys */
+    KNOB_SET_ALLOW_CONTROL,  /* 0 off, 1 on (off to on needs the confirm turn) */
+    KNOB_SET_SETUP_AP,       /* action: open or close the setup access point */
+    KNOB_SET_DEVICE_INFO,    /* read-only page */
+    KNOB_SET_SIGNALK,        /* read-only page */
+    KNOB_SET_RESET,          /* reset setup, 5 s hold */
+    KNOB_SET_COUNT
+} knob_setting_t;
+
+typedef enum { KNOB_KIND_NUMBER = 0, KNOB_KIND_CHOICE, KNOB_KIND_ACTION, KNOB_KIND_PAGE } knob_setting_kind_t;
+
+typedef struct {
+    const char *name;           /* upper case, as shown */
+    knob_setting_kind_t kind;
+    const char *unit;           /* NUMBER: "%", "s", "min" */
+    const int *values;          /* NUMBER: the steps a turn moves through, ascending */
+    int n_values;
+    const char *const *words;   /* CHOICE: the word for each value 0..n_values-1 */
+} knob_setting_desc_t;
+
+const knob_setting_desc_t *knob_setting_desc(knob_setting_t s);
+/* The list position after a turn, wrapping at both ends. */
+int knob_list_wrap(int index, int delta, int count);
+/* The value after a turn: the next step in the item's list, clamped at the ends. A value between two steps moves to the
+ * nearer one in the turn's direction first. Choices step through 0..n-1, clamped. Other kinds keep the value. */
+int knob_setting_step(knob_setting_t s, int value, int delta);
+/* Value as shown: "80 %", "30 s", "NEVER" (off after 0), "10 min", or the choice's word. */
+void knob_setting_format(knob_setting_t s, int value, char *out, size_t n);
+
+/* Confirm turn for allow control off to on (like engage): after the press, one click right within window_ms confirms, any
+ * press cancels, a left turn is ignored, the time running out cancels. */
+typedef enum { KNOB_CONFIRM_WAITING = 0, KNOB_CONFIRM_DONE, KNOB_CONFIRM_CANCELLED } knob_confirm_t;
+typedef enum { KNOB_CONFIRM_EV_TURN = 0, KNOB_CONFIRM_EV_PRESS, KNOB_CONFIRM_EV_TICK } knob_confirm_ev_t;
+knob_confirm_t knob_confirm_step(uint32_t started_ms, uint32_t now_ms, uint32_t window_ms, knob_confirm_ev_t ev, int turn);
 
 #ifdef __cplusplus
 }

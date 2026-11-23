@@ -9,14 +9,15 @@ extern "C" {
 #endif
 
 /**
- * @brief Primary operational modes (fixed slots on Mode Ring:
- *        0 = AUTO (Top), 1 = LIGHT (Right), 2 = ANCHOR (Bottom), 3 = USB (Left)).
+ * @brief The modes, in mode ring order. The ring spaces the visible ones evenly, clockwise from the top: USB only while a USB
+ *        host is on the cable, SETTINGS last and hidden while an alarm is active (docs/ui-design.md section 2).
  */
 typedef enum {
     MARINE_MODE_AUTOPILOT = 0,
     MARINE_MODE_DIMMER,
     MARINE_MODE_ANCHOR_WATCH,
     MARINE_MODE_USB_HID,
+    MARINE_MODE_SETTINGS,
     MARINE_MODE_COUNT
 } marine_ui_mode_t;
 
@@ -76,7 +77,9 @@ typedef enum {
     MARINE_ACT_POWER_SET_BACKLIGHT, // value = 0, 10, or 100 %
     MARINE_ACT_ALARM_LED_PULSE,     // value = 1 flash LEDs fast (alarm arrival or type change), 0 = stop (alarm cleared)
     MARINE_ACT_ALARM_LED_SLOW_PULSE,// value = 1 slow red pulse (alarm acknowledged, still active), 0 = stop
-    MARINE_ACT_MODE_CHANGED         // value = marine_ui_mode_t the user switched to on the mode ring (to restore it at boot)
+    MARINE_ACT_MODE_CHANGED,        // value = marine_ui_mode_t the user switched to on the mode ring (to restore it at boot)
+    MARINE_ACT_SETTING_SET,         // value = knob_setting_t, meta = the new value (settings screen, stored by the firmware)
+    MARINE_ACT_SETUP_AP             // value = 1 open the setup access point next to the Wi-Fi, 0 close it
 } marine_ui_action_type_t;
 
 typedef struct {
@@ -205,6 +208,22 @@ typedef struct {
     // Allow control went on from the web page or the API: the UI shows the CONTROL ON notice for 3 s whenever this changes
     // to a new non-zero value. 0 = never.
     uint16_t control_on_seq;
+
+    // Settings screen (#5): the stored value of each knob_setting_t item, and the read-only pages. Filled while the settings
+    // screen is open.
+    int16_t setting[16];
+    bool setup_ap_open;
+    uint16_t setup_ap_left_s;      // until the access point closes by itself
+    char info_firmware[24];
+    char info_wifi[33];            // network name, empty while not joined
+    int8_t info_rssi;
+    char info_ip[16];
+    uint32_t info_free_kb;         // free internal RAM
+    uint32_t info_uptime_s;
+    char info_server[40];          // SignalK server host and port
+    char info_link[12];            // online, connecting, ...
+    char info_token[12];           // approved, waiting, none
+    bool info_allow_control;       // what applies now (stored setting or the serial override)
 } marine_ui_snapshot_t;
 
 /**
