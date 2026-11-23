@@ -103,7 +103,7 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 | Idle dim after 30 s, off after 10 min, input wakes | open | | | |
 | Screen off: a touch anywhere (centre included) wakes it and does nothing else | ok | 2026-11-23 | 8bf8ce4 | centre and edge, on the anchor screen |
 | Screen off: a knob push only wakes, no click and no long press | ok | 2026-11-23 | 8bf8ce4 | the push touches the glass first |
-| Screen dimmed: a touch wakes, in LIGHTS outside the centre it also steps the channel | ok | 2026-11-23 | this commit | wakes on the anchor screen. Failed on 8bf8ce4, where only LIGHTS woke from dim. The channel step is not visible with one channel |
+| Screen dimmed: a touch wakes, in LIGHTS outside the centre it also steps the channel | ok | 2026-11-23 | 1350c7c | wakes on the anchor screen. Failed on 8bf8ce4, where only LIGHTS woke from dim. The channel step is not visible with one channel |
 | A finger left on the glass counts once | open | 2026-11-23 | 8bf8ce4 | the screen stays awake under a resting finger (10 s, centre), probably fresh touch-downs from the controller. Counting once is not visible with one light channel |
 | Night palette from `environment.mode` and the `n` override | ok | 2026-11-23 | be65d7f | override cycled auto, night, day |
 | USB-HID mode shows in the ring when a USB host is on the cable | open | | | |
