@@ -1,0 +1,27 @@
+# Plans
+
+Working plans for open work, one file per issue or topic. A plan is short: what and why, which SPEC and ARCHITECTURE sections it
+implements, the approach, how it is checked, the steps and the files. Requirements belong in SPEC.md, not here. Delete a plan
+when the work is done and the docs say everything it said. How a change is made: [IMPLEMENTATION_CHECKLIST.md](../../IMPLEMENTATION_CHECKLIST.md).
+
+Name files `issue-<n>-<short-name>.md` for a GitHub issue, `<short-name>.md` otherwise. Start from [_template.md](_template.md).
+
+## Open work, in the suggested order
+
+| Plan | Issue | Why this order |
+|---|---|---|
+| [internal-ram-dip.md](internal-ram-dip.md) | none | A boot with 276 bytes of internal RAM left can reboot the knob. Blocks everything else |
+| [live-control-trials.md](live-control-trials.md) | none | Autopilot and anchor have never run against the real boat. Needs the owner at the boat |
+| [boot-to-last-screen.md](boot-to-last-screen.md) | none | Gate item not met, small, needs one decision |
+| [hardening.md](hardening.md) | none | Required before the knob runs unattended or the repo goes public |
+| [issue-3-rest-api.md](issue-3-rest-api.md) | #3 | The settings screen and demo mode both want the same config interface |
+| [issue-5-settings-screen.md](issue-5-settings-screen.md) | #5 | Needs a design pass first |
+| [issue-4-demo-mode.md](issue-4-demo-mode.md) | #4 | Useful for the manual's screenshots |
+| [issue-6-volume-mode.md](issue-6-volume-mode.md) | #6 | A new mode, starts with a survey of the boat's audio paths |
+| [issue-2-user-manual.md](issue-2-user-manual.md) | #2 | Follows the behaviour, so it finishes last |
+
+## Decisions waiting for the owner
+
+- Which relays beyond Relay 1 become light channels, and their names (SPEC section 13).
+- The boot screen rule (see boot-to-last-screen.md).
+- Whether live control may be switched on from the knob itself (see issue-5-settings-screen.md).

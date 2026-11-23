@@ -20,6 +20,9 @@ Part of the BoatHacks SignalK suite.
 | [docs/ui-design.md](ui-design.md) | The agreed UI: input vocabulary, modes, alarm and stale rules, power and LEDs, style tokens |
 | [docs/hardware.md](hardware.md) | Board specs and the verified pin map |
 | [docs/manual.md](manual.md) | User manual, draft 1: first setup, controls, modes, alarms, settings, troubleshooting |
+| [docs/hardware-checklist.md](hardware-checklist.md) | What has been checked on the panel and the boat, and what is still open |
+| [docs/plans/](plans/README.md) | Plans for the open work and issues, in the suggested order |
+| [IMPLEMENTATION_CHECKLIST.md](../IMPLEMENTATION_CHECKLIST.md) | How a change is made in this repo, from reading to commit |
 | [docs/spike-espos.md](spike-espos.md) | The espOS feasibility spike: results and the decision (espOS as base, gated) |
 | `firmware/` | The firmware: `main/` plus components (board, lv_port, input, knob_net, knob_model, knob_actions, knob_logic, knob_config, knob_power, knob_usb, marine_ui) |
 | `ui/marine_ui_v5/prototype/` | Browser prototype of the UI, the design reference |
