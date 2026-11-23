@@ -245,6 +245,10 @@ Everything else is ephemeral.
   a short `CONTROL ON` notice. There is no permanent indicator: the refusal screen says when it is off.
 - **Demo mode** (decided 2026-11-23, #4): simulated data, no SignalK client, Wi-Fi and the settings page stay up. Stored in the
   config (survives a reboot), off by default, cleared by a factory reset.
+- **VOLUME mode drives `signalk-jukebox`** (decided 2026-11-23, #6). Master volume and zone volumes through SignalK `PUT`
+  (ratio), play and pause through the plugin's control paths, zone names from its REST API. Knob: turn 2 %, press play or
+  pause, hold next zone. The touch screen is a small player (previous, next, play or pause, zone), the outer arc is display
+  only. No allow control needed.
 - **The manual is `docs/manual.md`** (decided 2026-11-23, #2), linked from the README and the settings page.
 
 ## 13. Open Questions

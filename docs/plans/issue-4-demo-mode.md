@@ -15,7 +15,7 @@ bench work, showing the knob away from the boat, and the manual's screenshots.
   relays that switch at once, voltage and depth that move a little.
 - Actions are applied locally. knob_actions is not started in demo mode, so nothing can reach a server.
 - Marked on screen: a small `DEMO` tag on every mode screen, and a distinct slow LED pattern.
-- Turned on from the settings page (and #3's API). Off by default, stored in the config so it survives a reboot, cleared by a
+- Turned on from the web settings page, the config API (#3) or the knob's settings screen (#5). Off by default, stored in the config so it survives a reboot, cleared by a
   factory reset (decided 2026-11-23). The serial bench commands (`a`, `g`, `c`, `x`, `s`, `n`) work in demo mode too.
 - Network in demo mode: Wi-Fi and the settings page stay up so demo can be switched off from a phone, the SignalK client is
   never started (decided 2026-11-23). With no Wi-Fi set up, the setup portal runs as usual and demo still works.

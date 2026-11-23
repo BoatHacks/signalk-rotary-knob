@@ -168,6 +168,24 @@ SignalK, reset setup.
 - **Reset setup** keeps the 5 s hold-to-confirm (section 4, boot screens).
 - Nothing here changes autopilot or anchor state or acknowledges an alarm. An alarm takes over the screen as everywhere.
 
+### 3.6 Volume
+
+Agreed 2026-11-23 from a mockup (#6, docs/plans/issue-6-volume-mode.md). Drives the `signalk-jukebox` plugin. Allow control is
+not needed.
+
+| Input | Meaning |
+|---|---|
+| Turn | Volume of the selected target, 2 % per click, sent after a 0.4 s pause |
+| Single press | Play or pause |
+| Long press | Next target: Master, then each zone |
+| Touch | Previous (left), next (right), play or pause (bottom), zone name (top, next target). Nothing in the 50 px centre, nothing on the outer arc |
+
+Look: the outer arc (270 degrees, cyan) shows the volume and nothing else. Inside: the target name at the top (`MASTER` or the
+zone name, with a small marker that it can be tapped), track name and artist under it, the volume number large in the centre,
+previous and next as round buttons left and right, play or pause as a round button at the bottom. A pending volume is drawn in
+amber until the server confirms it. Paused greys the arc. A zone that is not connected shows `ZONE OFFLINE`. A stale volume
+shows the stale overlay (`NO VOLUME`).
+
 ## 4. Link state and stale handling
 
 States follow SPEC section 3.1. In STALE (and while connecting):
