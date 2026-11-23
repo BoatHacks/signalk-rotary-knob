@@ -60,16 +60,12 @@ void board_display_draw(int x1, int y1, int x2, int y2, const void *rgb565_swapp
 #ifndef BOARD_TOUCH_FLIP_Y
 #define BOARD_TOUCH_FLIP_Y 0
 #endif
-/* Pushing the knob presses the glass: the push read as a touch at about (138,111) on the device. Touches inside this
- * radius (pixels, around the screen centre) are ignored. 50 is a guess, UNVERIFIED. Set 0 to disable the dead zone.
- * Masking touches around button pushes is a later alternative (see SPEC.md post-MVP). */
-#ifndef BOARD_TOUCH_DEADZONE_RADIUS
-#define BOARD_TOUCH_DEADZONE_RADIUS 50
-#endif
 #define BOARD_LED_COUNT 5
 void board_led_init(void);
 void board_led_set(int index, uint8_t r, uint8_t g, uint8_t b); /* buffered, call board_led_show() */
 void board_led_show(void);
 bool board_button_pressed(void);
-bool board_touch_read(uint16_t *x, uint16_t *y); /* true while a finger is down */
+/* true while a finger is down, with its position. Out-of-range ghost touches are dropped. Centre touches are reported: pushing
+ * the knob presses the glass there, and marine_ui's dead zone decides what they may do (they only wake a dark screen). */
+bool board_touch_read(uint16_t *x, uint16_t *y);
 bool board_touch_present(void);

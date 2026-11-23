@@ -152,6 +152,15 @@ static uint32_t ctl_notice_until_ms;
 static uint16_t ctl_last_seq;
 #define CTL_NOTICE_MS 3000
 
+// Touch. Pushing the knob presses the glass and reads as a touch near the centre about 230 ms before the button switch closes,
+// so touches within this radius never act (SPEC section 12). They still wake a dark screen like any touch.
+#define TOUCH_DEADZONE_PX 50
+#define TOUCH_WAKE_SWALLOW_MS 500   // a button press starting this soon after a touch woke the screen is swallowed too
+static bool touch_is_down;
+static bool touch_woke;             // the last touch-down woke a dark screen
+static uint32_t touch_wake_ms;
+static bool btn_swallow;            // the current button press only belongs to that wake, it does nothing
+
 // Autopilot Widgets (Radial rotating tick lines)
 static lv_obj_t *ap_tick_lines[72];
 static lv_point_precise_t ap_tick_pts[72][2];
@@ -2361,6 +2370,10 @@ void marine_ui_feed_button_edge(bool pressed) {
         btn_is_down = true;
         btn_down_ms = snap.now_ms;
         btn_long_fired = false;
+        // A knob push from a dark screen first reaches the glass: that touch woke the screen, the push only belongs to it.
+        btn_swallow = touch_woke && (snap.now_ms - touch_wake_ms) < TOUCH_WAKE_SWALLOW_MS;
+        touch_woke = false;
+        if (btn_swallow) btn_long_fired = true;   // no long press and no click from this press
         if (snap.system_screen == MARINE_SCREEN_RESET_SETUP) {
             reset_holding = true;
             reset_hold_start_ms = snap.now_ms;
@@ -2372,6 +2385,10 @@ void marine_ui_feed_button_edge(bool pressed) {
         }
         if (!btn_is_down) return;
         btn_is_down = false;
+        if (btn_swallow) {
+            btn_swallow = false;
+            return;
+        }
         if (!btn_long_fired) {
             btn_click_count++;
             btn_last_up_ms = snap.now_ms;
@@ -2384,10 +2401,28 @@ void marine_ui_feed_button_edge(bool pressed) {
 }
 
 void marine_ui_feed_touch(int16_t x, int16_t y, bool pressed) {
-    if (!pressed) return;
+    // Called on every poll while a finger is down: act on the touch-down only.
+    if (!pressed) {
+        touch_is_down = false;
+        return;
+    }
+    if (touch_is_down) return;
+    touch_is_down = true;
+
+    // A dark screen (backlight 0) wakes on a touch anywhere, the dead zone included, and the touch does nothing else
+    // (ui-design section 6). From the dim level any touch wakes too, and one outside the dead zone also acts.
+    if (current_backlight_pct == 0) {
+        note_user_activity(false);
+        touch_woke = true;
+        touch_wake_ms = snap.now_ms;
+        return;
+    }
     int32_t dx = (int32_t)x - 120;
     int32_t dy = (int32_t)y - 120;
-    if ((dx * dx + dy * dy) < (50 * 50)) return;
+    if ((dx * dx + dy * dy) < (TOUCH_DEADZONE_PX * TOUCH_DEADZONE_PX)) {
+        note_user_activity(false);   // wakes from dim and keeps the screen awake, never acts
+        return;
+    }
 
     // Restricted to a single harmless role: step to next Dimmer group when in Dimmer mode
     if (snap.system_screen == MARINE_SCREEN_OPERATIONAL &&

@@ -101,6 +101,10 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 | Item | Status | Date | Commit | Notes |
 |---|---|---|---|---|
 | Idle dim after 30 s, off after 10 min, input wakes | open | | | |
+| Screen off: a touch anywhere (centre included) wakes it and does nothing else | open | | | Tobi's request 2026-11-23 |
+| Screen off: a knob push only wakes, no click and no long press | open | | | the push touches the glass first |
+| Screen dimmed: a touch wakes, in LIGHTS outside the centre it also steps the channel | open | | | |
+| A finger left on the glass counts once | open | | | it stepped the channel on every poll before |
 | Night palette from `environment.mode` and the `n` override | ok | 2026-11-23 | be65d7f | override cycled auto, night, day |
 | USB-HID mode shows in the ring when a USB host is on the cable | open | | | |
 | Entering USB-HID mode switches the port to HID, leaving switches back to serial | open | | | |

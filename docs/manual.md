@@ -112,7 +112,9 @@ work. Values the boat does not publish show `---`.
   The mode call only switches the screen, it never engages, drops, raises or acknowledges anything.
 - **Night and day.** The knob follows the SignalK path `environment.mode`. It starts in day mode until the first value arrives.
 - **Dimming.** After 30 seconds without input the backlight drops to 10 %, after 10 minutes it goes off, but never while the autopilot
-  is engaged or an alarm is active. Any input wakes it.
+  is engaged or an alarm is active. Any input wakes it: a turn, a press or a touch anywhere on the glass. When the screen was off,
+  that first input only wakes it and does nothing else (an alarm acknowledge excepted). When it was dimmed, the input also does
+  what it normally does.
 
 ## 7. Updating the firmware
 

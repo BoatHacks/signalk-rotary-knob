@@ -239,7 +239,9 @@ Everything else is ephemeral.
 - **Day/night follows `environment.mode`** (`"day"` / `"night"`), as `sun_state` in the cockpit firmware does. Default to Day until the first
   value arrives, because a dark helm display is worse than a bright one.
 - **Touch is secondary and ignored in the centre.** A knob push registers as a touch there (hardware coupling, not a
-  bug). The dead zone is a 50 px radius around the centre, size unverified. Masking touches around pushes is deferred.
+  bug). The dead zone is a 50 px radius around the centre, size unverified. Masking touches around pushes is deferred. A
+  touch anywhere, the dead zone included, wakes a dark screen and is swallowed (decided 2026-11-23, docs/ui-design.md
+  section 6).
 - **Plain WS and HTTP plus the SignalK token, no TLS.** Keeps connect time inside the ONLINE target on a closed boat LAN.
 - **Firmware updates: USB in the MVP, OTA and a signed firmware repository later** (decided 2026-11-22, replaces the earlier
   "never pull from a server"). Nothing in the MVP points the OTA component at an update source.

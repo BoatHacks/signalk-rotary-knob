@@ -288,6 +288,11 @@ palette.
 - Wake: the first input is **acted on** when the backlight is above 0. When the backlight is 0 the first input only wakes the
   screen and is swallowed, except an alarm acknowledge. Because 0 only occurs in standby with no alarm, an engaged autopilot
   always acts on the first input.
+- Touch wakes too (decided 2026-11-23). With the backlight at 0 a touch **anywhere**, the centre dead zone included, wakes the
+  screen and is swallowed. A knob push from a dark screen reaches the glass first, so a button press that starts within 0.5 s
+  of such a touch wake is swallowed as well: a push from dark only wakes, as before. From the dim level any touch wakes, and
+  one outside the dead zone also acts (in LIGHTS it steps the channel, the only thing touch does). A touch counts once, at
+  touch-down, however long the finger stays.
 - Day and night follow `environment.mode` ("day" / "night"), default Day until the first value arrives. Night uses a red
   palette and a lower brightness ceiling.
 - The encoder and button must reset LVGL's inactivity counter (SPEC open question 7). The spike shows both do, polling

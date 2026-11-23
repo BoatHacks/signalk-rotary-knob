@@ -199,9 +199,6 @@ bool board_touch_read(uint16_t *x, uint16_t *y)
         if ((ghosts++ % 500) == 0) ESP_LOGW(TAG, "ignoring out-of-range touch x=%u y=%u (%lu so far)", rx, ry, (unsigned long)ghosts);
         return false;
     }
-    int dx = (int)rx - BOARD_LCD_W / 2, dy = (int)ry - BOARD_LCD_H / 2;
-    if (BOARD_TOUCH_DEADZONE_RADIUS > 0 && dx * dx + dy * dy < BOARD_TOUCH_DEADZONE_RADIUS * BOARD_TOUCH_DEADZONE_RADIUS)
-        return false; /* a knob push lands here, see board.h */
     *x = rx;
     *y = ry;
     return true;
