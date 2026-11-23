@@ -98,11 +98,26 @@ static void led_task(void *arg)
         bool demo_led = s_demo && s_leds_on && !r && !g && !b;
         uint32_t ph = t % 4000;                       /* triangle wave, 4 s: slower than every other pattern */
         uint32_t tri = ph < 2000 ? ph : 4000 - ph;
+        /* Send a frame only when a colour changed: fades and pulses change every period, a steady state (dark included) sends
+         * nothing, so a disturbed frame cannot show up again and again. */
+        static uint8_t last[BOARD_LED_COUNT][3];
+        static bool sent;
+        static uint32_t last_sent_ms;
+        bool changed = !sent || t - last_sent_ms >= 5000; /* and every 5 s, so a frame that did get disturbed heals */
         for (int i = 0; i < BOARD_LED_COUNT; i++) {
-            if (demo_led && i == 0) board_led_set(i, (uint8_t)(40 * tri / 2000), 0, (uint8_t)(64 * tri / 2000));
-            else board_led_set(i, r, g, b);
+            uint8_t lr = r, lg = g, lb = b;
+            if (demo_led && i == 0) { lr = (uint8_t)(40 * tri / 2000); lg = 0; lb = (uint8_t)(64 * tri / 2000); }
+            if (last[i][0] != lr || last[i][1] != lg || last[i][2] != lb) {
+                last[i][0] = lr; last[i][1] = lg; last[i][2] = lb;
+                changed = true;
+            }
+            board_led_set(i, lr, lg, lb);
         }
-        board_led_show();
+        if (changed) {
+            board_led_show();
+            sent = true;
+            last_sent_ms = t;
+        }
         vTaskDelay(pdMS_TO_TICKS(LED_PERIOD_MS));
     }
 }

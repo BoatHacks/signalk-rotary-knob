@@ -273,9 +273,14 @@ void board_led_init(void)
         .color_component_format = LED_STRIP_COLOR_COMPONENT_FMT_GRB,
         .flags = { .invert_out = false },
     };
+    /* One frame is 5 x 24 bits plus the reset symbol, 121 RMT symbols. With the default 64 the RMT interrupt has to refill the
+     * channel mid-frame, and when Wi-Fi, flash or the LCD's SPI delay that refill the line stalls and the third LED latches
+     * garbage (a flicker of one LED while all should be dark). Three 48-symbol blocks hold the whole frame. No DMA: its
+     * buffer would have to sit in internal RAM, which is the scarce resource. The LEDs are the only RMT user. */
     led_strip_rmt_config_t rmt = {
         .clk_src = RMT_CLK_SRC_DEFAULT,
         .resolution_hz = 10 * 1000 * 1000,
+        .mem_block_symbols = 144,
         .flags = { .with_dma = false },
     };
     ESP_ERROR_CHECK(led_strip_new_rmt_device(&strip, &rmt, &s_strip));
