@@ -12,7 +12,7 @@ Name files `issue-<n>-<short-name>.md` for a GitHub issue, `<short-name>.md` oth
 |---|---|---|
 | [internal-ram-dip.md](internal-ram-dip.md) | none | A boot with 276 bytes of internal RAM left can reboot the knob. Blocks everything else |
 | [live-control-trials.md](live-control-trials.md) | none | Autopilot and anchor have never run against the real boat. Needs the owner at the boat |
-| [boot-to-last-screen.md](boot-to-last-screen.md) | none | Built 2026-11-23 (option A), waiting for the checks on the panel |
+| [boot-to-last-screen.md](boot-to-last-screen.md) | none | Built and checked 2026-11-23. Left: anchor and USB-HID restore checks, a stream drop on every boot |
 | [hardening.md](hardening.md) | none | Required before the knob runs unattended or the repo goes public |
 | [issue-3-rest-api.md](issue-3-rest-api.md) | #3 | The settings screen and demo mode both want the same config interface |
 | [issue-5-settings-screen.md](issue-5-settings-screen.md) | #5 | Design agreed. Builds on #3's config reload and the allow control key |

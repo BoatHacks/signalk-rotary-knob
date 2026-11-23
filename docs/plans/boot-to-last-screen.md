@@ -1,7 +1,7 @@
 # Plan: boot to the last screen
 
-**Built 2026-11-23 (option A), waiting for the checks on the panel.** Delete this plan when the hardware checklist lines for the
-boot are ok.
+**Built and checked 2026-11-23 (option A, 0ffc8ef).** Mode screen at about 2.5 s. Left: the anchor and USB-HID restore checks and
+the stream drop about 3 s after the first connect, which happens on every boot. Delete this plan when those are settled.
 
 ## Overview
 The spike gate asks for the last used screen within 4 s of power on. Today the splash stays until the SignalK stream is up
@@ -46,8 +46,10 @@ None.
 - [x] Owner decides A or B (A, 2026-11-23).
 - [x] Implement in `knob_model.c` (system screen choice) and `marine_ui.c` (overlay text before first data), plus the last mode
       store (knob_config) and the boot rules with host tests (knob_logic).
-- [ ] Flash, measure power on to mode screen, go through the boot lines of the hardware checklist.
-- [ ] Ten boots with stream state logging (knob_net logs every phase change with the time).
+- [x] Flash, measure power on to mode screen, go through the boot lines of the hardware checklist (anchor and USB-HID restore
+      still open).
+- [ ] Stream drop: three boots out of three, the server closes the stream about 3 s after the first connect. Find out why
+      (server log at that moment, the unsubscribe espOS sends, the device meta it publishes).
 - [x] Update the gate table in ARCHITECTURE.md.
 
 ## Files
