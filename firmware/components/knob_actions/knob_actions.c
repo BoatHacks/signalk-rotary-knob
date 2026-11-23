@@ -130,40 +130,50 @@ static void ap_action(const marine_ui_action_t *a)
     ap_poll(); /* show the new state without waiting for the next poll */
 }
 
+/* Tell the screen what became of an anchor action. It shows a pending screen after the press and ends it with this. */
+static void report(marine_action_result_t code)
+{
+    if (s_hooks->action_result) s_hooks->action_result((uint8_t)code);
+}
+
 static void anchor_action(const marine_ui_action_t *a)
 {
-    if (a->action == MARINE_ACT_ANCHOR_SET_RADIUS) s_radius_pref = (uint16_t)a->value;
-    if (!s_live) { ESP_LOGW(TAG, "anchor action %d ignored: live control is off (send l)", (int)a->action); return; }
-    if (!online()) { ESP_LOGW(TAG, "anchor action ignored: not online"); return; }
-
     knob_actions_view_t m;
     s_hooks->get_view(&m);
+    if (a->action == MARINE_ACT_ANCHOR_SET_RADIUS) {
+        s_radius_pref = (uint16_t)a->value;
+        if (!m.anchor_on) return; /* only remembered for the next drop, no server call and nothing to report */
+    }
+    if (!s_live) { ESP_LOGW(TAG, "anchor action %d ignored: live control is off (send l)", (int)a->action); report(MARINE_RESULT_LIVE_OFF); return; }
+    if (!online()) { ESP_LOGW(TAG, "anchor action ignored: not online"); report(MARINE_RESULT_NO_LINK); return; }
+
     char body[200];
     bool pos_ok = m.pos_valid && ms_now() - m.pos_ms < 15000;
+    bool ok = false;
 
     switch (a->action) {
-    case MARINE_ACT_ANCHOR_ARM_HERE:
-        if (!pos_ok) { ESP_LOGW(TAG, "anchor arm: no fresh position"); return; }
+    case MARINE_ACT_ANCHOR_DROP:
+        if (!pos_ok) { ESP_LOGW(TAG, "anchor drop: no fresh position"); report(MARINE_RESULT_NO_POSITION); return; }
         snprintf(body, sizeof(body), "{\"position\":{\"latitude\":%.7f,\"longitude\":%.7f},\"zone\":{\"type\":\"circle\",\"radius\":%u}}",
                  m.lat, m.lon, (unsigned)s_radius_pref);
-        rest("POST", ANCHOR_PLUGIN "/dropAnchor", body);
+        ok = rest("POST", ANCHOR_PLUGIN "/dropAnchor", body);
         break;
     case MARINE_ACT_ANCHOR_SET_RADIUS:
-        if (!m.anchor_on) break; /* only remembered for the next arm */
         snprintf(body, sizeof(body), "{\"zone\":{\"type\":\"circle\",\"radius\":%ld}}", (long)a->value);
-        rest("POST", ANCHOR_PLUGIN "/setZone", body);
+        ok = rest("POST", ANCHOR_PLUGIN "/setZone", body);
         break;
     case MARINE_ACT_ANCHOR_MOVE_DROP:
-        if (!pos_ok) { ESP_LOGW(TAG, "anchor move: no fresh position"); return; }
+        if (!pos_ok) { ESP_LOGW(TAG, "anchor move: no fresh position"); report(MARINE_RESULT_NO_POSITION); return; }
         snprintf(body, sizeof(body), "{\"zone\":{\"type\":\"circle\",\"radius\":%u},\"position\":{\"latitude\":%.7f,\"longitude\":%.7f}}",
                  (unsigned)(m.anchor_max_m > 0 ? lroundf(m.anchor_max_m) : s_radius_pref), m.lat, m.lon);
-        rest("POST", ANCHOR_PLUGIN "/setZone", body);
+        ok = rest("POST", ANCHOR_PLUGIN "/setZone", body);
         break;
-    case MARINE_ACT_ANCHOR_DISARM:
-        rest("POST", ANCHOR_PLUGIN "/raiseAnchor", NULL);
+    case MARINE_ACT_ANCHOR_RAISE:
+        ok = rest("POST", ANCHOR_PLUGIN "/raiseAnchor", NULL);
         break;
-    default: break;
+    default: return;
     }
+    report(ok ? MARINE_RESULT_OK : MARINE_RESULT_FAILED);
 }
 
 /* Acknowledge the anchor alarm through the server's Notifications API. The id comes from the notification list. */
@@ -208,10 +218,10 @@ static void handle_action(const marine_ui_action_t *a)
     case MARINE_ACT_AP_ENGAGE:
     case MARINE_ACT_AP_STANDBY:
     case MARINE_ACT_AP_SET_CTS: ap_action(a); break;
-    case MARINE_ACT_ANCHOR_ARM_HERE:
+    case MARINE_ACT_ANCHOR_DROP:
     case MARINE_ACT_ANCHOR_SET_RADIUS:
     case MARINE_ACT_ANCHOR_MOVE_DROP:
-    case MARINE_ACT_ANCHOR_DISARM: anchor_action(a); break;
+    case MARINE_ACT_ANCHOR_RAISE: anchor_action(a); break;
     case MARINE_ACT_ALARM_ACK: alarm_ack(); break;
     case MARINE_ACT_POWER_SET_BACKLIGHT: knob_power_set_backlight((uint8_t)a->value); break;
     case MARINE_ACT_ALARM_LED_PULSE: knob_power_led_alarm(a->value ? KNOB_LED_ALARM_FAST : KNOB_LED_ALARM_OFF); break;

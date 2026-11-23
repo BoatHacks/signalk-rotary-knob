@@ -55,10 +55,15 @@ is on or off:
   back on at that level.
 
 ### Anchor
-Shows the distance to the anchor, the bearing and the watch circle. With the **hoekens-anchor-alarm** plugin installed:
-- **Arm** drops the anchor at the boat's current position with the chosen radius.
-- **Turn** changes the radius, a press confirms it.
-- **Move** puts the drop point at the current position, **Disarm** raises the anchor.
+The watch circle is drawn as a plot: the ring is the radius you chose, the green dot is the boat, the anchor is in the centre, and
+a short trail shows where the boat has been. The distance is written next to the dot. The top line says `DROPPED` or `RAISED`.
+With the **hoekens-anchor-alarm** plugin installed:
+- **Turn** changes the radius (a new amber ring shows the preview), a **press** applies it.
+- **Long press** opens a dialog with only the actions that fit: **Drop here** while the anchor is raised, **Move drop point here**
+  and **Raise anchor** while it is dropped, and always **Cancel**. Turn to choose, press to confirm. A radius you turned to but
+  did not apply is used when you drop.
+- After you choose, the screen shows a spinner until the server confirms. If the knob could not do it, it says why (live control
+  off, no link, no position fix, the server refused) and that nothing was changed.
 Anchor and autopilot commands are only sent when **live control** is on (see section 6).
 
 ### USB-HID

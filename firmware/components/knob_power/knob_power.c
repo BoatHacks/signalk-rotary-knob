@@ -110,7 +110,7 @@ void knob_power_apply_snapshot(const marine_ui_snapshot_t *s, marine_ui_mode_t a
     } else {
         on_course = false;
         if (s->ap_engaged) g = 40;
-        else if (s->anchor_armed) { g = 20; b = 40; }
+        else if (s->anchor_dropped) { g = 20; b = 40; }
     }
     bool oncourse_kind = steer == STEER_YELLOW || steer == STEER_BLUE;
     if (oncourse_kind && s_steer != steer) s_oncourse_since_ms = (uint32_t)(esp_timer_get_time() / 1000);

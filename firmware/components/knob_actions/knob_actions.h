@@ -33,6 +33,7 @@ typedef struct {
     void (*set_autopilot)(bool engaged, bool has_target, double target_rad); /* from the status poll */
     void (*ack_latch)(void);          /* the alarm was acknowledged on the knob */
     bool (*alarm_injected)(void);     /* the alarm is a bench one, no server notification behind it */
+    void (*action_result)(uint8_t code); /* what became of an anchor action, a marine_action_result_t */
 } knob_actions_hooks_t;
 
 /* Starts the worker task. cfg and hooks must outlive it. The settings are read through cfg each time, so a later load into

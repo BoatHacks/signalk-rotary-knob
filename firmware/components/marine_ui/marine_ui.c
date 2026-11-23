@@ -99,6 +99,17 @@ static uint16_t anchor_preview_radius = 35;
 static bool anchor_menu_open = false;
 static uint8_t anchor_menu_idx = 0;
 static uint32_t anchor_menu_opened_ms = 0;
+typedef struct { const char *text; marine_ui_action_type_t act; bool cancel; bool danger; } anc_item_t;
+static anc_item_t anc_items[3];
+static uint8_t anc_menu_count = 0;
+// After a choice the screen shows a pending screen until the firmware reports what became of it
+typedef enum { ANC_PEND_NONE = 0, ANC_PEND_WAIT, ANC_PEND_REFUSED } anc_pend_t;
+static anc_pend_t anc_pend = ANC_PEND_NONE;
+static marine_ui_action_type_t anc_pend_act = MARINE_ACT_ANCHOR_DROP;
+static int8_t anc_pend_expect = -1;     // 1 = the anchor should read dropped, 0 = raised, -1 = no state change expected
+static bool anc_pend_ok = false;        // the server accepted the call
+static uint16_t anc_seen_seq = 0;
+static uint32_t anc_pend_start_ms = 0, anc_pend_ok_ms = 0, anc_pend_until_ms = 0;
 
 static uint8_t dimmer_selected_group = 0;
 static bool dimmer_pending_active = false;
@@ -131,6 +142,7 @@ static lv_obj_t *stale_lbl_title;
 static lv_obj_t *stale_lbl_sub;
 static lv_obj_t *ovl_ap_confirm;
 static lv_obj_t *ovl_anc_menu;
+static lv_obj_t *ovl_anc_res;
 
 // Autopilot Widgets (Radial rotating tick lines)
 static lv_obj_t *ap_tick_lines[72];
@@ -148,6 +160,10 @@ static lv_obj_t *ap_lbl_telem;
 static lv_obj_t *anc_ring;
 static lv_obj_t *anc_boat_dot;
 static lv_obj_t *anc_lbl_center;
+static lv_obj_t *anc_ring_half, *anc_ring_prev, *anc_icon, *anc_trail[3];
+static lv_obj_t *anc_lbl_radius, *anc_lbl_dist, *anc_lbl_hint, *anc_lbl_big;
+static uint8_t *anc_icon_buf = NULL;
+static uint32_t anc_icon_col = 0xFFFFFFFFu;
 static lv_obj_t *anc_canvas_top;
 static lv_obj_t *anc_canvas_bot;
 static uint8_t *anc_buf_top = NULL;
@@ -202,7 +218,11 @@ static char alm_cache_bot[48] = {0};
 static lv_obj_t *stale_lbl_age;
 static lv_obj_t *ap_confirm_arc;
 static lv_obj_t *ap_confirm_lbl_sec;
-static lv_obj_t *anc_menu_items[2];
+static lv_obj_t *anc_menu_items[3];
+static lv_obj_t *anc_menu_title, *anc_menu_info, *anc_menu_pill, *anc_menu_hint;
+static lv_obj_t *anc_res_arc, *anc_res_icon, *anc_res_t, *anc_res_s1, *anc_res_s2;
+static uint8_t *anc_res_icon_buf = NULL;
+static uint32_t anc_res_icon_col = 0xFFFFFFFFu;
 
 static lv_obj_t *sys_tick_lines[72];
 static lv_point_precise_t sys_tick_pts[72][2];
@@ -425,7 +445,7 @@ static void ap_tick_ring_maybe_update(void) {
 
 // --- Curved Text Helper with Tangent Glyph Rotation (PSRAM-backed, cached on string change) ---
 #define CURVED_CANVAS_W 240
-#define CURVED_CANVAS_H 56
+#define CURVED_CANVAS_H 72
 #define CURVED_BUF_BYTES (CURVED_CANVAS_W * CURVED_CANVAS_H * 4)
 
 static void ensure_glyph_scratch_canvas(void) {
@@ -522,7 +542,7 @@ static void update_curved_canvas(lv_obj_t *cv, char *cache, const char *text, bo
 }
 
 // --- Drawn vector icons (no font glyphs needed): AUTO gauge, LIGHT bulb, ANCHOR, USB, WARNING triangle ---
-typedef enum { ICON_AUTO = 0, ICON_LIGHT, ICON_ANCHOR, ICON_USB, ICON_WARN } icon_id_t;
+typedef enum { ICON_AUTO = 0, ICON_LIGHT, ICON_ANCHOR, ICON_USB, ICON_WARN, ICON_CROSS } icon_id_t;
 
 static lv_obj_t* icon_canvas_create(lv_obj_t *parent, int size, uint8_t **out_buf) {
     size_t bytes = (size_t)size * (size_t)size * 4U;
@@ -618,6 +638,11 @@ static void icon_draw(lv_obj_t *cv, icon_id_t id, int size, lv_color_t col) {
         icon_line(&layer, IP(16), IP(14), IP(23), IP(11), w, col);
         icon_circle(&layer, II(23), II(8), II(2.2f), 0, true, col);
         break;
+    case ICON_CROSS:
+        icon_circle(&layer, II(16), II(16), II(13), w, false, col);
+        icon_line(&layer, IP(10.5f), IP(10.5f), IP(21.5f), IP(21.5f), w, col);
+        icon_line(&layer, IP(21.5f), IP(10.5f), IP(10.5f), IP(21.5f), w, col);
+        break;
     case ICON_WARN:
         icon_line(&layer, IP(16), IP(3), IP(29), IP(27), w, col);
         icon_line(&layer, IP(29), IP(27), IP(3), IP(27), w, col);
@@ -661,7 +686,7 @@ static void refresh_mode_ring_center_preview(void) {
         snprintf(mid_b, sizeof(mid_b), "%s", snap.ap_engaged ? "AUTO" : "STANDBY");
         snprintf(bot_b, sizeof(bot_b), "CTS %03d°", (int)roundf(wrap_deg(snap.cts_deg)));
     } else if (active_mode == MARINE_MODE_ANCHOR_WATCH) {
-        snprintf(top_b, sizeof(top_b), "%s", snap.anchor_armed ? "ANCHORED" : "READY");
+        snprintf(top_b, sizeof(top_b), "%s", snap.anchor_dropped ? "ANCHORED" : "READY");
         snprintf(mid_b, sizeof(mid_b), "%dm / %um", (int)roundf(snap.anchor_dist_m), snap.anchor_radius_m);
         snprintf(bot_b, sizeof(bot_b), "%s", snap.gps_3d_fix ? "3D FIX" : "NO FIX");
     } else if (active_mode == MARINE_MODE_DIMMER) {
@@ -917,23 +942,66 @@ static void ap_refresh(void) {
 }
 
 // --- Screen 2: Anchor Watch ---
+// --- Screen 2: Anchor. The watch circle is the plot (design B in docs/ui-design.md): ring = the chosen radius, boat dot =
+// distance and bearing from the anchor, a short trail of earlier positions, flat numbers, curved state and telemetry lines. ---
+#define ANC_R 72                     // watch circle radius on screen, px
+#define ANC_TRAIL_STEP_MS 3000
+
+static float anc_hist_ratio[4], anc_hist_brg[4];
+static uint8_t anc_hist_n = 0;
+static uint32_t anc_hist_ms = 0;
+
+static void anc_show(lv_obj_t *o, bool on) {
+    if (on) lv_obj_remove_flag(o, LV_OBJ_FLAG_HIDDEN);
+    else lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
+}
+
+static lv_obj_t* anc_make_ring(lv_obj_t *scr, int diameter, bool filled, int border_w) {
+    lv_obj_t *o = lv_obj_create(scr);
+    lv_obj_set_size(o, diameter, diameter);
+    lv_obj_center(o);
+    lv_obj_set_style_radius(o, LV_RADIUS_CIRCLE, 0);
+    if (filled) lv_obj_set_style_bg_color(o, COL_CARD, 0);
+    else lv_obj_set_style_bg_opa(o, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(o, border_w, 0);
+    lv_obj_remove_flag(o, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+    return o;
+}
+
+static lv_obj_t* anc_make_label(lv_obj_t *scr, const lv_font_t *font, int y_off) {
+    lv_obj_t *l = lv_label_create(scr);
+    lv_label_set_text(l, "");
+    lv_obj_set_style_text_font(l, font, 0);
+    lv_obj_align(l, LV_ALIGN_CENTER, 0, y_off);
+    return l;
+}
+
 static lv_obj_t* build_anchor_screen(void) {
     lv_obj_t *scr = lv_obj_create(NULL);
     lv_obj_set_size(scr, 240, 240);
     lv_obj_set_style_bg_color(scr, COL_BG, 0);
     lv_obj_remove_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
 
-    anc_ring = lv_obj_create(scr);
-    lv_obj_set_size(anc_ring, 144, 144);
-    lv_obj_center(anc_ring);
-    lv_obj_set_style_radius(anc_ring, LV_RADIUS_CIRCLE, 0);
-    lv_obj_set_style_bg_color(anc_ring, COL_CARD, 0);
-    lv_obj_set_style_border_width(anc_ring, 2, 0);
+    anc_ring = anc_make_ring(scr, ANC_R * 2, true, 2);
+    anc_ring_half = anc_make_ring(scr, ANC_R, false, 1);
+    lv_obj_set_style_border_color(anc_ring_half, lv_color_hex(0x233856), 0);
+    anc_ring_prev = anc_make_ring(scr, ANC_R * 2, false, 3);
+    lv_obj_add_flag(anc_ring_prev, LV_OBJ_FLAG_HIDDEN);
 
-    anc_lbl_center = lv_label_create(scr);
-    lv_label_set_text(anc_lbl_center, "HOLD FOR ACTIONS");
-    lv_obj_set_style_text_font(anc_lbl_center, &lv_font_montserrat_12, 0);
-    lv_obj_align(anc_lbl_center, LV_ALIGN_CENTER, 0, 14);
+    for (int i = 0; i < 3; i++) {
+        int d = 6 - i;
+        anc_trail[i] = lv_obj_create(scr);
+        lv_obj_set_size(anc_trail[i], d, d);
+        lv_obj_set_style_radius(anc_trail[i], LV_RADIUS_CIRCLE, 0);
+        lv_obj_set_style_bg_color(anc_trail[i], COL_GREEN, 0);
+        lv_obj_set_style_bg_opa(anc_trail[i], (lv_opa_t)(LV_OPA_70 - i * 40), 0);
+        lv_obj_set_style_border_width(anc_trail[i], 0, 0);
+        lv_obj_remove_flag(anc_trail[i], LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_add_flag(anc_trail[i], LV_OBJ_FLAG_HIDDEN);
+    }
+
+    anc_icon = icon_canvas_create(scr, 24, &anc_icon_buf);
+    lv_obj_center(anc_icon);
 
     anc_boat_dot = lv_obj_create(scr);
     lv_obj_set_size(anc_boat_dot, 12, 12);
@@ -941,10 +1009,206 @@ static lv_obj_t* build_anchor_screen(void) {
     lv_obj_set_style_bg_color(anc_boat_dot, COL_GREEN, 0);
     lv_obj_set_style_border_color(anc_boat_dot, COL_TEXT_MAIN, 0);
     lv_obj_set_style_border_width(anc_boat_dot, 2, 0);
+    lv_obj_remove_flag(anc_boat_dot, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+
+    anc_lbl_radius = anc_make_label(scr, &lv_font_montserrat_12, -58);
+    anc_lbl_dist = anc_make_label(scr, &lv_font_montserrat_14, 0);
+    anc_lbl_center = anc_make_label(scr, &lv_font_montserrat_12, 36);
+    anc_lbl_hint = anc_make_label(scr, &lv_font_montserrat_12, 54);
+    anc_lbl_big = anc_make_label(scr, &lv_font_montserrat_28, 38);
 
     anc_canvas_top = create_curved_canvas(scr, LV_ALIGN_TOP_MID, &anc_buf_top);
     anc_canvas_bot = create_curved_canvas(scr, LV_ALIGN_BOTTOM_MID, &anc_buf_bot);
     return scr;
+}
+
+// Centre of the object on the plot: ratio = distance / radius (1.0 = on the circle), bearing from the anchor, north up.
+static void anc_place(lv_obj_t *o, float ratio, float bearing_deg) {
+    if (ratio > 1.1f) ratio = 1.1f;
+    float th = (bearing_deg - 90.0f) * (float)(M_PI / 180.0);
+    lv_obj_align(o, LV_ALIGN_CENTER, (int)lroundf(cosf(th) * ratio * ANC_R), (int)lroundf(sinf(th) * ratio * ANC_R));
+}
+
+// Bottom line: only what this boat publishes. A value that never arrived is left out, a stale one shows ---.
+static void anchor_telemetry(char *out, size_t n, uint32_t dbits) {
+    char part[3][16];
+    int k = 0;
+    if (snap.depth_updated_ms != 0) {
+        if (dbits & SB_DEPTH) snprintf(part[k++], sizeof(part[0]), "---m");
+        else snprintf(part[k++], sizeof(part[0]), "%.1fm", snap.depth_m);
+    }
+    if (snap.voltage_updated_ms != 0) {
+        if (dbits & SB_VOLTAGE) snprintf(part[k++], sizeof(part[0]), "---V");
+        else snprintf(part[k++], sizeof(part[0]), "%.1fV", snap.voltage_v);
+    }
+    if (dbits & SB_GPS) snprintf(part[k++], sizeof(part[0]), "---");
+    else snprintf(part[k++], sizeof(part[0]), "%s", snap.gps_3d_fix ? "3D FIX" : "NO FIX");
+    out[0] = '\0';
+    for (int i = 0; i < k; i++) {
+        if (i) strncat(out, " \xE2\x80\xA2 ", n - strlen(out) - 1);   // " • "
+        strncat(out, part[i], n - strlen(out) - 1);
+    }
+}
+
+static void anchor_menu_render(void) {
+    static const int16_t y3[3] = { -42, -8, 26 };   // item centres relative to the screen centre
+    static const int16_t y2[2] = { -24, 10 };
+    const int16_t *ys = (anc_menu_count == 3) ? y3 : y2;
+    for (int i = 0; i < 3; i++) {
+        if (i >= anc_menu_count) { lv_obj_add_flag(anc_menu_items[i], LV_OBJ_FLAG_HIDDEN); continue; }
+        lv_obj_remove_flag(anc_menu_items[i], LV_OBJ_FLAG_HIDDEN);
+        lv_label_set_text(anc_menu_items[i], anc_items[i].text);
+        bool sel = (i == anchor_menu_idx);
+        lv_obj_set_style_text_color(anc_menu_items[i], sel ? COL_BG : (anc_items[i].danger ? c_red() : c_text()), 0);
+        lv_obj_align(anc_menu_items[i], LV_ALIGN_CENTER, 0, ys[i]);
+    }
+    lv_obj_set_style_bg_color(anc_menu_pill, c_amber(), 0);
+    lv_obj_align(anc_menu_pill, LV_ALIGN_CENTER, 0, ys[anchor_menu_idx]);
+}
+
+// The dialog opened by a long press: the actions that are valid in the current state, and Cancel.
+static void anchor_menu_open_dialog(void) {
+    anchor_menu_open = true;
+    anchor_menu_idx = 0;
+    anchor_menu_opened_ms = snap.now_ms;
+    uint16_t r = anchor_preview_active ? anchor_preview_radius : snap.anchor_radius_m;
+    char b[40];
+    if (snap.anchor_dropped) {
+        lv_label_set_text(anc_menu_title, "ANCHOR ACTIONS");
+        lv_label_set_text(anc_menu_info, "");
+        anc_items[0] = (anc_item_t){ "MOVE DROP POINT HERE", MARINE_ACT_ANCHOR_MOVE_DROP, false, false };
+        anc_items[1] = (anc_item_t){ "RAISE ANCHOR", MARINE_ACT_ANCHOR_RAISE, false, true };
+        anc_items[2] = (anc_item_t){ "CANCEL", MARINE_ACT_ANCHOR_RAISE, true, false };
+        anc_menu_count = 3;
+    } else {
+        lv_label_set_text(anc_menu_title, "DROP ANCHOR");
+        snprintf(b, sizeof(b), "%u m circle at this position", (unsigned)r);
+        lv_label_set_text(anc_menu_info, b);
+        anc_items[0] = (anc_item_t){ "DROP HERE", MARINE_ACT_ANCHOR_DROP, false, false };
+        anc_items[1] = (anc_item_t){ "CANCEL", MARINE_ACT_ANCHOR_DROP, true, false };
+        anc_menu_count = 2;
+    }
+    lv_label_set_text(anc_menu_hint, "TURN \xE2\x80\xA2 PRESS");   // TURN • PRESS
+    lv_obj_set_style_text_color(anc_menu_title, c_amber(), 0);
+    lv_obj_set_style_text_color(anc_menu_info, c_muted(), 0);
+    lv_obj_set_style_text_color(anc_menu_hint, c_muted(), 0);
+    lv_obj_set_style_border_color(ovl_anc_menu, c_amber(), 0);
+    anchor_menu_render();
+    lv_obj_remove_flag(ovl_anc_menu, LV_OBJ_FLAG_HIDDEN);
+}
+
+static void anchor_pending_close(void) {
+    anc_pend = ANC_PEND_NONE;
+    lv_obj_add_flag(ovl_anc_res, LV_OBJ_FLAG_HIDDEN);
+    if (active_mode == MARINE_MODE_ANCHOR_WATCH) anchor_refresh();
+}
+
+static void anchor_dialogs_close(void) {
+    if (anchor_menu_open) {
+        anchor_menu_open = false;
+        lv_obj_add_flag(ovl_anc_menu, LV_OBJ_FLAG_HIDDEN);
+    }
+    if (anc_pend != ANC_PEND_NONE) {
+        anc_pend = ANC_PEND_NONE;
+        lv_obj_add_flag(ovl_anc_res, LV_OBJ_FLAG_HIDDEN);
+    }
+}
+
+static void anchor_pending_refuse(uint8_t code) {    anc_pend = ANC_PEND_REFUSED;
+    anc_pend_until_ms = snap.now_ms + 4000;
+    const char *t = "NOT SENT", *s1 = "", *s2 = "NOTHING WAS CHANGED";
+    switch (code) {
+    case MARINE_RESULT_LIVE_OFF: s1 = "LIVE CONTROL IS OFF"; break;
+    case MARINE_RESULT_NO_LINK: s1 = "NO LINK TO THE SERVER"; break;
+    case MARINE_RESULT_NO_POSITION: s1 = "NO POSITION FIX"; break;
+    case MARINE_RESULT_FAILED: t = "FAILED"; s1 = "THE SERVER REFUSED IT"; s2 = "CHECK THE ANCHOR PLUGIN"; break;
+    default: t = "NOT CONFIRMED"; s1 = "NO ANSWER FROM THE SERVER"; s2 = "CHECK THE ANCHOR SCREEN"; break;
+    }
+    lv_obj_set_style_border_color(ovl_anc_res, c_red(), 0);
+    lv_obj_add_flag(anc_res_arc, LV_OBJ_FLAG_HIDDEN);
+    icon_recolor(anc_res_icon, ICON_CROSS, 52, c_red(), &anc_res_icon_col);
+    lv_obj_remove_flag(anc_res_icon, LV_OBJ_FLAG_HIDDEN);
+    lv_label_set_text(anc_res_t, t);
+    lv_obj_set_style_text_color(anc_res_t, c_red(), 0);
+    lv_label_set_text(anc_res_s1, s1);
+    lv_label_set_text(anc_res_s2, s2);
+    lv_obj_remove_flag(ovl_anc_res, LV_OBJ_FLAG_HIDDEN);
+}
+
+static void anchor_start_action(marine_ui_action_type_t act, int32_t value) {
+    char b[40];
+    const char *t = "WORKING...", *s1 = "";
+    switch (act) {
+    case MARINE_ACT_ANCHOR_DROP:
+        t = "DROPPING...";
+        snprintf(b, sizeof(b), "%u m AT THIS POSITION", (unsigned)snap.anchor_radius_m);
+        s1 = b;
+        break;
+    case MARINE_ACT_ANCHOR_MOVE_DROP: t = "MOVING DROP POINT..."; s1 = "TO THIS POSITION"; break;
+    case MARINE_ACT_ANCHOR_RAISE: t = "RAISING..."; s1 = "THE WATCH STOPS"; break;
+    case MARINE_ACT_ANCHOR_SET_RADIUS:
+        t = "SETTING RADIUS...";
+        snprintf(b, sizeof(b), "TO %ld m", (long)value);
+        s1 = b;
+        break;
+    default: break;
+    }
+    anc_pend = ANC_PEND_WAIT;
+    anc_pend_act = act;
+    anc_pend_start_ms = snap.now_ms;
+    anc_pend_ok = false;
+    anc_pend_expect = (act == MARINE_ACT_ANCHOR_DROP) ? 1 : (act == MARINE_ACT_ANCHOR_RAISE ? 0 : -1);
+    anc_seen_seq = snap.action_result_seq;
+    lv_obj_set_style_border_color(ovl_anc_res, c_amber(), 0);
+    lv_obj_add_flag(anc_res_icon, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_set_style_arc_color(anc_res_arc, c_amber(), LV_PART_INDICATOR);
+    lv_obj_remove_flag(anc_res_arc, LV_OBJ_FLAG_HIDDEN);
+    lv_label_set_text(anc_res_t, t);
+    lv_obj_set_style_text_color(anc_res_t, c_text(), 0);
+    lv_label_set_text(anc_res_s1, s1);
+    lv_label_set_text(anc_res_s2, "");
+    lv_obj_remove_flag(ovl_anc_res, LV_OBJ_FLAG_HIDDEN);
+    emit_action(MARINE_MODE_ANCHOR_WATCH, act, value, 0);
+}
+
+// Every tick: the result of the last action arrives in the snapshot, the state change follows through the data stream.
+static void anchor_pending_update(void) {
+    if (anc_pend == ANC_PEND_NONE) return;
+    uint32_t now = snap.now_ms;
+    if (anc_pend == ANC_PEND_REFUSED) {
+        if (now >= anc_pend_until_ms) anchor_pending_close();
+        return;
+    }
+    lv_arc_set_rotation(anc_res_arc, (int32_t)((now / 3U) % 360U));
+    if (snap.action_result_seq != anc_seen_seq) {
+        anc_seen_seq = snap.action_result_seq;
+        if (snap.action_result == MARINE_RESULT_OK) {
+            anc_pend_ok = true;
+            anc_pend_ok_ms = now;
+        } else {
+            anchor_pending_refuse(snap.action_result);
+            return;
+        }
+    }
+    bool done = (anc_pend_expect < 0) ? anc_pend_ok : (snap.anchor_dropped == (anc_pend_expect == 1));
+    if (done) {
+        anchor_pending_close();
+    } else if (anc_pend_ok ? (now - anc_pend_ok_ms > 6000U) : (now - anc_pend_start_ms > 8000U)) {
+        anchor_pending_refuse(0);
+    }
+}
+
+static void anchor_menu_choose(void) {
+    anc_item_t it = anc_items[anchor_menu_idx];
+    anchor_menu_open = false;
+    lv_obj_add_flag(ovl_anc_menu, LV_OBJ_FLAG_HIDDEN);
+    if (it.cancel) return;
+    if (it.act == MARINE_ACT_ANCHOR_DROP && anchor_preview_active) {
+        // the radius turned to but not applied yet is the one to drop with
+        emit_action(MARINE_MODE_ANCHOR_WATCH, MARINE_ACT_ANCHOR_SET_RADIUS, anchor_preview_radius, 0);
+        anchor_preview_active = false;
+    }
+    anchor_start_action(it.act, 1);
 }
 
 static void anchor_on_input(marine_semantic_input_t ev, int32_t val) {
@@ -959,59 +1223,129 @@ static void anchor_on_input(marine_semantic_input_t ev, int32_t val) {
     } else if (ev == MARINE_INPUT_SINGLE_PRESS && anchor_preview_active) {
         uint16_t r = anchor_preview_radius;
         anchor_preview_active = false;
-        emit_action(MARINE_MODE_ANCHOR_WATCH, MARINE_ACT_ANCHOR_SET_RADIUS, r, 0);
+        if (snap.anchor_dropped) anchor_start_action(MARINE_ACT_ANCHOR_SET_RADIUS, r);   // a server call
+        else emit_action(MARINE_MODE_ANCHOR_WATCH, MARINE_ACT_ANCHOR_SET_RADIUS, r, 0); // only remembered for the next drop
+        anchor_refresh();
     } else if (ev == MARINE_INPUT_LONG_PRESS) {
-        anchor_menu_open = true;
-        anchor_menu_idx = 0;
-        anchor_menu_opened_ms = snap.now_ms;
-        lv_label_set_text(anc_menu_items[0], snap.anchor_armed ? "MOVE DROP POINT HERE" : "ARM HERE");
-        if (snap.anchor_armed) lv_obj_remove_flag(anc_menu_items[1], LV_OBJ_FLAG_HIDDEN);
-        else lv_obj_add_flag(anc_menu_items[1], LV_OBJ_FLAG_HIDDEN);
-        lv_obj_remove_flag(ovl_anc_menu, LV_OBJ_FLAG_HIDDEN);
+        anchor_menu_open_dialog();
     }
 }
 
 static void anchor_refresh(void) {
-    char top_buf[48], bot_buf[48];
+    char top_buf[48], bot_buf[48], tmp[32];
     bool mask = (current_stale() != STALE_NONE);   // essential anchor data (or the link) stale: mask the mode
     uint32_t dbits = display_stale_bits();          // display-only values stale: mask just those
-    uint16_t r = anchor_preview_active ? anchor_preview_radius : snap.anchor_radius_m;
+
+    anc_show(anc_ring_prev, false);
+    anc_show(anc_icon, false);
+    anc_show(anc_boat_dot, false);
+    for (int i = 0; i < 3; i++) anc_show(anc_trail[i], false);
+    anc_show(anc_lbl_radius, false);
+    anc_show(anc_lbl_dist, false);
+    anc_show(anc_lbl_center, false);
+    anc_show(anc_lbl_hint, false);
+    anc_show(anc_lbl_big, false);
 
     if (mask) {
-        update_curved_canvas(anc_canvas_top, anc_cache_top, "--- / ---", false, c_muted());
-        update_curved_canvas(anc_canvas_bot, anc_cache_bot, "---m • ---V • ---", true, c_muted());
-        lv_obj_add_flag(anc_boat_dot, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_style_border_color(anc_ring, lv_color_hex(0x233856), 0);
+        lv_obj_set_style_border_opa(anc_ring, LV_OPA_COVER, 0);
+        anc_show(anc_ring_half, false);
+        update_curved_canvas(anc_canvas_top, anc_cache_top, "ANCHOR", false, c_muted());
+        update_curved_canvas(anc_canvas_bot, anc_cache_bot, "---", true, c_muted());
         return;
     }
+    anc_show(anc_ring_half, true);
 
-    if (anchor_preview_active) {
-        snprintf(top_buf, sizeof(top_buf), "SET RADIUS • %um", r);
+    bool eng = snap.anchor_dropped;
+    bool prev = anchor_preview_active;
+    uint16_t cur_r = snap.anchor_radius_m ? snap.anchor_radius_m : 35;
+
+    // The ring is the chosen radius. While turning, the new radius is a second ring and the old one fades back.
+    lv_obj_set_style_border_color(anc_ring, eng ? c_primary() : lv_color_hex(0x284166), 0);
+    lv_obj_set_style_border_opa(anc_ring, prev ? LV_OPA_40 : LV_OPA_COVER, 0);
+
+    const char *top; lv_color_t top_col;
+    if (prev) { top = "SET RADIUS"; top_col = c_amber(); }
+    else if (eng) { top = "DROPPED"; top_col = c_primary(); }
+    else { top = "RAISED"; top_col = c_muted(); }
+    snprintf(top_buf, sizeof(top_buf), "%s", top);
+
+    if (prev) {
+        int px = (int)lroundf((float)ANC_R * (float)anchor_preview_radius / (float)cur_r);
+        if (px < 24) px = 24;
+        if (px > 100) px = 100;
+        lv_obj_set_size(anc_ring_prev, px * 2, px * 2);
+        lv_obj_center(anc_ring_prev);
+        lv_obj_set_style_border_color(anc_ring_prev, c_amber(), 0);
+        anc_show(anc_ring_prev, true);
+        snprintf(tmp, sizeof(tmp), "%u m", (unsigned)anchor_preview_radius);
+        lv_label_set_text(anc_lbl_big, tmp);
+        lv_obj_set_style_text_color(anc_lbl_big, c_amber(), 0);
+        lv_obj_align(anc_lbl_big, LV_ALIGN_CENTER, 0, 38);
+        anc_show(anc_lbl_big, true);
         lv_label_set_text(anc_lbl_center, "PRESS TO APPLY");
-        lv_obj_set_style_border_color(anc_ring, c_amber(), 0);
-    } else if (snap.anchor_armed) {
-        snprintf(top_buf, sizeof(top_buf), "ANCHORED • %dm / %um", (int)roundf(snap.anchor_dist_m), r);
-        lv_label_set_text(anc_lbl_center, "HOLD FOR ACTIONS");
-        lv_obj_set_style_border_color(anc_ring, c_primary(), 0);
+        lv_obj_set_style_text_color(anc_lbl_center, c_amber(), 0);
+        lv_obj_align(anc_lbl_center, LV_ALIGN_CENTER, 0, 62);
+        anc_show(anc_lbl_center, true);
     } else {
-        snprintf(top_buf, sizeof(top_buf), "READY • %um", r);
-        lv_label_set_text(anc_lbl_center, "HOLD TO ARM");
-        lv_obj_set_style_border_color(anc_ring, c_muted(), 0);
+        snprintf(tmp, sizeof(tmp), "%u m", (unsigned)cur_r);
+        lv_label_set_text(anc_lbl_radius, tmp);
+        lv_obj_set_style_text_color(anc_lbl_radius, c_muted(), 0);
+        anc_show(anc_lbl_radius, true);
     }
-    lv_obj_set_style_text_color(anc_lbl_center, c_text(), 0);
 
-    format_telemetry(bot_buf, sizeof(bot_buf), dbits, true);
-    update_curved_canvas(anc_canvas_top, anc_cache_top, top_buf, false, anchor_preview_active ? c_amber() : c_primary());
+    if (eng) {
+        icon_recolor(anc_icon, ICON_ANCHOR, 24, c_amber(), &anc_icon_col);
+        anc_show(anc_icon, true);
+        if (snap.gps_3d_fix) {
+            float ratio = snap.anchor_dist_m / (float)cur_r;
+            float brg = snap.anchor_bearing_deg;
+            if (anc_hist_n == 0 || snap.now_ms - anc_hist_ms >= ANC_TRAIL_STEP_MS) {
+                for (int i = 3; i > 0; i--) { anc_hist_ratio[i] = anc_hist_ratio[i - 1]; anc_hist_brg[i] = anc_hist_brg[i - 1]; }
+                anc_hist_ratio[0] = ratio; anc_hist_brg[0] = brg;
+                if (anc_hist_n < 4) anc_hist_n++;
+                anc_hist_ms = snap.now_ms;
+            } else {
+                anc_hist_ratio[0] = ratio; anc_hist_brg[0] = brg;   // the newest sample follows the dot until the next step
+            }
+            for (int i = 0; i < 3; i++) {
+                if (i + 1 < anc_hist_n) { anc_place(anc_trail[i], anc_hist_ratio[i + 1], anc_hist_brg[i + 1]); anc_show(anc_trail[i], true); }
+            }
+            anc_place(anc_boat_dot, ratio, brg);
+            anc_show(anc_boat_dot, true);
+            if (!prev) {
+                snprintf(tmp, sizeof(tmp), "%d m", (int)lroundf(snap.anchor_dist_m));
+                lv_label_set_text(anc_lbl_dist, tmp);
+                lv_obj_set_style_text_color(anc_lbl_dist, c_text(), 0);
+                // beside the dot, on the side away from the anchor so the glyph stays clear
+                bool right = lv_obj_get_x_aligned(anc_boat_dot) >= 0;
+                lv_obj_align_to(anc_lbl_dist, anc_boat_dot, right ? LV_ALIGN_OUT_RIGHT_MID : LV_ALIGN_OUT_LEFT_MID, right ? 4 : -4, 0);
+                anc_show(anc_lbl_dist, true);
+            }
+        } else if (!prev) {
+            lv_label_set_text(anc_lbl_dist, "NO FIX");
+            lv_obj_set_style_text_color(anc_lbl_dist, c_amber(), 0);
+            lv_obj_align(anc_lbl_dist, LV_ALIGN_CENTER, 0, 30);
+            anc_show(anc_lbl_dist, true);
+        }
+    } else {
+        anc_hist_n = 0;
+        lv_obj_align(anc_boat_dot, LV_ALIGN_CENTER, 0, 0);   // the boat is the drop point
+        anc_show(anc_boat_dot, true);
+        if (!prev) {
+            lv_label_set_text(anc_lbl_center, "HOLD TO DROP");
+            lv_obj_set_style_text_color(anc_lbl_center, c_text(), 0);
+            lv_obj_align(anc_lbl_center, LV_ALIGN_CENTER, 0, 36);
+            anc_show(anc_lbl_center, true);
+            lv_label_set_text(anc_lbl_hint, "TURN TO SET RADIUS");
+            lv_obj_set_style_text_color(anc_lbl_hint, c_muted(), 0);
+            anc_show(anc_lbl_hint, true);
+        }
+    }
+
+    anchor_telemetry(bot_buf, sizeof(bot_buf), dbits);
+    update_curved_canvas(anc_canvas_top, anc_cache_top, top_buf, false, top_col);
     update_curved_canvas(anc_canvas_bot, anc_cache_bot, bot_buf, true, c_muted());
-
-    if (snap.anchor_armed && snap.gps_3d_fix) {
-        lv_obj_remove_flag(anc_boat_dot, LV_OBJ_FLAG_HIDDEN);
-        float ratio = snap.anchor_dist_m / (float)r;
-        if (ratio > 1.15f) ratio = 1.15f;
-        float th = (snap.anchor_bearing_deg - 90.0f) * (float)(M_PI / 180.0);
-        lv_obj_align(anc_boat_dot, LV_ALIGN_CENTER, (int)(cosf(th) * ratio * 68.0f), (int)(sinf(th) * ratio * 68.0f));
-    } else {
-        lv_obj_add_flag(anc_boat_dot, LV_OBJ_FLAG_HIDDEN);
-    }
 }
 
 // --- Screen 3: Dimmer (Buffered pending value across rapid turns + 7-preset RGBW variant) ---
@@ -1449,7 +1783,7 @@ static void build_overlays_and_system(void) {
     lv_obj_set_style_text_font(ap_confirm_lbl_sec, &lv_font_montserrat_12, 0);
     lv_obj_align(ap_confirm_lbl_sec, LV_ALIGN_CENTER, 0, 34);
 
-    // 5. Anchor Action Menu
+    // 5. Anchor dialog (a choice of actions) and the pending / refused screen that follows it
     ovl_anc_menu = lv_obj_create(lv_layer_top());
     lv_obj_set_size(ovl_anc_menu, 240, 240);
     lv_obj_center(ovl_anc_menu);
@@ -1461,12 +1795,53 @@ static void build_overlays_and_system(void) {
     lv_obj_remove_flag(ovl_anc_menu, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_add_flag(ovl_anc_menu, LV_OBJ_FLAG_HIDDEN);
 
-    for (int i = 0; i < 2; i++) {
-        anc_menu_items[i] = lv_label_create(ovl_anc_menu);
-        lv_obj_set_style_text_font(anc_menu_items[i], &lv_font_montserrat_14, 0);
-        lv_obj_align(anc_menu_items[i], LV_ALIGN_CENTER, 0, -14 + i * 32);
+    anc_menu_title = anc_make_label(ovl_anc_menu, &lv_font_montserrat_12, -80);
+    anc_menu_info = anc_make_label(ovl_anc_menu, &lv_font_montserrat_12, -60);
+    anc_menu_pill = lv_obj_create(ovl_anc_menu);   // behind the item labels: created first
+    lv_obj_set_size(anc_menu_pill, 190, 30);
+    lv_obj_set_style_radius(anc_menu_pill, 15, 0);
+    lv_obj_set_style_bg_color(anc_menu_pill, COL_AMBER, 0);
+    lv_obj_set_style_border_width(anc_menu_pill, 0, 0);
+    lv_obj_remove_flag(anc_menu_pill, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+    for (int i = 0; i < 3; i++) {
+        anc_menu_items[i] = anc_make_label(ovl_anc_menu, &lv_font_montserrat_14, 0);
+        lv_obj_set_style_text_color(anc_menu_items[i], COL_TEXT_MAIN, 0);
     }
+    anc_menu_hint = anc_make_label(ovl_anc_menu, &lv_font_montserrat_12, 84);
 
+    ovl_anc_res = lv_obj_create(lv_layer_top());
+    lv_obj_set_size(ovl_anc_res, 240, 240);
+    lv_obj_center(ovl_anc_res);
+    lv_obj_set_style_radius(ovl_anc_res, LV_RADIUS_CIRCLE, 0);
+    lv_obj_set_style_bg_color(ovl_anc_res, COL_BG, 0);
+    lv_obj_set_style_bg_opa(ovl_anc_res, LV_OPA_90, 0);
+    lv_obj_set_style_border_width(ovl_anc_res, 3, 0);
+    lv_obj_set_style_border_color(ovl_anc_res, COL_AMBER, 0);
+    lv_obj_remove_flag(ovl_anc_res, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(ovl_anc_res, LV_OBJ_FLAG_HIDDEN);
+
+    anc_res_arc = lv_arc_create(ovl_anc_res);   // the spinner: a quarter of a circle that is turned every tick
+    lv_obj_set_size(anc_res_arc, 56, 56);
+    lv_obj_align(anc_res_arc, LV_ALIGN_CENTER, 0, -24);
+    lv_arc_set_bg_angles(anc_res_arc, 0, 360);
+    lv_arc_set_range(anc_res_arc, 0, 100);
+    lv_arc_set_value(anc_res_arc, 25);
+    lv_obj_remove_style(anc_res_arc, NULL, LV_PART_KNOB);
+    lv_obj_remove_flag(anc_res_arc, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_style_arc_width(anc_res_arc, 4, LV_PART_MAIN);
+    lv_obj_set_style_arc_width(anc_res_arc, 4, LV_PART_INDICATOR);
+    lv_obj_set_style_arc_color(anc_res_arc, lv_color_hex(0x233856), LV_PART_MAIN);
+    lv_obj_set_style_arc_color(anc_res_arc, COL_AMBER, LV_PART_INDICATOR);
+
+    anc_res_icon = icon_canvas_create(ovl_anc_res, 52, &anc_res_icon_buf);
+    lv_obj_align(anc_res_icon, LV_ALIGN_CENTER, 0, -24);
+    lv_obj_add_flag(anc_res_icon, LV_OBJ_FLAG_HIDDEN);
+    anc_res_t = anc_make_label(ovl_anc_res, &lv_font_montserrat_14, 24);
+    anc_res_s1 = anc_make_label(ovl_anc_res, &lv_font_montserrat_12, 46);
+    anc_res_s2 = anc_make_label(ovl_anc_res, &lv_font_montserrat_12, 64);
+    lv_obj_set_style_text_color(anc_res_t, COL_TEXT_MAIN, 0);
+    lv_obj_set_style_text_color(anc_res_s1, COL_TEXT_MUTED, 0);
+    lv_obj_set_style_text_color(anc_res_s2, COL_TEXT_MUTED, 0);
     // 6. Styled Boot & Pairing System Screen (Tick Ring + Curved Labels + Pill)
     scr_system = lv_obj_create(NULL);
     lv_obj_set_size(scr_system, 240, 240);
@@ -1625,10 +2000,7 @@ static void cancel_transients(void) {
         ap_confirm_open = false;
         lv_obj_add_flag(ovl_ap_confirm, LV_OBJ_FLAG_HIDDEN);
     }
-    if (anchor_menu_open) {
-        anchor_menu_open = false;
-        lv_obj_add_flag(ovl_anc_menu, LV_OBJ_FLAG_HIDDEN);
-    }
+    anchor_dialogs_close();
     ap_pending_active = false;
     ap_pending_sent = false;
     dimmer_pending_active = false;
@@ -1781,6 +2153,7 @@ static void dispatch_semantic(marine_semantic_input_t ev, int32_t val) {
     // controls are gated further down. HID mode is never stale (it needs the USB host, not the SignalK link).
 
     if (ev == MARINE_INPUT_DOUBLE_PRESS) {
+        anchor_dialogs_close();
         if (mode_ring_open) close_mode_ring(false);
         else open_mode_ring();
         return;
@@ -1818,23 +2191,24 @@ static void dispatch_semantic(marine_semantic_input_t ev, int32_t val) {
         return;
     }
 
-    if (anchor_menu_open) {
-        uint8_t count = snap.anchor_armed ? 2 : 1;
-        if (ev == MARINE_INPUT_TURN) {
-            anchor_menu_opened_ms = snap.now_ms;
-            anchor_menu_idx = (uint8_t)((anchor_menu_idx + val + 4) % count);
-            lv_obj_set_style_text_color(anc_menu_items[0], anchor_menu_idx == 0 ? c_amber() : c_text(), 0);
-            lv_obj_set_style_text_color(anc_menu_items[1], anchor_menu_idx == 1 ? c_amber() : c_text(), 0);
-        } else if (ev == MARINE_INPUT_SINGLE_PRESS) {
-            anchor_menu_open = false;
-            lv_obj_add_flag(ovl_anc_menu, LV_OBJ_FLAG_HIDDEN);
-            if (!snap.anchor_armed) emit_action(MARINE_MODE_ANCHOR_WATCH, MARINE_ACT_ANCHOR_ARM_HERE, 1, 0);
-            else if (anchor_menu_idx == 0) emit_action(MARINE_MODE_ANCHOR_WATCH, MARINE_ACT_ANCHOR_MOVE_DROP, 1, 0);
-            else emit_action(MARINE_MODE_ANCHOR_WATCH, MARINE_ACT_ANCHOR_DISARM, 1, 0);
-        }
+    if (anc_pend != ANC_PEND_NONE) {
+        // The pending screen only waits. A press dismisses it (the call is sent already), a refusal goes with any input.
+        if (ev == MARINE_INPUT_SINGLE_PRESS || (anc_pend == ANC_PEND_REFUSED && ev != MARINE_INPUT_DOUBLE_PRESS)) anchor_pending_close();
         return;
     }
 
+    if (anchor_menu_open) {
+        if (ev == MARINE_INPUT_TURN) {
+            anchor_menu_opened_ms = snap.now_ms;
+            anchor_menu_idx = (uint8_t)((anchor_menu_idx + (val > 0 ? 1 : anc_menu_count - 1)) % anc_menu_count);
+            anchor_menu_render();
+        } else if (ev == MARINE_INPUT_SINGLE_PRESS) {
+            anchor_menu_choose();
+        } else if (ev == MARINE_INPUT_LONG_PRESS) {
+            anchor_dialogs_close();   // a long press again leaves the dialog without choosing
+        }
+        return;
+    }
     if (mode_registry[active_mode].on_input) {
         mode_registry[active_mode].on_input(ev, val);
     }
@@ -1871,7 +2245,7 @@ void marine_ui_load_demo_snapshot(marine_ui_snapshot_t *out_snap) {
     out_snap->depth_m = 6.4f;
     out_snap->voltage_v = 12.8f;
     out_snap->gps_3d_fix = true;
-    out_snap->anchor_armed = true;
+    out_snap->anchor_dropped = true;
     out_snap->anchor_radius_m = 35;
     out_snap->anchor_dist_m = 14.0f;
     out_snap->anchor_bearing_deg = 85.0f;
@@ -2160,6 +2534,7 @@ void marine_ui_tick(uint32_t now_ms) {
         anchor_menu_open = false;
         lv_obj_add_flag(ovl_anc_menu, LV_OBJ_FLAG_HIDDEN);
     }
+    anchor_pending_update();
 
     // 5. Reset setup hold arc (fires only at full MARINE_FACTORY_RESET_HOLD_MS = 5000 ms)
     if (reset_holding && snap.system_screen == MARINE_SCREEN_RESET_SETUP) {

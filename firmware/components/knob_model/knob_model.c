@@ -75,6 +75,8 @@ static model_t s_m;
 
 static volatile bool s_heading_frozen;
 static volatile bool s_bypass_net;
+static volatile uint8_t s_action_result;      /* what became of the last anchor action, marine_action_result_t */
+static volatile uint16_t s_action_result_seq; /* 0 = none yet, changes with every result */
 static volatile bool s_force_down;
 static volatile int s_night_override;   /* 0 follow the server, 1 night, 2 day */
 static volatile int s_alarm_inject;     /* 0 none, else marine_alarm_type_t */
@@ -307,7 +309,7 @@ static void build_snapshot(marine_ui_snapshot_t *s, uint32_t now)
     s->gps_updated_ms = now; s->gps_timeout_ms = 0;
 
     /* Anchor watch (hoekens-anchor-alarm). Not armed: nothing to go stale. */
-    s->anchor_armed = m.anchor_on;
+    s->anchor_dropped = m.anchor_on;
     s->anchor_radius_m = (m.anchor_on && m.anchor_max_m > 0) ? (uint16_t)lroundf(m.anchor_max_m) : knob_actions_anchor_radius();
     s->anchor_dist_m = m.anchor_curr_m;
     double br = m.anchor_bearing_rad * RAD2DEG;
@@ -329,6 +331,8 @@ static void build_snapshot(marine_ui_snapshot_t *s, uint32_t now)
     if (alarm == MARINE_ALARM_NONE) s_ack_latch = false;
     s->active_alarm = alarm;
     s->alarm_acknowledged = alarm != MARINE_ALARM_NONE && s_ack_latch;
+    s->action_result = s_action_result;
+    s->action_result_seq = s_action_result_seq;
 
     /* Lights */
     s->dimmer_group_count = N_LIGHTS;
@@ -404,11 +408,19 @@ static void hook_set_autopilot(bool engaged, bool has_target, double target_rad)
 static void hook_ack_latch(void) { s_ack_latch = true; }
 static bool hook_alarm_injected(void) { return s_alarm_inject != 0; }
 
+static void hook_action_result(uint8_t code)
+{
+    s_action_result = code;
+    uint16_t seq = (uint16_t)(s_action_result_seq + 1);
+    s_action_result_seq = seq ? seq : 1; /* 0 stays "none yet" */
+}
+
 static const knob_actions_hooks_t s_hooks = {
     .get_view = hook_get_view,
     .set_autopilot = hook_set_autopilot,
     .ack_latch = hook_ack_latch,
     .alarm_injected = hook_alarm_injected,
+    .action_result = hook_action_result,
 };
 
 void knob_model_action_cb(const marine_ui_action_t *act, void *ctx)

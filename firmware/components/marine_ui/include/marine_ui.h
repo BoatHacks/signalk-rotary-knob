@@ -62,9 +62,9 @@ typedef enum {
     MARINE_ACT_AP_ENGAGE,           // value = 1
     MARINE_ACT_AP_STANDBY,          // value = 1
     MARINE_ACT_ANCHOR_SET_RADIUS,   // value = radius in meters (10..150)
-    MARINE_ACT_ANCHOR_ARM_HERE,     // value = 1
+    MARINE_ACT_ANCHOR_DROP,       // value = 1 (watch at the current position with the chosen radius)
     MARINE_ACT_ANCHOR_MOVE_DROP,    // value = 1
-    MARINE_ACT_ANCHOR_DISARM,       // value = 1
+    MARINE_ACT_ANCHOR_RAISE,      // value = 1 (stop the watch, the anchor is raised)
     MARINE_ACT_ALARM_ACK,           // value = marine_alarm_type_t
     MARINE_ACT_DIMMER_SET_LEVEL,    // value = 0..100 % (active group in meta)
     MARINE_ACT_DIMMER_TOGGLE_POWER, // value = group_index
@@ -86,6 +86,19 @@ typedef struct {
 } marine_ui_action_t;
 
 typedef void (*marine_ui_action_cb_t)(const marine_ui_action_t *act, void *user_ctx);
+
+/**
+ * @brief What became of the last anchor action, reported by the firmware in the snapshot (action_result and
+ *        action_result_seq). The UI shows a pending screen after it sends an anchor action and ends it with the result.
+ */
+typedef enum {
+    MARINE_RESULT_NONE = 0,
+    MARINE_RESULT_OK,           // the server accepted the call (the new state follows through the data stream)
+    MARINE_RESULT_LIVE_OFF,     // live control is off, nothing was sent
+    MARINE_RESULT_NO_LINK,      // not online, nothing was sent
+    MARINE_RESULT_NO_POSITION,  // no fresh position, nothing was sent
+    MARINE_RESULT_FAILED        // the server refused the call or did not answer
+} marine_action_result_t;
 
 #define MARINE_MAX_DIMMER_GROUPS 6
 #define MARINE_RGBW_PRESET_COUNT 7
@@ -156,7 +169,7 @@ typedef struct {
     uint32_t rudder_timeout_ms;
 
     // Anchor Watch & Alarms (essential: anchor distance, bearing and radius)
-    bool anchor_armed;
+    bool anchor_dropped;
     uint16_t anchor_radius_m;
     float anchor_dist_m;
     float anchor_bearing_deg;
@@ -164,6 +177,8 @@ typedef struct {
     uint32_t anchor_timeout_ms;
     marine_alarm_type_t active_alarm;
     bool alarm_acknowledged;
+    uint8_t action_result;        // marine_action_result_t of the latest anchor action
+    uint16_t action_result_seq;   // changes with every new result, 0 = none yet
 
     // Dimmer Groups (Primary) + Optional 7-Preset RGBW Variant Flag
     uint32_t dimmer_updated_ms;   // essential: group levels (0 timeout = never stale by age)

@@ -56,13 +56,31 @@ knob's config **(verify)**.
 
 ### 3.2 Anchor
 
-Shows: the geofence circle with the boat dot (distance and bearing from the anchor), state line (not set, armed, drag alarm),
-radius, and a small data line.
+The watch circle is the plot (design B, agreed 2026-11-23). Words: the anchor is **dropped** or **raised**, the autopilot is
+engaged or in standby, the two are never mixed.
 
+Screens (all text flat except the curved state line on top and the curved telemetry line at the bottom):
+- **Dropped:** cyan ring (the chosen radius, 72 px), a faint ring at 50 %, the anchor in the centre, the green boat dot at its
+  bearing and distance, a short trail of earlier positions, the distance next to the dot, the radius under the top of the ring.
+  Top line `DROPPED`.
+- **Raised:** grey ring, the boat dot in the centre (the drop point), `HOLD TO DROP` and `TURN TO SET RADIUS`. Top line `RAISED`.
+- **Radius preview** (while turning): the old ring fades back, the new radius is an amber ring, large amber `40 m`,
+  `PRESS TO APPLY`. Top line `SET RADIUS`.
+- **Stale:** the plot is hidden, the stale overlay says why (section 6).
+- The bottom line shows only what the boat publishes (depth, volts, GPS fix). A value that never arrived is left out, a stale one
+  shows `---`.
+
+Controls:
 - Turn: preview a new radius (steps of 5 m, range from the knob's config, proposed 10 to 150 m).
-- Single press: apply the previewed radius.
-- Long press: open a prompt listing only the valid actions for the current state: **Arm here**, **Move drop point here**,
-  **Disarm**. Turn chooses, one press confirms, a few seconds without input cancels.
+- Single press: apply the previewed radius. While raised it is only remembered for the next drop, while dropped it goes to the
+  server.
+- Long press: open the dialog, which lists only the valid actions and always ends with **Cancel**. Raised: **Drop here**
+  (with the radius, at the current position). Dropped: **Move drop point here**, **Raise anchor** (red), Cancel. Turn chooses,
+  one press confirms, a long press or 5 s without input leaves it. A radius turned to but not applied is the one used to drop.
+- After a choice the screen shows what is happening: an amber spinner (`DROPPING...`, `MOVING DROP POINT...`, `RAISING...`,
+  `SETTING RADIUS...`) until the server confirms through the data stream, or a red cross with the reason and `NOTHING WAS CHANGED`
+  (`LIVE CONTROL IS OFF`, `NO LINK TO THE SERVER`, `NO POSITION FIX`, `THE SERVER REFUSED IT`, `NOT CONFIRMED` after 8 s). A press
+  dismisses it. The firmware reports the result in the snapshot (`action_result`, `action_result_seq`).
 - Alarm acknowledge: see section 5.
 
 All anchor changes need only the one confirm press (SPEC section 2). Alarm logic stays on the server.
@@ -197,7 +215,7 @@ Priority from highest: alarm, stale, state colour, turn feedback.
 
 - Alarm: all five red, flashing.
 - Stale: slow amber pulse.
-- State colour: steady dim colour for autopilot engaged and anchor armed, nothing in standby. Night mode turns every colour into
+- State colour: steady dim colour for autopilot engaged and anchor dropped, nothing in standby. Night mode turns every colour into
   dim red.
 - Dimmer level and turn feedback: the ring shows the dimmer level, or a short light on each encoder click. Turn feedback is off
   in night mode (glare and power).
@@ -216,7 +234,7 @@ Elements:
   takes the state colour: light grey normally, dim cyan in the engage prompt, grey when stale, red in an alarm.
 - **Autopilot:** CTS bug on the perimeter, red lubber mark at the top, large bold heading, status pill, bold CTS, delta line,
   rudder bar with a red centre tick.
-- **Anchor:** geofence circle with a boat dot, an amber ring when armed, a dashed amber ring for the radius preview.
+- **Anchor:** the watch circle as a plot: cyan ring when dropped, boat dot with a trail, an amber ring for the radius preview (section 3.2).
 - **Curved text, static and dynamic:** labels follow the ring: a label on the top arc (for example `HEADING (HDG)`,
   `ANCHORED · 12 m / 35 m`, `SELECT MODE`) and one on the bottom arc (data line such as `6.4 m · 12.8 V · GPS 3D`, hints such as
   `PRESS TO APPLY`). **Dynamic values are drawn curved too**, they are not limited to fixed labels. The large centre numerals
@@ -275,8 +293,8 @@ Autopilot:
   to 60 px at 35 degrees, green to starboard and red to port. Rudder text 10 px muted at y 192.
 
 Anchor:
-- Geofence circle r 76, fill cyan at 6 % (red at 12 % in alarm), stroke 2. Ring colour is `#284166` when not set, primary when
-  armed, red in alarm.
+- Superseded by design B (section 3.2): watch circle r 72, fill card colour, stroke 2, `#284166` when raised, primary when
+  dropped, red in alarm.
 - Curved text on the top arc (state and distance) and bottom arc (depth, voltage, fix) at r 102, 10 px bold, centred on the top
   and bottom, character step 0.068 rad. Top text is red in alarm, primary otherwise, bottom is muted.
 - Anchor glyph 22 px amber at y 114, hint 11 px bold at y 144, boat dot radius 6 at distance ratio x 74 px (clamped to 1.25),
