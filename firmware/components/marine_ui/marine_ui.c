@@ -493,6 +493,10 @@ static void ap_tick_ring_maybe_update(void) {
 // Every line of text is straight (owner, 2026-11-23): a curved line drawn letter by letter along the rim was hard to read.
 // Near the edge a straight line has little room: about 130 px at y 30 and 150 px at y 210, so the texts there are short.
 
+// --- Drawn vector icons (no font glyphs needed): AUTO gauge, LIGHT bulb, ANCHOR, USB, WARNING triangle ---
+typedef enum { ICON_AUTO = 0, ICON_LIGHT, ICON_ANCHOR, ICON_USB, ICON_GEAR, ICON_WARN, ICON_CROSS,
+               ICON_VOLUME, ICON_PREV, ICON_NEXT, ICON_PLAY, ICON_PAUSE } icon_id_t;
+
 static lv_obj_t* icon_canvas_create(lv_obj_t *parent, int size, uint8_t **out_buf) {
     size_t bytes = (size_t)size * (size_t)size * 4U;
     *out_buf = (uint8_t *)heap_caps_malloc(bytes, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
