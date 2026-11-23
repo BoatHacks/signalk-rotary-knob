@@ -57,11 +57,13 @@ play/pause, zone). Separate from the USB-HID media profile, which controls the c
 None.
 
 ## Steps
-- [ ] knob_model subscriptions and snapshot fields (target list, volumes, state, track).
-- [ ] knob_actions: volume `PUT` with the pause, control `PUT` pulses, zone name fetch.
-- [ ] knob_logic: steps, clamp, target cycle, with host tests.
-- [ ] marine_ui: volume screen with touch targets, ring slot.
-- [ ] Hardware checklist items, manual section.
+- [x] knob_model subscriptions and snapshot fields (target list, volumes, state, track).
+- [x] knob_actions: volume `PUT` (the 0.4 s pause is in the UI), control `PUT` pulses, zone name fetch with a 30 s backoff.
+- [x] knob_logic: steps, clamp, zone path parsing, with host tests. The target cycle uses `knob_list_wrap`.
+- [x] marine_ui: volume screen with touch targets, ring slot after ANCHOR, speaker icon. `knob.volume_mode` hides it.
+- [x] Hardware checklist items, manual section, SPEC 6.3, ui-design 3.6, ARCHITECTURE 2.9d.
+- [ ] Flash and go through the hardware checklist section "Volume". Check that `playback.track` arrives as an object through
+      espOS's SignalK client and that the zone names GET works with the knob's token (both **verify** in the plan).
 
 ## Files
 `firmware/components/marine_ui/*`, `firmware/components/knob_model/knob_model.c`, `firmware/components/knob_actions/knob_actions.c`,

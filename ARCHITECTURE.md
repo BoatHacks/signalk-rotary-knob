@@ -155,6 +155,14 @@ model gives the access point back to espOS's policy after 10 minutes. Reset setu
 the boot hold) clears `wifi.ssid0..3`, forgets the SignalK token and restarts, on the LVGL task. The HID profile is stored too
 (`knob.hid_profile`), the HID long press writes it the same way.
 
+### 2.9d Volume (#6)
+knob_model subscribes to the jukebox paths (SPEC section 6.3), keeps the master volume, playback state, track and up to four
+zones (found from `entertainment.jukebox.zones.<id>.*`, parsed by `knob_jukebox_zone_path`), and fills the snapshot's volume
+targets. knob_actions sends the volume as a SignalK `PUT` of the ratio, the controls as `PUT` 1 then 0 after 300 ms, and fetches
+the zone names over REST on its poll while a zone has none (at most every 30 s). The UI holds a turned volume for 0.4 s before
+it sends it and shows it amber until the server's value matches, like the autopilot target. The mode number is appended
+(stored last mode), its ring position comes from the ring's own order.
+
 ### 2.9c Demo mode (#4)
 Chosen at boot from `knob.demo`; changing the key restarts the knob. In demo mode knob_model stops espOS's SignalK client right
 after `espos_start()` (before Wi-Fi is up), locks knob_actions (every action bound for SignalK is dropped, the autopilot poll

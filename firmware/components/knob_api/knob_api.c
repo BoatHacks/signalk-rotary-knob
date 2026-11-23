@@ -42,6 +42,9 @@ static esp_err_t mode_put(httpd_req_t *req)
     default:
         break;
     }
+    if (!knob_model_mode_enabled(mode)) {
+        return espos_httpd_send_error(req, "409 Conflict", "mode_hidden", "this mode is switched off in the knob's settings");
+    }
     knob_model_set_mode(mode);
     ESP_LOGI(TAG, "mode %s from the API", knob_mode_name(mode));
     return mode_get(req);

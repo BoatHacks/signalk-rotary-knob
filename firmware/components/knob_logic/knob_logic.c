@@ -91,9 +91,9 @@ bool knob_boot_show_mode(bool token_ok, bool *verified)
     return *verified;
 }
 
-int knob_boot_mode(int stored, int count, int hid_mode)
+int knob_boot_mode(int stored, int count, int hid_mode, int settings_mode)
 {
-    if (stored < 0 || stored >= count || stored == hid_mode) return 0;
+    if (stored < 0 || stored >= count || stored == hid_mode || stored == settings_mode) return 0;
     return stored;
 }
 
@@ -102,7 +102,7 @@ bool knob_boot_hid(bool hid_last, bool host_present, uint32_t now_ms, uint32_t w
     return hid_last && host_present && now_ms < window_ms && !user_changed_mode;
 }
 
-static const char *const s_mode_names[KNOB_MODE_COUNT] = { "autopilot", "lights", "anchor", "hid", "settings" };
+static const char *const s_mode_names[KNOB_MODE_COUNT] = { "autopilot", "lights", "anchor", "hid", "settings", "volume" };
 
 int knob_mode_from_name(const char *name)
 {
@@ -218,4 +218,31 @@ knob_confirm_t knob_confirm_step(uint32_t started_ms, uint32_t now_ms, uint32_t 
     if (ev == KNOB_CONFIRM_EV_PRESS) return KNOB_CONFIRM_CANCELLED;
     if (ev == KNOB_CONFIRM_EV_TURN && turn > 0) return KNOB_CONFIRM_DONE;
     return KNOB_CONFIRM_WAITING;
+}
+
+int knob_vol_step(int pct, int clicks)
+{
+    int v = pct + clicks * KNOB_VOL_STEP;
+    return v < 0 ? 0 : v > 100 ? 100 : v;
+}
+
+int knob_vol_pct(double ratio)
+{
+    int v = (int)lround(ratio * 100.0);
+    return v < 0 ? 0 : v > 100 ? 100 : v;
+}
+
+bool knob_jukebox_zone_path(const char *path, char *id, size_t id_n, char *key, size_t key_n)
+{
+    static const char pre[] = "entertainment.jukebox.zones.";
+    if (!path || strncmp(path, pre, sizeof(pre) - 1) != 0) return false;
+    const char *p = path + sizeof(pre) - 1;
+    const char *dot = strchr(p, '.');
+    if (!dot || dot == p || !dot[1] || strchr(dot + 1, '.')) return false;
+    size_t il = (size_t)(dot - p), kl = strlen(dot + 1);
+    if (il >= id_n || kl >= key_n) return false;
+    memcpy(id, p, il);
+    id[il] = '\0';
+    memcpy(key, dot + 1, kl + 1);
+    return true;
 }

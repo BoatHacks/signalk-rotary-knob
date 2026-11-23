@@ -18,6 +18,7 @@ typedef enum {
     MARINE_MODE_ANCHOR_WATCH,
     MARINE_MODE_USB_HID,
     MARINE_MODE_SETTINGS,
+    MARINE_MODE_VOLUME,          // appended: the numbers are stored as the last mode. On the ring it sits after ANCHOR.
     MARINE_MODE_COUNT
 } marine_ui_mode_t;
 
@@ -79,7 +80,9 @@ typedef enum {
     MARINE_ACT_ALARM_LED_SLOW_PULSE,// value = 1 slow red pulse (alarm acknowledged, still active), 0 = stop
     MARINE_ACT_MODE_CHANGED,        // value = marine_ui_mode_t the user switched to on the mode ring (to restore it at boot)
     MARINE_ACT_SETTING_SET,         // value = knob_setting_t, meta = the new value (settings screen, stored by the firmware)
-    MARINE_ACT_SETUP_AP             // value = 1 open the setup access point next to the Wi-Fi, 0 close it
+    MARINE_ACT_SETUP_AP,            // value = 1 open the setup access point next to the Wi-Fi, 0 close it
+    MARINE_ACT_VOL_SET,             // value = volume 0..100 %, meta = target (0 master, 1.. zone)
+    MARINE_ACT_VOL_CONTROL          // value = marine_vol_control_t
 } marine_ui_action_type_t;
 
 typedef struct {
@@ -103,6 +106,18 @@ typedef enum {
     MARINE_RESULT_NO_POSITION,  // no fresh position, nothing was sent
     MARINE_RESULT_FAILED        // the server refused the call or did not answer
 } marine_action_result_t;
+
+typedef enum { MARINE_VOL_PLAY = 0, MARINE_VOL_PAUSE, MARINE_VOL_NEXT, MARINE_VOL_PREVIOUS } marine_vol_control_t;
+typedef enum { MARINE_PLAY_STOPPED = 0, MARINE_PLAY_PLAYING, MARINE_PLAY_PAUSED } marine_play_state_t;
+#define MARINE_MAX_VOL_ZONES 4
+
+typedef struct {
+    char name[16];           // MASTER, or the zone's name (its id until the name is known)
+    uint8_t pct;             // 0..100
+    bool connected;          // a zone's client is there (master: always)
+    uint32_t updated_ms;     // 0 = never received
+    uint32_t timeout_ms;     // 0 = event driven (master)
+} marine_vol_target_t;
 
 #define MARINE_MAX_DIMMER_GROUPS 6
 #define MARINE_RGBW_PRESET_COUNT 7
@@ -226,6 +241,14 @@ typedef struct {
     bool info_allow_control;       // what applies now (stored setting or the serial override)
 
     bool demo;                     // demo mode (#4): simulated data, the DEMO tag is shown on every screen
+
+    // Volume (#6, signalk-jukebox): target 0 is MASTER, then the zones.
+    bool volume_mode;              // the VOLUME slot is on the ring (knob.volume_mode)
+    uint8_t vol_target_count;
+    marine_vol_target_t vol_targets[1 + MARINE_MAX_VOL_ZONES];
+    uint8_t play_state;            // marine_play_state_t
+    char track[40];
+    char artist[32];
 } marine_ui_snapshot_t;
 
 /**

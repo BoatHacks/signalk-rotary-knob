@@ -51,6 +51,7 @@ static const marine_ui_mode_t ring_slot_modes[MARINE_MODE_COUNT] = {
     MARINE_MODE_AUTOPILOT,
     MARINE_MODE_DIMMER,
     MARINE_MODE_ANCHOR_WATCH,
+    MARINE_MODE_VOLUME,
     MARINE_MODE_USB_HID,
     MARINE_MODE_SETTINGS
 };
@@ -207,7 +208,7 @@ static lv_obj_t *ring_slot_boxes[MARINE_MODE_COUNT];
 static lv_obj_t *ring_slot_labels[MARINE_MODE_COUNT];
 static lv_obj_t *ring_slot_icons[MARINE_MODE_COUNT];
 static uint8_t *ring_icon_buf[MARINE_MODE_COUNT];
-static uint32_t ring_icon_col[MARINE_MODE_COUNT] = {0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu};
+static uint32_t ring_icon_col[MARINE_MODE_COUNT];   // set to "never drawn" when the ring is built
 static lv_obj_t *ring_center_top;
 static lv_obj_t *ring_center_mid;
 static lv_obj_t *ring_center_bot;
@@ -307,6 +308,11 @@ static void hid_refresh(void);
 static lv_obj_t* build_settings_screen(void);
 static void settings_on_input(marine_semantic_input_t ev, int32_t val);
 static void settings_refresh(void);
+static lv_obj_t* build_volume_screen(void);
+static void volume_on_input(marine_semantic_input_t ev, int32_t val);
+static void volume_refresh(void);
+static void volume_tick(void);
+static void volume_touch(int16_t x, int16_t y);
 static bool settings_takes_double(void);
 static void settings_tick(void);
 static void settings_enter(void);
@@ -316,7 +322,8 @@ static const marine_mode_desc_t mode_registry[MARINE_MODE_COUNT] = {
     [MARINE_MODE_DIMMER]       = { MARINE_MODE_DIMMER,       "LIGHTS", build_dimmer_screen, dimmer_on_input, dimmer_refresh },
     [MARINE_MODE_ANCHOR_WATCH] = { MARINE_MODE_ANCHOR_WATCH, "ANCHOR", build_anchor_screen, anchor_on_input, anchor_refresh },
     [MARINE_MODE_USB_HID]      = { MARINE_MODE_USB_HID,      "USB",    build_hid_screen,    hid_on_input,    hid_refresh },
-    [MARINE_MODE_SETTINGS]     = { MARINE_MODE_SETTINGS,     "SETUP",  build_settings_screen, settings_on_input, settings_refresh }
+    [MARINE_MODE_SETTINGS]     = { MARINE_MODE_SETTINGS,     "SETUP",  build_settings_screen, settings_on_input, settings_refresh },
+    [MARINE_MODE_VOLUME]       = { MARINE_MODE_VOLUME,       "VOLUME", build_volume_screen, volume_on_input, volume_refresh }
 };
 
 static void emit_action(marine_ui_mode_t mode, marine_ui_action_type_t act, int32_t val, int32_t meta) {
@@ -366,8 +373,17 @@ static uint32_t display_stale_bits(void) {
 }
 
 // Essential values of the active mode: returns the reason text for the first stale one, or NULL.
+static uint8_t vol_sel_peek(void);
+
 static const char *essential_stale_reason(void) {
     switch (active_mode) {
+    case MARINE_MODE_VOLUME: {
+        // The selected target's volume. Never received counts as missing, also for the event-driven master volume.
+        uint8_t i = vol_sel_peek();
+        const marine_vol_target_t *t = &snap.vol_targets[i];
+        if (t->updated_ms == 0 || value_is_stale(t->updated_ms, t->timeout_ms)) return "NO VOLUME";
+        return NULL;
+    }
     case MARINE_MODE_AUTOPILOT:
         if (value_is_stale(snap.ap_state_updated_ms, snap.ap_state_timeout_ms)) return "NO AP STATE";
         if (value_is_stale(snap.heading_updated_ms, snap.heading_timeout_ms)) return "NO HEADING";
@@ -563,7 +579,8 @@ static void update_curved_canvas(lv_obj_t *cv, char *cache, const char *text, bo
 }
 
 // --- Drawn vector icons (no font glyphs needed): AUTO gauge, LIGHT bulb, ANCHOR, USB, WARNING triangle ---
-typedef enum { ICON_AUTO = 0, ICON_LIGHT, ICON_ANCHOR, ICON_USB, ICON_GEAR, ICON_WARN, ICON_CROSS } icon_id_t;
+typedef enum { ICON_AUTO = 0, ICON_LIGHT, ICON_ANCHOR, ICON_USB, ICON_GEAR, ICON_WARN, ICON_CROSS,
+               ICON_VOLUME, ICON_PREV, ICON_NEXT, ICON_PLAY, ICON_PAUSE } icon_id_t;
 
 static lv_obj_t* icon_canvas_create(lv_obj_t *parent, int size, uint8_t **out_buf) {
     size_t bytes = (size_t)size * (size_t)size * 4U;
@@ -668,6 +685,37 @@ static void icon_draw(lv_obj_t *cv, icon_id_t id, int size, lv_color_t col) {
                       w + 1, col);
         }
         break;
+    case ICON_VOLUME:   // speaker with two waves
+        icon_line(&layer, IP(4), IP(12), IP(9), IP(12), w, col);
+        icon_line(&layer, IP(4), IP(20), IP(9), IP(20), w, col);
+        icon_line(&layer, IP(4), IP(12), IP(4), IP(20), w, col);
+        icon_line(&layer, IP(9), IP(12), IP(16), IP(6), w, col);
+        icon_line(&layer, IP(9), IP(20), IP(16), IP(26), w, col);
+        icon_line(&layer, IP(16), IP(6), IP(16), IP(26), w, col);
+        icon_arc(&layer, II(17), II(16), II(6), 300, 60, w, col);
+        icon_arc(&layer, II(17), II(16), II(11), 300, 60, w, col);
+        break;
+    case ICON_PREV:     // bar and triangle to the left
+        icon_line(&layer, IP(8), IP(8), IP(8), IP(24), w, col);
+        icon_line(&layer, IP(24), IP(8), IP(12), IP(16), w, col);
+        icon_line(&layer, IP(12), IP(16), IP(24), IP(24), w, col);
+        icon_line(&layer, IP(24), IP(24), IP(24), IP(8), w, col);
+        break;
+    case ICON_NEXT:
+        icon_line(&layer, IP(24), IP(8), IP(24), IP(24), w, col);
+        icon_line(&layer, IP(8), IP(8), IP(20), IP(16), w, col);
+        icon_line(&layer, IP(20), IP(16), IP(8), IP(24), w, col);
+        icon_line(&layer, IP(8), IP(24), IP(8), IP(8), w, col);
+        break;
+    case ICON_PLAY:
+        icon_line(&layer, IP(11), IP(7), IP(25), IP(16), w, col);
+        icon_line(&layer, IP(25), IP(16), IP(11), IP(25), w, col);
+        icon_line(&layer, IP(11), IP(25), IP(11), IP(7), w, col);
+        break;
+    case ICON_PAUSE:
+        icon_line(&layer, IP(11), IP(8), IP(11), IP(24), w + 2, col);
+        icon_line(&layer, IP(21), IP(8), IP(21), IP(24), w + 2, col);
+        break;
     case ICON_CROSS:
         icon_circle(&layer, II(16), II(16), II(13), w, false, col);
         icon_line(&layer, IP(10.5f), IP(10.5f), IP(21.5f), IP(21.5f), w, col);
@@ -726,6 +774,11 @@ static void refresh_mode_ring_center_preview(void) {
         if (g->on && g->level_pct > 0) snprintf(mid_b, sizeof(mid_b), "%u%%", (unsigned)g->level_pct);
         else snprintf(mid_b, sizeof(mid_b), "OFF");
         snprintf(bot_b, sizeof(bot_b), "GRP %u/%u", (unsigned)(idx + 1), (unsigned)(snap.dimmer_group_count ? snap.dimmer_group_count : 1));
+    } else if (active_mode == MARINE_MODE_VOLUME) {
+        const marine_vol_target_t *t = &snap.vol_targets[0];
+        snprintf(top_b, sizeof(top_b), "%s", t->name);
+        snprintf(mid_b, sizeof(mid_b), "%u%%", (unsigned)t->pct);
+        snprintf(bot_b, sizeof(bot_b), "%s", snap.play_state == MARINE_PLAY_PLAYING ? "PLAYING" : "PAUSED");
     } else if (active_mode == MARINE_MODE_SETTINGS) {
         snprintf(top_b, sizeof(top_b), "SETTINGS");
         snprintf(mid_b, sizeof(mid_b), "%d ITEMS", (int)KNOB_SET_COUNT);
@@ -748,6 +801,7 @@ static bool ring_slot_visible(int s) {
     marine_ui_mode_t m = ring_slot_modes[s];
     if (m == MARINE_MODE_USB_HID) return snap.usb_host_enumerated;
     if (m == MARINE_MODE_SETTINGS) return snap.active_alarm == MARINE_ALARM_NONE;
+    if (m == MARINE_MODE_VOLUME) return snap.volume_mode;
     return true;
 }
 
@@ -774,7 +828,7 @@ static void refresh_mode_ring(void) {
         lv_obj_set_style_shadow_width(ring_slot_boxes[s], (sel && snap.fx_glow_enabled) ? 16 : 0, 0);
         lv_obj_set_style_shadow_color(ring_slot_boxes[s], c_primary(), 0);
         lv_obj_set_style_text_color(ring_slot_labels[s], sel ? c_primary() : c_text(), 0);
-        static const icon_id_t slot_icons[MARINE_MODE_COUNT] = { ICON_AUTO, ICON_LIGHT, ICON_ANCHOR, ICON_USB, ICON_GEAR };
+        static const icon_id_t slot_icons[MARINE_MODE_COUNT] = { ICON_AUTO, ICON_LIGHT, ICON_ANCHOR, ICON_VOLUME, ICON_USB, ICON_GEAR };
         icon_recolor(ring_slot_icons[s], slot_icons[s], 28, sel ? c_primary() : c_text(), &ring_icon_col[s]);
     }
 }
@@ -1687,6 +1741,7 @@ static void build_overlays_and_system(void) {
     lv_obj_align(ring_center_bot, LV_ALIGN_BOTTOM_MID, 0, -14);
 
     for (int s = 0; s < MARINE_MODE_COUNT; s++) {   // positions are set by refresh_mode_ring() from the visible slots
+        ring_icon_col[s] = 0xFFFFFFFFu;
         ring_slot_boxes[s] = lv_obj_create(ovl_mode_ring);
         lv_obj_set_size(ring_slot_boxes[s], 54, 48);          // drawn icon (28 px) above the label
         lv_obj_set_style_radius(ring_slot_boxes[s], 6, 0);
@@ -2364,6 +2419,170 @@ static void settings_tick(void) {
     }
 }
 
+// --- Volume (#6, ui-design section 3.6): signalk-jukebox from the helm. Turn changes the selected target's volume by 2 %, sent
+// after a 0.4 s pause; press plays or pauses; long press steps to the next target. Touch: previous left, next right, play or
+// pause at the bottom, the target name at the top for the next target. The outer arc only shows the volume. ---
+#define VOL_COMMIT_MS 400
+
+static lv_obj_t *vol_arc, *vol_lbl_target, *vol_lbl_track, *vol_lbl_artist, *vol_lbl_pct, *vol_lbl_state;
+static lv_obj_t *vol_btn_prev, *vol_btn_next, *vol_btn_play;
+static lv_obj_t *vol_ic_prev, *vol_ic_next, *vol_ic_play;
+static uint8_t *vol_ic_prev_buf, *vol_ic_next_buf, *vol_ic_play_buf;
+static uint32_t vol_ic_prev_col = 0xFFFFFFFFu, vol_ic_next_col = 0xFFFFFFFFu, vol_ic_play_col = 0xFFFFFFFFu;
+static int vol_ic_play_shown = -1;   // ICON_PLAY or ICON_PAUSE on the bottom button
+
+static uint8_t vol_sel = 0;          // selected target: 0 master, then the zones
+static bool vol_pending_active = false, vol_pending_sent = false;
+static int vol_pending_pct = 0;
+static uint32_t vol_pending_deadline_ms = 0;
+
+static const marine_vol_target_t *vol_target(void) {
+    if (vol_sel >= snap.vol_target_count) vol_sel = 0;
+    return &snap.vol_targets[vol_sel];
+}
+
+static lv_obj_t *vol_make_button(lv_obj_t *scr, int dx, int dy, int size, lv_obj_t **icon, uint8_t **buf) {
+    lv_obj_t *b = lv_obj_create(scr);
+    lv_obj_set_size(b, size, size);
+    lv_obj_align(b, LV_ALIGN_CENTER, dx, dy);
+    lv_obj_set_style_radius(b, LV_RADIUS_CIRCLE, 0);
+    lv_obj_set_style_border_width(b, 2, 0);
+    lv_obj_set_style_pad_all(b, 0, 0);
+    lv_obj_remove_flag(b, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+    *icon = icon_canvas_create(b, size - 16, buf);
+    lv_obj_center(*icon);
+    return b;
+}
+
+static lv_obj_t* build_volume_screen(void) {
+    lv_obj_t *scr = lv_obj_create(NULL);
+    lv_obj_set_size(scr, 240, 240);
+    lv_obj_set_style_bg_color(scr, COL_BG, 0);
+    lv_obj_remove_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
+
+    vol_arc = lv_arc_create(scr);
+    lv_obj_set_size(vol_arc, 222, 222);
+    lv_obj_center(vol_arc);
+    lv_arc_set_bg_angles(vol_arc, 135, 45);
+    lv_arc_set_range(vol_arc, 0, 100);
+    lv_obj_set_style_arc_width(vol_arc, 8, LV_PART_MAIN);
+    lv_obj_set_style_arc_width(vol_arc, 8, LV_PART_INDICATOR);
+    lv_obj_set_style_arc_color(vol_arc, lv_color_hex(0x16263E), LV_PART_MAIN);
+    lv_obj_remove_style(vol_arc, NULL, LV_PART_KNOB);
+    lv_obj_remove_flag(vol_arc, LV_OBJ_FLAG_CLICKABLE);
+
+    vol_lbl_target = anc_make_label(scr, &lv_font_montserrat_14, -74);
+    vol_lbl_track = anc_make_label(scr, &lv_font_montserrat_12, -52);
+    lv_label_set_long_mode(vol_lbl_track, LV_LABEL_LONG_MODE_DOTS);
+    lv_obj_set_width(vol_lbl_track, 150);
+    lv_obj_set_style_text_align(vol_lbl_track, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_align(vol_lbl_track, LV_ALIGN_CENTER, 0, -52);
+    vol_lbl_artist = anc_make_label(scr, &lv_font_montserrat_12, -36);
+    lv_label_set_long_mode(vol_lbl_artist, LV_LABEL_LONG_MODE_DOTS);
+    lv_obj_set_width(vol_lbl_artist, 140);
+    lv_obj_set_style_text_align(vol_lbl_artist, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_align(vol_lbl_artist, LV_ALIGN_CENTER, 0, -36);
+    vol_lbl_pct = anc_make_label(scr, &lv_font_montserrat_44, 4);
+    vol_lbl_state = anc_make_label(scr, &lv_font_montserrat_12, 36);
+
+    vol_btn_prev = vol_make_button(scr, -78, 4, 40, &vol_ic_prev, &vol_ic_prev_buf);
+    vol_btn_next = vol_make_button(scr, 78, 4, 40, &vol_ic_next, &vol_ic_next_buf);
+    vol_btn_play = vol_make_button(scr, 0, 72, 44, &vol_ic_play, &vol_ic_play_buf);
+    return scr;
+}
+
+static void volume_refresh(void) {
+    if (!vol_arc) return;
+    const marine_vol_target_t *t = vol_target();
+    bool stale = current_stale() != STALE_NONE;
+    bool playing = snap.play_state == MARINE_PLAY_PLAYING;
+    int pct = vol_pending_active ? vol_pending_pct : t->pct;
+    char b[24];
+
+    lv_arc_set_value(vol_arc, stale ? 0 : pct);
+    lv_obj_set_style_arc_color(vol_arc, vol_pending_active ? c_amber() : (playing ? c_primary() : lv_color_hex(0x3A4A63)),
+                               LV_PART_INDICATOR);
+
+    snprintf(b, sizeof(b), "%s " LV_SYMBOL_DOWN, t->name);   // the marker says the name can be tapped
+    anc_set_line(vol_lbl_target, b, c_text());
+    anc_set_line(vol_lbl_track, snap.track[0] ? snap.track : (snap.play_state == MARINE_PLAY_STOPPED ? "STOPPED" : ""), c_text());
+    anc_set_line(vol_lbl_artist, snap.artist, c_muted());
+    if (stale) snprintf(b, sizeof(b), "---");
+    else snprintf(b, sizeof(b), "%d", pct);
+    anc_set_line(vol_lbl_pct, b, vol_pending_active ? c_amber() : c_text());
+    anc_set_line(vol_lbl_state, !t->connected ? "ZONE OFFLINE" : (playing ? "" : (snap.play_state == MARINE_PLAY_PAUSED ? "PAUSED" : "")),
+                 !t->connected ? c_amber() : c_muted());
+
+    lv_obj_t *btns[3] = { vol_btn_prev, vol_btn_next, vol_btn_play };
+    for (int i = 0; i < 3; i++) {
+        lv_obj_set_style_bg_color(btns[i], snap.night_palette ? lv_color_hex(0x050000) : COL_CARD, 0);
+        lv_obj_set_style_border_color(btns[i], snap.night_palette ? COL_NIGHT_DIM : lv_color_hex(0x284166), 0);
+    }
+    icon_recolor(vol_ic_prev, ICON_PREV, 24, c_text(), &vol_ic_prev_col);
+    icon_recolor(vol_ic_next, ICON_NEXT, 24, c_text(), &vol_ic_next_col);
+    int want = playing ? ICON_PAUSE : ICON_PLAY;
+    if (want != vol_ic_play_shown) {
+        vol_ic_play_shown = want;
+        vol_ic_play_col = 0xFFFFFFFFu;   // a different icon: redraw
+    }
+    icon_recolor(vol_ic_play, (icon_id_t)want, 28, c_primary(), &vol_ic_play_col);
+}
+
+static void volume_play_pause(void) {
+    emit_action(MARINE_MODE_VOLUME, MARINE_ACT_VOL_CONTROL,
+                snap.play_state == MARINE_PLAY_PLAYING ? MARINE_VOL_PAUSE : MARINE_VOL_PLAY, 0);
+}
+
+static void volume_next_target(void) {
+    vol_pending_active = false;
+    vol_sel = (uint8_t)knob_list_wrap(vol_sel, 1, snap.vol_target_count ? snap.vol_target_count : 1);
+}
+
+static void volume_on_input(marine_semantic_input_t ev, int32_t val) {
+    const marine_vol_target_t *t = vol_target();
+    if (ev == MARINE_INPUT_TURN) {
+        if (!t->connected) return;                    // ZONE OFFLINE ignores the turn
+        int base = vol_pending_active ? vol_pending_pct : t->pct;
+        vol_pending_pct = knob_vol_step(base, (int)val);
+        vol_pending_active = true;
+        vol_pending_sent = false;
+        vol_pending_deadline_ms = snap.now_ms + VOL_COMMIT_MS;
+    } else if (ev == MARINE_INPUT_SINGLE_PRESS) {
+        volume_play_pause();
+    } else if (ev == MARINE_INPUT_LONG_PRESS) {
+        volume_next_target();
+    }
+    volume_refresh();
+}
+
+// The 0.4 s pause commit, and the pending value held until the server's value matches. Called from marine_ui_tick().
+static void volume_tick(void) {
+    if (!vol_pending_active) return;
+    if (!vol_pending_sent && snap.now_ms >= vol_pending_deadline_ms) {
+        vol_pending_sent = true;
+        emit_action(MARINE_MODE_VOLUME, MARINE_ACT_VOL_SET, vol_pending_pct, vol_sel);
+    }
+    if (vol_pending_sent && (vol_target()->pct == vol_pending_pct ||
+                             snap.now_ms >= vol_pending_deadline_ms + MARINE_PENDING_CONFIRM_TIMEOUT)) {
+        vol_pending_active = false;
+        vol_pending_sent = false;
+    }
+    if (active_mode == MARINE_MODE_VOLUME) volume_refresh();
+}
+
+// Touch on the volume screen (the centre dead zone is handled by the caller): only the player buttons and the target name.
+static void volume_touch(int16_t x, int16_t y) {
+    int dx = x - 120, dy = y - 120;
+    if (dx * dx + dy * dy > 100 * 100) return;   // the outer arc only shows the volume
+    if (dy < -50 && dx > -60 && dx < 60) volume_next_target();
+    else if (dx < -55 && dy > -30 && dy < 40) emit_action(MARINE_MODE_VOLUME, MARINE_ACT_VOL_CONTROL, MARINE_VOL_PREVIOUS, 0);
+    else if (dx > 55 && dy > -30 && dy < 40) emit_action(MARINE_MODE_VOLUME, MARINE_ACT_VOL_CONTROL, MARINE_VOL_NEXT, 0);
+    else if (dy > 45 && dx > -35 && dx < 35) volume_play_pause();
+    volume_refresh();
+}
+
+static uint8_t vol_sel_peek(void) { return vol_sel < snap.vol_target_count ? vol_sel : 0; }
+
 // --- CONTROL ON notice: allow control was switched on from the web page or the API (ui-design section 4) ---
 static void build_control_notice(void) {
     ovl_ctl_ring = lv_obj_create(lv_layer_top());
@@ -2774,6 +2993,13 @@ void marine_ui_feed_touch(int16_t x, int16_t y, bool pressed) {
     // touch may also act.
     note_user_activity(false);
 
+    // The volume screen is a small music player (ui-design section 3.6): harmless, so touch may drive it.
+    if (snap.system_screen == MARINE_SCREEN_OPERATIONAL && !is_full_alarm_blocking() && !mode_ring_open &&
+        active_mode == MARINE_MODE_VOLUME && current_stale() == STALE_NONE) {
+        volume_touch(x, y);
+        return;
+    }
+
     // Restricted to a single harmless role: step to next Dimmer group when in Dimmer mode
     if (snap.system_screen == MARINE_SCREEN_OPERATIONAL &&
         !is_full_alarm_blocking() &&
@@ -2950,6 +3176,7 @@ void marine_ui_apply_snapshot(const marine_ui_snapshot_t *snapshot) {
 void marine_ui_tick(uint32_t now_ms) {
     snap.now_ms = now_ms;
     settings_tick();
+    volume_tick();
 
     if (ctl_notice_on && (now_ms >= ctl_notice_until_ms || is_full_alarm_blocking() ||
                           snap.system_screen != MARINE_SCREEN_OPERATIONAL)) {

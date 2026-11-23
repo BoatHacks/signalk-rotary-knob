@@ -153,6 +153,10 @@ layer (section 6.1).
   `navigation.position` it subscribed to as the drop position. It publishes `navigation.anchor.state` (`"on"`/`"off"`),
   `.position`, `.currentRadius` (m, antenna to anchor), `.maxRadius` (m, circle only), `.watchZone`, `.distanceFromBow`,
   `.bearingTrue` (rad) and the alarm on `notifications.navigation.anchor`. The knob only sets circle zones.
+- **Music (signalk-jukebox, #6)**: `entertainment.jukebox.playback.volume` (ratio, `PUT`), `.playback.state`,
+  `.playback.track` (object `{name, artist?, album?}`), `.zones.<id>.volume` (ratio, `PUT`), `.zones.<id>.connected`, and the
+  momentary controls `.playback.controls.play|pause|next|previous` (`PUT` 1 then 0). Zone names from
+  `GET /plugins/signalk-jukebox/api/zones` with the token. Allow control is not needed for these.
 - **Alarm ack/silence**: documented only for the server Notifications API
   (`POST /signalk/v2/api/notifications/{id}/acknowledge` and `/silence`). Unconfirmed whether the anchor plugin's
   alarms go through it.

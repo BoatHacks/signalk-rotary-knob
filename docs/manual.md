@@ -67,6 +67,13 @@ With the **hoekens-anchor-alarm** plugin installed:
   off, no link, no position fix, the server refused) and that nothing was changed.
 Anchor and autopilot commands are only sent when **allow control** is on (see section 6).
 
+### Volume
+
+The boat's music through the jukebox on the SignalK server. Turn for the volume (2 % a click, sent when you stop turning), press
+to play or pause, hold to step from `MASTER` to each zone. The touch screen is a small player: previous on the left, next on
+the right, play or pause at the bottom, tap the name at the top for the next zone. A zone whose speaker is off shows
+`ZONE OFFLINE`. On a boat without the jukebox, switch *VOLUME mode* off on the settings page and the mode leaves the ring.
+
 ### USB-HID
 Listed in the mode ring only while a computer has recognised the knob over USB. The dial then acts as an input device for that computer:
 chartplotter profile (mouse wheel zoom, push is a click), media profile (volume, push is mute), navigation keys (arrow keys, push is Enter).

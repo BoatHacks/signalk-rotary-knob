@@ -22,6 +22,8 @@
 /* What the adapters need to read from the model. */
 typedef struct {
     int8_t light[8];        /* -1 unknown, 0 off, 1 on */
+    char zone_id[4][24];    /* jukebox zone ids, target 1.. (empty = none) */
+    bool zone_names_wanted; /* a zone id has no name yet */
     bool anchor_on;
     float anchor_max_m;     /* circle radius while armed */
     bool pos_valid;
@@ -37,6 +39,7 @@ typedef struct {
     bool (*alarm_injected)(void);     /* the alarm is a bench one, no server notification behind it */
     void (*action_result)(uint8_t code); /* what became of an anchor action, a marine_action_result_t */
     void (*autopilot_id)(char *out, size_t n); /* a copy of the current autopilot id (the setting may change at any time) */
+    void (*zone_name)(const char *id, const char *name); /* a jukebox zone's name from the plugin's REST API */
 } knob_actions_hooks_t;
 
 /* Starts the worker task. cfg and hooks must outlive it. cfg is read for the light channels, which only change with a restart.

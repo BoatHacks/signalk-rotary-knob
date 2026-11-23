@@ -53,19 +53,21 @@ bool knob_gps_lost(bool anchor_armed, uint32_t now_ms, uint32_t boot_grace_ms, b
  * boot. */
 bool knob_boot_show_mode(bool token_ok, bool *verified);
 /* The mode to open at boot from the stored last non-HID mode: stored when it is a valid mode (0..count-1) other than
- * hid_mode, else 0 (nothing stored, or a value from another firmware). */
-int knob_boot_mode(int stored, int count, int hid_mode);
+ * hid_mode and settings_mode, else 0 (nothing stored, or a value from another firmware). */
+int knob_boot_mode(int stored, int count, int hid_mode, int settings_mode);
 /* Whether to switch to USB-HID at boot: HID was the last mode, a USB host is on the cable, the boot window is still open and
  * the user has not changed the mode since the restore. Otherwise the knob stays on the last non-HID mode. */
 bool knob_boot_hid(bool hid_last, bool host_present, uint32_t now_ms, uint32_t window_ms, bool user_changed_mode);
 
 /* --- Mode API and allow control (#3) --- */
 
-/* Mode numbers follow marine_ui_mode_t: 0 autopilot, 1 lights, 2 anchor, 3 hid, 4 settings. The names are the API's. */
-#define KNOB_MODE_COUNT 5
+/* Mode numbers follow marine_ui_mode_t: 0 autopilot, 1 lights, 2 anchor, 3 hid, 4 settings, 5 volume. The names are the
+ * API's. The numbers are stored (last mode), so new modes are appended. */
+#define KNOB_MODE_COUNT 6
 #define KNOB_MODE_HID 3
 #define KNOB_MODE_SETTINGS 4
-/* "autopilot", "lights", "anchor", "hid" or "settings" to 0..4, -1 for anything else (case sensitive). */
+#define KNOB_MODE_VOLUME 5
+/* "autopilot", "lights", "anchor", "hid", "settings" or "volume" to 0..5, -1 for anything else (case sensitive). */
 int knob_mode_from_name(const char *name);
 /* 0..3 to its API name, "unknown" otherwise. */
 const char *knob_mode_name(int mode);
@@ -77,6 +79,17 @@ typedef enum {
 } knob_mode_req_t;
 /* Checks a PUT /api/v1/knob/mode body such as {"mode":"anchor"}. *mode is set when the result is OK. */
 knob_mode_req_t knob_mode_request(const char *json, bool usb_host, int *mode);
+
+/* --- Volume mode (#6, signalk-jukebox) --- */
+
+#define KNOB_VOL_STEP 2   /* percent per click */
+/* The volume after a turn: KNOB_VOL_STEP percent per click, clamped to 0..100. */
+int knob_vol_step(int pct, int clicks);
+/* SignalK ratio 0..1 to percent 0..100, rounded and clamped. */
+int knob_vol_pct(double ratio);
+/* Splits entertainment.jukebox.zones.<id>.<key> into the zone id and the key (volume, muted, connected, ...). false for any
+ * other path or ids that do not fit. */
+bool knob_jukebox_zone_path(const char *path, char *id, size_t id_n, char *key, size_t key_n);
 
 /* Whether autopilot and anchor commands may leave the knob: the stored allow control setting, unless the serial bench
  * override is set for this session (override -1 none, 0 off, 1 on). */

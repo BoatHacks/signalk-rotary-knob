@@ -112,6 +112,59 @@ static void ap_poll(void)
     espos_sk_http_resp_free(&r);
 }
 
+/* ---- Volume (signalk-jukebox): volume through SignalK PUT (ratio), controls as a PUT 1 then 0, zone names over REST ---- */
+
+#define JUKEBOX "entertainment.jukebox."
+
+static void vol_set(int target, int pct)
+{
+    if (!online()) { ESP_LOGW(TAG, "volume: not online, ignored"); return; }
+    knob_actions_view_t v;
+    s_hooks->get_view(&v);
+    char path[96], val[16];
+    if (target == 0) snprintf(path, sizeof(path), JUKEBOX "playback.volume");
+    else if (target >= 1 && target <= 4 && v.zone_id[target - 1][0]) snprintf(path, sizeof(path), JUKEBOX "zones.%s.volume", v.zone_id[target - 1]);
+    else return;
+    snprintf(val, sizeof(val), "%.2f", (pct < 0 ? 0 : pct > 100 ? 100 : pct) / 100.0);
+    esp_err_t e = espos_sk_put(path, val, put_cb, NULL);
+    ESP_LOGI(TAG, "volume %s -> %s (%s)", path, val, esp_err_to_name(e));
+}
+
+static void vol_control(int c)
+{
+    static const char *const names[] = { "play", "pause", "next", "previous" };
+    if (c < 0 || c > 3) return;
+    if (!online()) { ESP_LOGW(TAG, "jukebox: not online, ignored"); return; }
+    char path[64];
+    snprintf(path, sizeof(path), JUKEBOX "playback.controls.%s", names[c]);
+    espos_sk_put(path, "1", put_cb, NULL);
+    vTaskDelay(pdMS_TO_TICKS(300)); /* a momentary control: 1, then back to 0 */
+    espos_sk_put(path, "0", put_cb, NULL);
+    ESP_LOGI(TAG, "jukebox %s", names[c]);
+}
+
+/* GET /plugins/signalk-jukebox/api/zones: [{id, name, ...}]. Only the names are used, volumes come through the stream. */
+static void zone_names_fetch(void)
+{
+    espos_sk_http_opts_t o = { .timeout_ms = 3000, .max_body = 4096 };
+    espos_sk_http_resp_t r = { 0 };
+    esp_err_t e = espos_sk_http_get("/plugins/signalk-jukebox/api/zones", &o, &r);
+    if (e == ESP_OK && r.status == 200 && r.body) {
+        cJSON *j = cJSON_ParseWithLength(r.body, r.len);
+        if (cJSON_IsArray(j)) {
+            const cJSON *z;
+            cJSON_ArrayForEach(z, j) {
+                const cJSON *id = cJSON_GetObjectItem(z, "id"), *nm = cJSON_GetObjectItem(z, "name");
+                if (cJSON_IsString(id) && cJSON_IsString(nm) && s_hooks->zone_name) s_hooks->zone_name(id->valuestring, nm->valuestring);
+            }
+        }
+        cJSON_Delete(j);
+    } else {
+        ESP_LOGW(TAG, "jukebox zone names: %s, status %d", esp_err_to_name(e), r.status);
+    }
+    espos_sk_http_resp_free(&r);
+}
+
 static void ap_action(const marine_ui_action_t *a)
 {
     if (!knob_actions_is_live()) { ESP_LOGW(TAG, "autopilot action %d ignored: allow control is off", (int)a->action); return; }
@@ -234,6 +287,8 @@ static void handle_action(const marine_ui_action_t *a)
     case MARINE_ACT_ANCHOR_MOVE_DROP:
     case MARINE_ACT_ANCHOR_RAISE: anchor_action(a); break;
     case MARINE_ACT_ALARM_ACK: alarm_ack(); break;
+    case MARINE_ACT_VOL_SET: vol_set((int)a->meta, (int)a->value); break;
+    case MARINE_ACT_VOL_CONTROL: vol_control((int)a->value); break;
     case MARINE_ACT_POWER_SET_BACKLIGHT: knob_power_set_backlight((uint8_t)a->value); break;
     case MARINE_ACT_ALARM_LED_PULSE: knob_power_led_alarm(a->value ? KNOB_LED_ALARM_FAST : KNOB_LED_ALARM_OFF); break;
     case MARINE_ACT_ALARM_LED_SLOW_PULSE: knob_power_led_alarm(a->value ? KNOB_LED_ALARM_SLOW : KNOB_LED_ALARM_OFF); break;
@@ -254,6 +309,13 @@ static void worker_task(void *arg)
         if (!s_demo && online() && now - last_poll >= AP_POLL_MS) {
             last_poll = now;
             ap_poll();
+            knob_actions_view_t v;
+            s_hooks->get_view(&v);
+            static uint32_t last_names;
+            if (v.zone_names_wanted && (last_names == 0 || now - last_names >= 30000)) { /* at most every 30 s while a zone has no name */
+                last_names = now;
+                zone_names_fetch();
+            }
         }
     }
 }

@@ -159,12 +159,14 @@ static void test_boot_show_mode(void)
 static void test_boot_mode(void)
 {
     /* four modes, HID is 3 */
-    TEST_ASSERT_EQUAL_INT(0, knob_boot_mode(0, 4, 3));
-    TEST_ASSERT_EQUAL_INT(1, knob_boot_mode(1, 4, 3));
-    TEST_ASSERT_EQUAL_INT(2, knob_boot_mode(2, 4, 3));
-    TEST_ASSERT_EQUAL_INT(0, knob_boot_mode(3, 4, 3));  /* HID is not a non-HID mode */
-    TEST_ASSERT_EQUAL_INT(0, knob_boot_mode(4, 4, 3));  /* out of range, for example from an older firmware */
-    TEST_ASSERT_EQUAL_INT(0, knob_boot_mode(-1, 4, 3)); /* nothing stored */
+    TEST_ASSERT_EQUAL_INT(0, knob_boot_mode(0, 4, 3, 9));
+    TEST_ASSERT_EQUAL_INT(1, knob_boot_mode(1, 4, 3, 9));
+    TEST_ASSERT_EQUAL_INT(2, knob_boot_mode(2, 4, 3, 9));
+    TEST_ASSERT_EQUAL_INT(0, knob_boot_mode(3, 4, 3, 9));  /* HID is not a non-HID mode */
+    TEST_ASSERT_EQUAL_INT(0, knob_boot_mode(4, 4, 3, 9));  /* out of range, for example from an older firmware */
+    TEST_ASSERT_EQUAL_INT(0, knob_boot_mode(-1, 4, 3, 9)); /* nothing stored */
+    TEST_ASSERT_EQUAL_INT(0, knob_boot_mode(4, 6, 3, 4));  /* settings is never restored */
+    TEST_ASSERT_EQUAL_INT(5, knob_boot_mode(5, 6, 3, 4));  /* volume, after settings in the numbering */
 }
 
 static void test_boot_hid(void)
@@ -189,7 +191,9 @@ static void test_mode_names(void)
     TEST_ASSERT_EQUAL_INT(-1, knob_mode_from_name(NULL));
     TEST_ASSERT_EQUAL_STRING("lights", knob_mode_name(1));
     TEST_ASSERT_EQUAL_STRING("settings", knob_mode_name(4));
-    TEST_ASSERT_EQUAL_STRING("unknown", knob_mode_name(5));
+    TEST_ASSERT_EQUAL_STRING("volume", knob_mode_name(5));
+    TEST_ASSERT_EQUAL_INT(5, knob_mode_from_name("volume"));
+    TEST_ASSERT_EQUAL_STRING("unknown", knob_mode_name(6));
     TEST_ASSERT_EQUAL_STRING("unknown", knob_mode_name(-1));
 }
 
@@ -332,6 +336,32 @@ static void test_demo_anchor(void)
     TEST_ASSERT_TRUE(d.depth_m > 5.9f && d.depth_m < 6.9f);
 }
 
+/* ---- Volume mode ---- */
+
+static void test_volume(void)
+{
+    TEST_ASSERT_EQUAL_INT(42, knob_vol_step(40, 1));
+    TEST_ASSERT_EQUAL_INT(34, knob_vol_step(40, -3));
+    TEST_ASSERT_EQUAL_INT(100, knob_vol_step(99, 1));   /* clamped */
+    TEST_ASSERT_EQUAL_INT(0, knob_vol_step(1, -1));
+    TEST_ASSERT_EQUAL_INT(42, knob_vol_pct(0.42));
+    TEST_ASSERT_EQUAL_INT(43, knob_vol_pct(0.425));
+    TEST_ASSERT_EQUAL_INT(100, knob_vol_pct(1.3));
+    TEST_ASSERT_EQUAL_INT(0, knob_vol_pct(-0.1));
+    char id[24], key[16];
+    TEST_ASSERT_TRUE(knob_jukebox_zone_path("entertainment.jukebox.zones.b8-27-eb-01.volume", id, sizeof(id), key, sizeof(key)));
+    TEST_ASSERT_EQUAL_STRING("b8-27-eb-01", id);
+    TEST_ASSERT_EQUAL_STRING("volume", key);
+    TEST_ASSERT_TRUE(knob_jukebox_zone_path("entertainment.jukebox.zones.z1.connected", id, sizeof(id), key, sizeof(key)));
+    TEST_ASSERT_EQUAL_STRING("connected", key);
+    TEST_ASSERT_FALSE(knob_jukebox_zone_path("entertainment.jukebox.playback.volume", id, sizeof(id), key, sizeof(key)));
+    TEST_ASSERT_FALSE(knob_jukebox_zone_path("entertainment.jukebox.zones.z1", id, sizeof(id), key, sizeof(key)));
+    TEST_ASSERT_FALSE(knob_jukebox_zone_path("entertainment.jukebox.zones..volume", id, sizeof(id), key, sizeof(key)));
+    TEST_ASSERT_FALSE(knob_jukebox_zone_path("entertainment.jukebox.zones.z1.a.b", id, sizeof(id), key, sizeof(key)));
+    TEST_ASSERT_FALSE(knob_jukebox_zone_path("entertainment.jukebox.zones.a-very-long-zone-identifier-x.volume", id, sizeof(id), key, sizeof(key)));
+    TEST_ASSERT_FALSE(knob_jukebox_zone_path(NULL, id, sizeof(id), key, sizeof(key)));
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -358,5 +388,6 @@ int main(void)
     RUN_TEST(test_confirm_turn);
     RUN_TEST(test_demo_autopilot);
     RUN_TEST(test_demo_anchor);
+    RUN_TEST(test_volume);
     return UNITY_END();
 }

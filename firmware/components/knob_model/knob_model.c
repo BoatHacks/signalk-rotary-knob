@@ -77,6 +77,17 @@ typedef struct {
     /* Stale timeouts in ms. Defaults from the T_* constants, replaced by the key's meta.timeout (seconds) when the server
      * publishes one. 0 = never stale by age. */
     uint32_t to_heading_true, to_heading_mag, to_anchor;
+    /* signalk-jukebox (#6) */
+    int16_t vol_master;                          /* 0..100, -1 never */
+    uint32_t vol_master_ms;
+    uint8_t play_state;                          /* marine_play_state_t */
+    char track[40], artist[32];
+    struct {
+        char id[24], name[16];
+        int16_t vol;                             /* -1 never */
+        uint32_t vol_ms;
+        bool connected;
+    } zone[MARINE_MAX_VOL_ZONES];
 } model_t;
 
 static portMUX_TYPE s_mux = portMUX_INITIALIZER_UNLOCKED;
@@ -121,6 +132,58 @@ static uint32_t ms_now(void) { return (uint32_t)(esp_timer_get_time() / 1000); }
 #define parse_str knob_parse_str
 #define obj_num knob_obj_num
 #define obj_str knob_obj_str
+
+/* entertainment.jukebox.*: master volume, playback state and track, and the zones (found at run time, up to 4). */
+static void jukebox_update(const char *p, const char *v, uint32_t now)
+{
+    double d;
+    char s[16], id[24], key[16];
+    if (!strcmp(p, "entertainment.jukebox.playback.volume")) {
+        if (parse_num(v, &d)) {
+            portENTER_CRITICAL(&s_mux);
+            s_m.vol_master = (int16_t)knob_vol_pct(d);
+            s_m.vol_master_ms = now;
+            portEXIT_CRITICAL(&s_mux);
+        }
+    } else if (!strcmp(p, "entertainment.jukebox.playback.state")) {
+        if (parse_str(v, s, sizeof(s))) {
+            portENTER_CRITICAL(&s_mux);
+            s_m.play_state = !strcmp(s, "playing") ? MARINE_PLAY_PLAYING : !strcmp(s, "paused") ? MARINE_PLAY_PAUSED : MARINE_PLAY_STOPPED;
+            portEXIT_CRITICAL(&s_mux);
+        }
+    } else if (!strcmp(p, "entertainment.jukebox.playback.track")) {
+        char name[40] = "", artist[32] = "";
+        if (strcmp(v, "null") != 0) {
+            obj_str(v, "name", name, sizeof(name));
+            obj_str(v, "artist", artist, sizeof(artist));
+        }
+        portENTER_CRITICAL(&s_mux);
+        memcpy(s_m.track, name, sizeof(s_m.track));
+        memcpy(s_m.artist, artist, sizeof(s_m.artist));
+        portEXIT_CRITICAL(&s_mux);
+    } else if (knob_jukebox_zone_path(p, id, sizeof(id), key, sizeof(key))) {
+        portENTER_CRITICAL(&s_mux);
+        int z = -1;
+        for (int i = 0; i < MARINE_MAX_VOL_ZONES && z < 0; i++) if (!strcmp(s_m.zone[i].id, id)) z = i;
+        for (int i = 0; i < MARINE_MAX_VOL_ZONES && z < 0; i++) {
+            if (!s_m.zone[i].id[0]) {
+                z = i;
+                memcpy(s_m.zone[i].id, id, sizeof(s_m.zone[i].id));
+                s_m.zone[i].vol = -1;
+                s_m.zone[i].connected = true;
+            }
+        }
+        if (z >= 0) {
+            if (!strcmp(key, "volume") && parse_num(v, &d)) {
+                s_m.zone[z].vol = (int16_t)knob_vol_pct(d);
+                s_m.zone[z].vol_ms = now;
+            } else if (!strcmp(key, "connected")) {
+                s_m.zone[z].connected = strncmp(v, "false", 5) != 0;
+            }
+        }
+        portEXIT_CRITICAL(&s_mux);
+    }
+}
 
 static void on_update(const espos_sk_update_t *u, void *arg)
 {
@@ -199,6 +262,8 @@ static void on_update(const espos_sk_update_t *u, void *arg)
             s_m.anchor_bearing_rad = parse_num(v, &d) ? (float)d : 0;
         }
         portEXIT_CRITICAL(&s_mux);
+    } else if (!strncmp(p, "entertainment.jukebox.", 22)) {
+        jukebox_update(p, v, now);
     } else if (!strcmp(p, "notifications.navigation.anchor")) {
         char st[12] = "";
         if (strcmp(v, "null") && obj_str(v, "state", st, sizeof(st))) {
@@ -235,6 +300,10 @@ static void subscribe_all(void)
         { "navigation.position", 2000 },
         { "navigation.anchor.*", 1000 },
         { "notifications.navigation.anchor", 0 },
+        { "entertainment.jukebox.playback.volume", 0 },
+        { "entertainment.jukebox.playback.state", 0 },
+        { "entertainment.jukebox.playback.track", 0 },
+        { "entertainment.jukebox.zones.*", 2000 },
     };
     for (size_t i = 0; i < sizeof(subs) / sizeof(subs[0]); i++) {
         if (espos_sk_subscribe(subs[i].pat, subs[i].period, on_update, NULL) <= 0) ESP_LOGW(TAG, "subscribe %s failed", subs[i].pat);
@@ -328,6 +397,13 @@ static void demo_feed(uint32_t now)
     s_m.pos_ms = now;
     for (int i = 0; i < N_LIGHTS && i < KNOB_DEMO_LIGHTS; i++) s_m.light[i] = s_dm.light[i] ? 1 : 0;
     s_m.light_ms = now;
+    if (s_m.vol_master < 0) {
+        s_m.vol_master = 40;
+        s_m.play_state = MARINE_PLAY_PLAYING;
+        snprintf(s_m.track, sizeof(s_m.track), "Sea Shanty No. 2");
+        snprintf(s_m.artist, sizeof(s_m.artist), "Demo Crew");
+    }
+    s_m.vol_master_ms = now;
     s_m.last_rx_ms = now;
     portEXIT_CRITICAL(&s_mux);
 }
@@ -350,6 +426,11 @@ static void demo_action(const marine_ui_action_t *a)
         lit = true;
         break;
     case MARINE_ACT_DIMMER_SET_LEVEL: knob_demo_set_light(&s_dm, (int)a->meta, a->value > 0); lit = true; break;
+    case MARINE_ACT_VOL_SET: if (a->meta == 0) s_m.vol_master = (int16_t)a->value; break;
+    case MARINE_ACT_VOL_CONTROL:
+        if (a->value == MARINE_VOL_PLAY) s_m.play_state = MARINE_PLAY_PLAYING;
+        else if (a->value == MARINE_VOL_PAUSE) s_m.play_state = MARINE_PLAY_PAUSED;
+        break;
     default: break;
     }
     portEXIT_CRITICAL(&s_mux);
@@ -489,6 +570,31 @@ static void build_snapshot(marine_ui_snapshot_t *s, uint32_t now)
     s->dimmer_updated_ms = m.light_ms;
     s->dimmer_timeout_ms = 0;
 
+    /* Volume: target 0 is the master volume (event driven, never stale by age), then the zones (republished every 2 s). */
+    s->volume_mode = s_cfg.volume_mode;
+    marine_vol_target_t *t = &s->vol_targets[0];
+    memset(t, 0, sizeof(*t));
+    strcpy(t->name, "MASTER");
+    t->pct = m.vol_master >= 0 ? (uint8_t)m.vol_master : 0;
+    t->connected = true;
+    t->updated_ms = m.vol_master >= 0 ? m.vol_master_ms : 0;
+    t->timeout_ms = 0;
+    int nt = 1;
+    for (int i = 0; i < MARINE_MAX_VOL_ZONES; i++) {
+        if (!m.zone[i].id[0]) continue;
+        t = &s->vol_targets[nt++];
+        memset(t, 0, sizeof(*t));
+        snprintf(t->name, sizeof(t->name), "%s", m.zone[i].name[0] ? m.zone[i].name : m.zone[i].id);
+        t->pct = m.zone[i].vol >= 0 ? (uint8_t)m.zone[i].vol : 0;
+        t->connected = m.zone[i].connected;
+        t->updated_ms = m.zone[i].vol >= 0 ? m.zone[i].vol_ms : 0;
+        t->timeout_ms = 10000;
+    }
+    s->vol_target_count = (uint8_t)nt;
+    s->play_state = m.play_state;
+    memcpy(s->track, m.track, sizeof(s->track));
+    memcpy(s->artist, m.artist, sizeof(s->artist));
+
     s->usb_host_enumerated = usb_dev_host_present(); /* a host on the cable: the USB-HID mode is offered on the ring */
     s->hid_profile = knob_hid_profile();
     if (!s->device_name[0]) strncpy(s->device_name, ns.hostname, sizeof(s->device_name) - 1);
@@ -564,6 +670,23 @@ static void hook_get_view(knob_actions_view_t *v)
     v->lat = s_m.lat;
     v->lon = s_m.lon;
     v->pos_ms = s_m.pos_ms;
+    v->zone_names_wanted = false;
+    for (int i = 0; i < MARINE_MAX_VOL_ZONES && i < 4; i++) {
+        memcpy(v->zone_id[i], s_m.zone[i].id, sizeof(v->zone_id[i]));
+        if (s_m.zone[i].id[0] && !s_m.zone[i].name[0]) v->zone_names_wanted = true;
+    }
+    portEXIT_CRITICAL(&s_mux);
+}
+
+static void hook_zone_name(const char *id, const char *name)
+{
+    portENTER_CRITICAL(&s_mux);
+    for (int i = 0; i < MARINE_MAX_VOL_ZONES; i++) {
+        if (s_m.zone[i].id[0] && !strcmp(s_m.zone[i].id, id)) {
+            snprintf(s_m.zone[i].name, sizeof(s_m.zone[i].name), "%s", name);
+            for (char *q = s_m.zone[i].name; *q; q++) if (*q >= 'a' && *q <= 'z') *q = (char)(*q - 32);
+        }
+    }
     portEXIT_CRITICAL(&s_mux);
 }
 
@@ -602,6 +725,7 @@ static const knob_actions_hooks_t s_hooks = {
     .alarm_injected = hook_alarm_injected,
     .action_result = hook_action_result,
     .autopilot_id = hook_autopilot_id,
+    .zone_name = hook_zone_name,
 };
 
 static volatile int s_mode_to_save;
@@ -708,6 +832,11 @@ void knob_model_set_mode(int mode)
     lv_port_unlock();
 }
 
+bool knob_model_mode_enabled(int mode)
+{
+    return mode != MARINE_MODE_VOLUME || s_cfg.volume_mode;
+}
+
 void knob_model_get_status(knob_model_status_t *out)
 {
     knob_net_status_t ns;
@@ -726,7 +855,7 @@ void knob_model_get_status(knob_model_status_t *out)
 void knob_model_restore_mode(void)
 {
     int stored = knob_config_last_mode();
-    s_boot_mode = (marine_ui_mode_t)knob_boot_mode(stored, MARINE_MODE_SETTINGS, MARINE_MODE_USB_HID);
+    s_boot_mode = (marine_ui_mode_t)knob_boot_mode(stored, MARINE_MODE_COUNT, MARINE_MODE_USB_HID, MARINE_MODE_SETTINGS);
     ESP_LOGI(TAG, "boot mode %d (stored %d, USB-HID last %d)", (int)s_boot_mode, stored, (int)knob_config_last_hid());
     lv_port_lock();
     marine_ui_set_mode(s_boot_mode);
@@ -770,6 +899,7 @@ void knob_model_start(void)
     for (int i = 0; i < 8; i++) s_m.light[i] = -1;
     s_m.to_heading_true = s_m.to_heading_mag = T_HEADING;
     s_m.to_anchor = T_ANCHOR;
+    s_m.vol_master = -1;
     strcpy(s_cfg.autopilot_id, "raymarineST"); /* defaults until knob_model_subscribe() loads the settings */
     s_cfg.heading_true = true;
     s_cfg.anchor_radius_m = 35;
@@ -830,6 +960,7 @@ static void on_config_key(const char *key)
     s_cfg.leds_on = cfg.leds_on;
     s_cfg.hid_profile = cfg.hid_profile;
     s_cfg.demo = cfg.demo;
+    s_cfg.volume_mode = cfg.volume_mode;
     portEXIT_CRITICAL(&s_mux);
     xSemaphoreGive(lock);
     bool from_knob = s_write_from_knob;
