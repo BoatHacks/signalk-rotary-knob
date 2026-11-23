@@ -72,6 +72,12 @@ typedef struct {
     char alarm_state[12];                       /* notifications.navigation.anchor state, "" none */
     bool ap_known, ap_engaged, ap_has_target;
     double ap_target_rad;
+    uint8_t ap_state;                            /* knob_ap_state_t from the poll */
+    double wind_awa_rad, wind_tgt_rad;
+    uint32_t wind_ms, wind_tgt_ms;
+    double xte_m, crs_brg_rad, crs_dist_m;
+    uint32_t crs_ms;
+    bool crs_next;                               /* a next point is set */
     uint32_t ap_ms;
     uint32_t last_rx_ms;
     /* Stale timeouts in ms. Defaults from the T_* constants, replaced by the key's meta.timeout (seconds) when the server
@@ -262,6 +268,26 @@ static void on_update(const espos_sk_update_t *u, void *arg)
             s_m.anchor_bearing_rad = parse_num(v, &d) ? (float)d : 0;
         }
         portEXIT_CRITICAL(&s_mux);
+    } else if (!strcmp(p, "environment.wind.angleApparent")) {
+        if (parse_num(v, &d)) {
+            portENTER_CRITICAL(&s_mux);
+            s_m.wind_awa_rad = d; s_m.wind_ms = now;
+            portEXIT_CRITICAL(&s_mux);
+        }
+    } else if (!strcmp(p, "steering.autopilot.target.windAngleApparent")) {
+        bool ok = parse_num(v, &d);
+        portENTER_CRITICAL(&s_mux);
+        s_m.wind_tgt_rad = ok ? d : 0; s_m.wind_tgt_ms = ok ? now : 0;
+        portEXIT_CRITICAL(&s_mux);
+    } else if (!strncmp(p, "navigation.course.", 18)) {
+        const char *k = p + 18;
+        bool ok = parse_num(v, &d);
+        portENTER_CRITICAL(&s_mux);
+        if (!strcmp(k, "calcValues.crossTrackError") && ok) { s_m.xte_m = d; s_m.crs_ms = now; }
+        else if (!strcmp(k, "calcValues.bearingTrue") && ok) s_m.crs_brg_rad = d;
+        else if (!strcmp(k, "calcValues.distance") && ok) s_m.crs_dist_m = d;
+        else if (!strcmp(k, "nextPoint")) s_m.crs_next = strcmp(v, "null") != 0;
+        portEXIT_CRITICAL(&s_mux);
     } else if (!strncmp(p, "entertainment.jukebox.", 22)) {
         jukebox_update(p, v, now);
     } else if (!strcmp(p, "notifications.navigation.anchor")) {
@@ -300,6 +326,12 @@ static void subscribe_all(void)
         { "navigation.position", 2000 },
         { "navigation.anchor.*", 1000 },
         { "notifications.navigation.anchor", 0 },
+        { "environment.wind.angleApparent", 500 },
+        { "steering.autopilot.target.windAngleApparent", 0 },
+        { "navigation.course.calcValues.crossTrackError", 1000 },
+        { "navigation.course.calcValues.bearingTrue", 1000 },
+        { "navigation.course.calcValues.distance", 1000 },
+        { "navigation.course.nextPoint", 0 },
         { "entertainment.jukebox.playback.volume", 0 },
         { "entertainment.jukebox.playback.state", 0 },
         { "entertainment.jukebox.playback.track", 0 },
@@ -382,6 +414,9 @@ static void demo_feed(uint32_t now)
     s_m.heading_true_ms = s_m.heading_mag_ms = now;
     s_m.ap_known = true;
     s_m.ap_engaged = s_dm.engaged;
+    if (!s_dm.engaged) s_m.ap_state = KNOB_AP_STANDBY;
+    s_m.wind_awa_rad = (-42.0 + 4.0 * sin(now / 7000.0)) * DEG2RAD;
+    s_m.wind_ms = now;
     s_m.ap_has_target = true;
     s_m.ap_target_rad = s_dm.target_deg * DEG2RAD;
     s_m.ap_ms = now;
@@ -414,8 +449,9 @@ static void demo_action(const marine_ui_action_t *a)
     portENTER_CRITICAL(&s_mux);
     bool lit = false, report = false;
     switch (a->action) {
-    case MARINE_ACT_AP_ENGAGE: knob_demo_engage(&s_dm, true); break;
-    case MARINE_ACT_AP_STANDBY: knob_demo_engage(&s_dm, false); break;
+    case MARINE_ACT_AP_ENGAGE: knob_demo_engage(&s_dm, true); s_m.ap_state = KNOB_AP_AUTO; break;
+    case MARINE_ACT_AP_SET_STATE: s_m.ap_state = (uint8_t)a->value; break;
+    case MARINE_ACT_AP_STANDBY: knob_demo_engage(&s_dm, false); s_m.ap_state = KNOB_AP_STANDBY; break;
     case MARINE_ACT_AP_SET_CTS: knob_demo_set_target(&s_dm, (float)a->value); break;
     case MARINE_ACT_ANCHOR_SET_RADIUS: knob_demo_set_radius(&s_dm, (uint16_t)a->value); report = s_dm.anchor_down; break;
     case MARINE_ACT_ANCHOR_DROP:
@@ -522,6 +558,23 @@ static void build_snapshot(marine_ui_snapshot_t *s, uint32_t now)
     s->cts_deg = (float)ct;
     s->cts_updated_ms = m.ap_ms;
     s->cts_timeout_ms = T_AP;
+
+    /* Wind and route (#7). The pilot state comes with the poll. */
+    s->ap_state = m.ap_known ? m.ap_state : KNOB_AP_UNKNOWN;
+    s->wind_awa_deg = (float)(m.wind_awa_rad * RAD2DEG);
+    s->wind_updated_ms = m.wind_ms;
+    s->wind_timeout_ms = T_HEADING;
+    s->wind_target_valid = m.wind_tgt_ms != 0;
+    s->wind_target_deg = (float)(m.wind_tgt_rad * RAD2DEG);
+    s->wind_adjust_supported = false; /* until signalk-autopilot takes target changes in wind (docs/plans/issue-7) */
+    snprintf(s->route_wpt, sizeof(s->route_wpt), "%s", m.crs_next ? "WAYPOINT" : "");
+    double rb = m.crs_brg_rad * RAD2DEG;
+    if (rb < 0) rb += 360.0;
+    s->route_brg_deg = (float)rb;
+    s->route_dist_nm = (float)(m.crs_dist_m / 1852.0);
+    s->route_xte_m = (float)m.xte_m;
+    s->route_updated_ms = m.crs_ms;
+    s->route_timeout_ms = 10000;
 
     /* Telemetry this boat does not publish: updated 0 with a timeout shows --- . */
     s->rudder_updated_ms = 0; s->rudder_timeout_ms = T_HEADING;
@@ -690,7 +743,7 @@ static void hook_zone_name(const char *id, const char *name)
     portEXIT_CRITICAL(&s_mux);
 }
 
-static void hook_set_autopilot(bool engaged, bool has_target, double target_rad)
+static void hook_set_autopilot(bool engaged, bool has_target, double target_rad, const char *state)
 {
     portENTER_CRITICAL(&s_mux);
     s_m.ap_known = true;
@@ -698,6 +751,8 @@ static void hook_set_autopilot(bool engaged, bool has_target, double target_rad)
     s_m.ap_has_target = has_target;
     s_m.ap_target_rad = target_rad;
     s_m.ap_ms = ms_now();
+    knob_ap_state_t st = knob_ap_state_from(state);
+    s_m.ap_state = (uint8_t)(st != KNOB_AP_UNKNOWN ? st : (engaged ? KNOB_AP_AUTO : KNOB_AP_STANDBY));
     portEXIT_CRITICAL(&s_mux);
 }
 

@@ -82,7 +82,9 @@ typedef enum {
     MARINE_ACT_SETTING_SET,         // value = knob_setting_t, meta = the new value (settings screen, stored by the firmware)
     MARINE_ACT_SETUP_AP,            // value = 1 open the setup access point next to the Wi-Fi, 0 close it
     MARINE_ACT_VOL_SET,             // value = volume 0..100 %, meta = target (0 master, 1.. zone)
-    MARINE_ACT_VOL_CONTROL          // value = marine_vol_control_t
+    MARINE_ACT_VOL_CONTROL,         // value = marine_vol_control_t
+    MARINE_ACT_AP_SET_STATE,        // value = knob_ap_state_t (1 compass, 2 wind, 3 route) from the pilot dialog
+    MARINE_ACT_AP_TACK              // value = -1 port, +1 starboard, after the confirm turn
 } marine_ui_action_type_t;
 
 typedef struct {
@@ -241,6 +243,21 @@ typedef struct {
     bool info_allow_control;       // what applies now (stored setting or the serial override)
 
     bool demo;                     // demo mode (#4): simulated data, the DEMO tag is shown on every screen
+
+    // Autopilot states (#7): what the pilot does while engaged, and the data the wind and route screens show.
+    uint8_t ap_state;              // knob_ap_state_t: 0 standby, 1 compass (auto), 2 wind, 3 route, 4 unknown
+    float wind_awa_deg;            // apparent wind angle, negative to port
+    uint32_t wind_updated_ms;
+    uint32_t wind_timeout_ms;
+    bool wind_target_valid;
+    float wind_target_deg;         // the pilot's wind angle target, negative to port
+    bool wind_adjust_supported;    // the provider takes target changes in wind (upstream fix), else ADJUST ON PILOT
+    char route_wpt[16];            // next waypoint, "" none
+    float route_brg_deg;           // bearing to it
+    float route_dist_nm;
+    float route_xte_m;             // cross-track error, SignalK sign: positive = right of the track, steer left
+    uint32_t route_updated_ms;
+    uint32_t route_timeout_ms;
 
     // Volume (#6, signalk-jukebox): target 0 is MASTER, then the zones.
     bool volume_mode;              // the VOLUME slot is on the ring (knob.volume_mode)

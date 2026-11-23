@@ -105,7 +105,9 @@ static void ap_poll(void)
         if (j) {
             const cJSON *eng = cJSON_GetObjectItem(j, "engaged");
             const cJSON *tg = cJSON_GetObjectItem(j, "target");
-            s_hooks->set_autopilot(cJSON_IsTrue(eng), cJSON_IsNumber(tg), cJSON_IsNumber(tg) ? tg->valuedouble : 0);
+            const cJSON *st = cJSON_GetObjectItem(j, "state");
+            s_hooks->set_autopilot(cJSON_IsTrue(eng), cJSON_IsNumber(tg), cJSON_IsNumber(tg) ? tg->valuedouble : 0,
+                                   cJSON_IsString(st) ? st->valuestring : NULL);
             cJSON_Delete(j);
         }
     }
@@ -173,7 +175,20 @@ static void ap_action(const marine_ui_action_t *a)
     s_hooks->autopilot_id(id, sizeof(id));
     switch (a->action) {
     case MARINE_ACT_AP_ENGAGE:
-        snprintf(path, sizeof(path), AP_BASE "%s/engage", id);
+        /* Never POST engage: the provider resumes the last engaged state, which may be wind or route. Engage is compass. */
+        snprintf(path, sizeof(path), AP_BASE "%s/state", id);
+        rest("PUT", path, "{\"value\":\"auto\"}");
+        break;
+    case MARINE_ACT_AP_SET_STATE: {
+        const char *name = knob_ap_state_name((knob_ap_state_t)a->value);
+        if (!name) break;
+        snprintf(path, sizeof(path), AP_BASE "%s/state", id);
+        snprintf(body, sizeof(body), "{\"value\":\"%s\"}", name);
+        rest("PUT", path, body);
+        break;
+    }
+    case MARINE_ACT_AP_TACK:
+        snprintf(path, sizeof(path), AP_BASE "%s/tack/%s", id, a->value < 0 ? "port" : "starboard");
         rest("POST", path, NULL);
         break;
     case MARINE_ACT_AP_STANDBY:
@@ -281,6 +296,8 @@ static void handle_action(const marine_ui_action_t *a)
     }
     case MARINE_ACT_AP_ENGAGE:
     case MARINE_ACT_AP_STANDBY:
+    case MARINE_ACT_AP_SET_STATE:
+    case MARINE_ACT_AP_TACK:
     case MARINE_ACT_AP_SET_CTS: ap_action(a); break;
     case MARINE_ACT_ANCHOR_DROP:
     case MARINE_ACT_ANCHOR_SET_RADIUS:

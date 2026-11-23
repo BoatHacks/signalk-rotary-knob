@@ -362,6 +362,61 @@ static void test_volume(void)
     TEST_ASSERT_FALSE(knob_jukebox_zone_path(NULL, id, sizeof(id), key, sizeof(key)));
 }
 
+/* ---- Autopilot states (#7) ---- */
+
+static void test_ap_states(void)
+{
+    TEST_ASSERT_EQUAL_INT(KNOB_AP_WIND, knob_ap_state_from("wind"));
+    TEST_ASSERT_EQUAL_INT(KNOB_AP_STANDBY, knob_ap_state_from("standby"));
+    TEST_ASSERT_EQUAL_INT(KNOB_AP_UNKNOWN, knob_ap_state_from("off-line"));
+    TEST_ASSERT_EQUAL_INT(KNOB_AP_UNKNOWN, knob_ap_state_from(NULL));
+    TEST_ASSERT_EQUAL_STRING("auto", knob_ap_state_name(KNOB_AP_AUTO));
+    TEST_ASSERT_NULL(knob_ap_state_name(KNOB_AP_UNKNOWN));
+}
+
+static void test_pilot_lines(void)
+{
+    knob_pilot_line_t l[7];
+    int n = knob_pilot_lines(KNOB_AP_AUTO, l, 7);       /* compass: standby, wind, route, both tacks, cancel */
+    TEST_ASSERT_EQUAL_INT(6, n);
+    TEST_ASSERT_EQUAL_INT(KNOB_PL_STANDBY, l[0]);
+    TEST_ASSERT_EQUAL_INT(KNOB_PL_WIND, l[1]);
+    TEST_ASSERT_EQUAL_INT(KNOB_PL_ROUTE, l[2]);
+    TEST_ASSERT_EQUAL_INT(KNOB_PL_TACK_PORT, l[3]);
+    TEST_ASSERT_EQUAL_INT(KNOB_PL_CANCEL, l[5]);
+    n = knob_pilot_lines(KNOB_AP_ROUTE, l, 7);          /* route: no tacks */
+    TEST_ASSERT_EQUAL_INT(4, n);
+    TEST_ASSERT_EQUAL_INT(KNOB_PL_COMPASS, l[1]);
+    TEST_ASSERT_EQUAL_INT(KNOB_PL_WIND, l[2]);
+    TEST_ASSERT_EQUAL_INT(KNOB_PL_CANCEL, l[3]);
+    n = knob_pilot_lines(KNOB_AP_WIND, l, 7);
+    TEST_ASSERT_EQUAL_INT(6, n);
+    TEST_ASSERT_EQUAL_INT(KNOB_PL_COMPASS, l[1]);
+    n = knob_pilot_lines(KNOB_AP_WIND, l, 3);           /* capped */
+    TEST_ASSERT_EQUAL_INT(3, n);
+}
+
+static void test_wind_and_xte(void)
+{
+    char side;
+    TEST_ASSERT_EQUAL_INT(118, knob_wind_abs(-118.0f, &side));
+    TEST_ASSERT_EQUAL_INT('P', side);
+    TEST_ASSERT_EQUAL_INT(45, knob_wind_abs(45.0f, &side));
+    TEST_ASSERT_EQUAL_INT('S', side);
+    TEST_ASSERT_EQUAL_INT(178, knob_wind_abs(182.0f, &side));   /* wraps: 182 is 178 to port */
+    TEST_ASSERT_EQUAL_INT('P', side);
+    TEST_ASSERT_EQUAL_INT(180, knob_wind_abs(-180.0f, &side));
+    TEST_ASSERT_EQUAL_INT('S', side);
+    TEST_ASSERT_EQUAL_INT(0, knob_wind_abs(-0.2f, &side));
+    TEST_ASSERT_EQUAL_INT('S', side);
+    TEST_ASSERT_EQUAL_INT(-1, knob_xte_steer(150.0f, 10.0f)); /* right of the track: steer left */
+    TEST_ASSERT_EQUAL_INT(1, knob_xte_steer(-150.0f, 10.0f));
+    TEST_ASSERT_EQUAL_INT(0, knob_xte_steer(8.0f, 10.0f));
+    /* The tack confirm is the confirm turn towards the tack side: port turns left, so the turn is passed negated. */
+    TEST_ASSERT_EQUAL_INT(KNOB_CONFIRM_DONE, knob_confirm_step(0, 100, 5000, KNOB_CONFIRM_EV_TURN, -(-1)));
+    TEST_ASSERT_EQUAL_INT(KNOB_CONFIRM_WAITING, knob_confirm_step(0, 100, 5000, KNOB_CONFIRM_EV_TURN, -(1)));
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -389,5 +444,8 @@ int main(void)
     RUN_TEST(test_demo_autopilot);
     RUN_TEST(test_demo_anchor);
     RUN_TEST(test_volume);
+    RUN_TEST(test_ap_states);
+    RUN_TEST(test_pilot_lines);
+    RUN_TEST(test_wind_and_xte);
     return UNITY_END();
 }

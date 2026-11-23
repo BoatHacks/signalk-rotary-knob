@@ -246,3 +246,51 @@ bool knob_jukebox_zone_path(const char *path, char *id, size_t id_n, char *key, 
     memcpy(key, dot + 1, kl + 1);
     return true;
 }
+
+static const char *const s_ap_states[] = { "standby", "auto", "wind", "route" };
+
+knob_ap_state_t knob_ap_state_from(const char *s)
+{
+    if (!s) return KNOB_AP_UNKNOWN;
+    for (int i = 0; i < 4; i++) if (!strcmp(s, s_ap_states[i])) return (knob_ap_state_t)i;
+    return KNOB_AP_UNKNOWN;
+}
+
+const char *knob_ap_state_name(knob_ap_state_t s)
+{
+    return (s >= KNOB_AP_STANDBY && s <= KNOB_AP_ROUTE) ? s_ap_states[s] : NULL;
+}
+
+int knob_pilot_lines(knob_ap_state_t current, knob_pilot_line_t *out, int max)
+{
+    knob_pilot_line_t all[7];
+    int n = 0;
+    all[n++] = KNOB_PL_STANDBY;
+    if (current != KNOB_AP_AUTO) all[n++] = KNOB_PL_COMPASS;
+    if (current != KNOB_AP_WIND) all[n++] = KNOB_PL_WIND;
+    if (current != KNOB_AP_ROUTE) all[n++] = KNOB_PL_ROUTE;
+    if (current == KNOB_AP_AUTO || current == KNOB_AP_WIND) {
+        all[n++] = KNOB_PL_TACK_PORT;
+        all[n++] = KNOB_PL_TACK_STBD;
+    }
+    all[n++] = KNOB_PL_CANCEL;
+    if (n > max) n = max;
+    for (int i = 0; i < n; i++) out[i] = all[i];
+    return n;
+}
+
+int knob_wind_abs(float awa_deg, char *side)
+{
+    float a = fmodf(awa_deg, 360.0f);
+    if (a > 180.0f) a -= 360.0f;
+    if (a < -180.0f) a += 360.0f;
+    int v = (int)lroundf(fabsf(a));
+    if (side) *side = (a < 0 && v != 0 && v != 180) ? 'P' : 'S';
+    return v;
+}
+
+int knob_xte_steer(float xte_m, float on_track_m)
+{
+    if (fabsf(xte_m) <= on_track_m) return 0;
+    return xte_m > 0 ? -1 : 1;
+}

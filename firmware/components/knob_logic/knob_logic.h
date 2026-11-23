@@ -80,6 +80,25 @@ typedef enum {
 /* Checks a PUT /api/v1/knob/mode body such as {"mode":"anchor"}. *mode is set when the result is OK. */
 knob_mode_req_t knob_mode_request(const char *json, bool usb_host, int *mode);
 
+/* --- Autopilot states (#7, signalk-autopilot raymarineST) --- */
+
+typedef enum { KNOB_AP_STANDBY = 0, KNOB_AP_AUTO, KNOB_AP_WIND, KNOB_AP_ROUTE, KNOB_AP_UNKNOWN } knob_ap_state_t;
+/* The provider's state string ("standby", "auto", "wind", "route") to the state, KNOB_AP_UNKNOWN for anything else or NULL. */
+knob_ap_state_t knob_ap_state_from(const char *s);
+/* The state's name for PUT .../state ("auto" ...), NULL for UNKNOWN. */
+const char *knob_ap_state_name(knob_ap_state_t s);
+
+/* Lines of the pilot dialog (long press while engaged): STANDBY first, the other engaged modes, the tacks in compass and wind
+ * only, CANCEL last. Returns the count (at most 7). */
+typedef enum { KNOB_PL_STANDBY = 0, KNOB_PL_COMPASS, KNOB_PL_WIND, KNOB_PL_ROUTE, KNOB_PL_TACK_PORT, KNOB_PL_TACK_STBD, KNOB_PL_CANCEL } knob_pilot_line_t;
+int knob_pilot_lines(knob_ap_state_t current, knob_pilot_line_t *out, int max);
+
+/* Apparent wind angle in degrees, negative to port: the absolute angle 0..180 and the side, 'P' or 'S' ('S' for 0 and 180). */
+int knob_wind_abs(float awa_deg, char *side);
+/* Which way to steer for a cross-track error in metres (SignalK: positive = right of the track, steer left): -1 left, +1 right,
+ * 0 within on_track_m. */
+int knob_xte_steer(float xte_m, float on_track_m);
+
 /* --- Volume mode (#6, signalk-jukebox) --- */
 
 #define KNOB_VOL_STEP 2   /* percent per click */

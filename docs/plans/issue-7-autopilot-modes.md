@@ -74,7 +74,15 @@ key behaviour, and the course output reaching the pilot.
       trials).
 - [ ] Set up the course output to the pilot (NMEA 0183 APB/RMB to SeaTalk) and check route mode on the pilot head.
 - [ ] Live control trials prove compass mode.
-- [ ] Engage through `PUT state` with the shown mode (also fixes compass engage after a wind session).
+- [x] Engage through `PUT state auto` (also fixes compass engage after a wind session). Not built yet.
+- [x] knob_logic: states, dialog lines, wind side, XTE steer, tack confirm direction, with host tests (27 pass).
+- [x] Contract (`ap_state`, wind and route fields, `MARINE_ACT_AP_SET_STATE` and `_TACK`), knob_actions (`PUT state`, tack),
+      knob_model (state from the poll, wind and course subscriptions, snapshot, demo). The waypoint shows as `WAYPOINT` until a
+      name source is found (verify).
+- [ ] **Left (2026-11-23, session stopped at the usage limit):** marine_ui pilot dialog (long press while engaged, STANDBY
+      reachable while stale), tack confirm overlay, wind and route variants of the autopilot screen, `NO WIND` / `NO ROUTE`
+      stale reasons, knob_power indicator per mode, docs (ui-design 3.1, SPEC 6.3, manual, checklist). Until the dialog exists,
+      a long press while engaged still sends standby directly.
 - [ ] Upstream issue and PR for `target/adjust` in `wind` and `setTarget` checking `state`.
 - [x] Mockups: wind screen, route screen, dialog (agreed 2026-11-23, ui-design.md section 3.1). Night palette at build time.
 - [ ] knob_model: wind, course and state subscriptions, snapshot fields. knob_actions: state, tack.

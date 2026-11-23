@@ -34,7 +34,7 @@ typedef struct {
 /* What the adapters call back into the model for. */
 typedef struct {
     void (*get_view)(knob_actions_view_t *out);
-    void (*set_autopilot)(bool engaged, bool has_target, double target_rad); /* from the status poll */
+    void (*set_autopilot)(bool engaged, bool has_target, double target_rad, const char *state); /* from the status poll */
     void (*ack_latch)(void);          /* the alarm was acknowledged on the knob */
     bool (*alarm_injected)(void);     /* the alarm is a bench one, no server notification behind it */
     void (*action_result)(uint8_t code); /* what became of an anchor action, a marine_action_result_t */
