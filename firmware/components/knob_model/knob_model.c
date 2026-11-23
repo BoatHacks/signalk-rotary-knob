@@ -23,6 +23,7 @@
 #include "knob_net.h"
 #include "knob_power.h"
 #include "lv_port.h"
+#include "lvgl.h"
 #include "usb_dev.h"
 
 static const char *TAG = "knob_model";
@@ -43,6 +44,7 @@ static knob_cfg_t s_cfg;
 #define T_ANCHOR  10000
 
 #define T_GPS_LOST   30000  /* armed anchor and no position update for this long: GPS lost alarm */
+#define T_BOOT_HID 10000    /* boot window in which a USB host brings back the USB-HID mode */
 #define T_BOOT_GRACE 45000  /* no GPS lost alarm in the first seconds after boot */
 
 /* ------------------------------------------------------------------------------------------------------------------
@@ -80,6 +82,8 @@ static volatile bool s_bypass_net;
 static volatile uint8_t s_action_result;      /* what became of the last anchor action, marine_action_result_t */
 static volatile uint16_t s_action_result_seq; /* 0 = none yet, changes with every result */
 static volatile bool s_force_down;
+static volatile bool s_boot_hid;        /* USB-HID was the last mode and the boot window is open */
+static marine_ui_mode_t s_boot_mode;    /* the mode restored at boot */
 static volatile int s_night_override;   /* 0 follow the server, 1 night, 2 day */
 static volatile int s_alarm_inject;     /* 0 none, else marine_alarm_type_t */
 static volatile bool s_ack_latch;
@@ -260,7 +264,12 @@ static void build_snapshot(marine_ui_snapshot_t *s, uint32_t now)
             break;
         case KNOB_NET_FAILED: s->system_screen = MARINE_SCREEN_CANNOT_CONNECT; break;
         case KNOB_NET_ONLINE: s->system_screen = MARINE_SCREEN_OPERATIONAL; break;
-        default: s->system_screen = MARINE_SCREEN_BOOT; break;
+        default:
+            /* A paired knob opens its last mode while Wi-Fi and the stream come up (CONNECTING overlay until the first data),
+             * and stays on it when the link drops later (LINK LOST). Only a fresh knob waits on the splash. */
+            s->system_screen = knob_boot_show_mode(ns.sk_known, ns.has_token, false) ? MARINE_SCREEN_OPERATIONAL
+                                                                                      : MARINE_SCREEN_BOOT;
+            break;
         }
         strncpy(s->boot_phase, ns.text, sizeof(s->boot_phase) - 1);
         s->boot_progress_pct = ns.progress;
@@ -363,6 +372,20 @@ static void model_task(void *arg)
         s_phase = 1;
         build_snapshot(&snap, ms_now());
         marine_ui_mode_t mode = marine_ui_get_active_mode();
+        if (s_boot_hid) {
+            /* USB-HID was the last mode: switch to it once a USB host shows up within the boot window (ui-design 3.4). */
+            uint32_t now = ms_now();
+            if (knob_boot_hid(true, snap.usb_host_enumerated, now, T_BOOT_HID, mode != s_boot_mode)) {
+                lv_port_lock();
+                marine_ui_set_mode(MARINE_MODE_USB_HID);
+                lv_port_unlock();
+                mode = MARINE_MODE_USB_HID;
+                s_boot_hid = false;
+                ESP_LOGI(TAG, "boot mode USB-HID, host present");
+            } else if (now >= T_BOOT_HID || mode != s_boot_mode) {
+                s_boot_hid = false;
+            }
+        }
         knob_power_apply_snapshot(&snap, mode);
         usb_dev_set_hid(mode == MARINE_MODE_USB_HID); /* a HID device only while the USB-HID mode is on screen */
         s_phase = 2;
@@ -427,6 +450,14 @@ static const knob_actions_hooks_t s_hooks = {
     .action_result = hook_action_result,
 };
 
+static volatile int s_mode_to_save;
+
+static void save_mode_async(void *arg)
+{
+    (void)arg;
+    knob_config_save_last_mode(s_mode_to_save, s_mode_to_save == MARINE_MODE_USB_HID);
+}
+
 void knob_model_action_cb(const marine_ui_action_t *act, void *ctx)
 {
     (void)ctx;
@@ -436,10 +467,27 @@ void knob_model_action_cb(const marine_ui_action_t *act, void *ctx)
     case MARINE_ACT_POWER_SET_BACKLIGHT: knob_power_set_backlight((uint8_t)act->value); return;
     case MARINE_ACT_ALARM_LED_PULSE: knob_power_led_alarm(act->value ? KNOB_LED_ALARM_FAST : KNOB_LED_ALARM_OFF); return;
     case MARINE_ACT_ALARM_LED_SLOW_PULSE: knob_power_led_alarm(act->value ? KNOB_LED_ALARM_SLOW : KNOB_LED_ALARM_OFF); return;
+    case MARINE_ACT_MODE_CHANGED:
+        /* The input task that calls this has its stack in PSRAM, where a flash write must not run. The LVGL task's stack is
+         * in internal RAM, so the write is handed to it. */
+        s_mode_to_save = (int)act->value;
+        lv_async_call(save_mode_async, NULL);
+        return;
     case MARINE_ACT_ALARM_ACK: s_ack_latch = true; break; /* and the server call below */
     default: break;
     }
     knob_actions_submit(act);
+}
+
+void knob_model_restore_mode(void)
+{
+    int stored = knob_config_last_mode();
+    s_boot_mode = (marine_ui_mode_t)knob_boot_mode(stored, MARINE_MODE_COUNT, MARINE_MODE_USB_HID);
+    ESP_LOGI(TAG, "boot mode %d (stored %d, USB-HID last %d)", (int)s_boot_mode, stored, (int)knob_config_last_hid());
+    lv_port_lock();
+    marine_ui_set_mode(s_boot_mode);
+    lv_port_unlock();
+    s_boot_hid = knob_config_last_hid(); /* the model task switches to USB-HID if a host shows up in the boot window */
 }
 
 void knob_model_command(char c)

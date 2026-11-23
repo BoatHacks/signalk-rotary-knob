@@ -17,6 +17,9 @@ void knob_model_start(void);
 /* Subscribes to the SignalK paths. Call after espos_start(). */
 void knob_model_subscribe(void);
 
+/* Opens the mode stored at the last mode ring change (USB-HID excepted). Call after espos_start(), not under the LVGL lock. */
+void knob_model_restore_mode(void);
+
 /* Bench commands, one character each (from the USB serial port):
  *  a anchor drag alarm   g GPS lost alarm   c clear injected alarm   x toggle stream-down display
  *  s freeze the heading (goes stale)   n cycle night override (follow server, night, day)

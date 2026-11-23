@@ -12,7 +12,7 @@ Name files `issue-<n>-<short-name>.md` for a GitHub issue, `<short-name>.md` oth
 |---|---|---|
 | [internal-ram-dip.md](internal-ram-dip.md) | none | A boot with 276 bytes of internal RAM left can reboot the knob. Blocks everything else |
 | [live-control-trials.md](live-control-trials.md) | none | Autopilot and anchor have never run against the real boat. Needs the owner at the boat |
-| [boot-to-last-screen.md](boot-to-last-screen.md) | none | Gate item not met, small, needs one decision |
+| [boot-to-last-screen.md](boot-to-last-screen.md) | none | Built 2026-11-23 (option A), waiting for the checks on the panel |
 | [hardening.md](hardening.md) | none | Required before the knob runs unattended or the repo goes public |
 | [issue-3-rest-api.md](issue-3-rest-api.md) | #3 | The settings screen and demo mode both want the same config interface |
 | [issue-5-settings-screen.md](issue-5-settings-screen.md) | #5 | Design agreed. Builds on #3's config reload and the allow control key |
@@ -28,7 +28,7 @@ only facts marked **(verify)** that the work checks first.
 ## Decisions waiting for the owner
 
 - Which relays beyond Relay 1 become light channels, and their names (SPEC section 13).
-- The boot screen rule (see boot-to-last-screen.md).
+- Where the knob's own USB PID comes from (hardening.md, deferred 2026-11-23).
 
 Decided 2026-11-23 while planning the issues: "live control" becomes the stored setting **allow control** (SPEC section 2),
 switched on the web page, the config API or the knob's settings screen.

@@ -95,6 +95,7 @@ void app_main(void)
     ESP_ERROR_CHECK(espos_start(NULL));
     ESP_LOGI(TAG, "espos_start returned at %lu ms", ms());
     heap_step("espos_start");
+    knob_model_restore_mode();
     knob_net_start();
     knob_model_subscribe();
     heap_step("net, subscribe");

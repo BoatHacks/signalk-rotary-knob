@@ -143,8 +143,8 @@ Availability:
   "NO USB HOST". HID is already hidden from the ring, so the user leaves through the double-press ring as usual. The SignalK
   link stays up and alarms still take over the screen. It does not switch mode by itself, and it does not resume on its own
   when the host returns, the user selects HID again from the ring (open item 10).
-- Boot: the knob boots into HID (when HID was the last mode) only if the host enumerates within the boot window. Otherwise it
-  boots to the last non-HID mode.
+- Boot: the knob boots into HID (when HID was the last mode) only if a USB host is on the cable within the boot window, the
+  first 10 s after power on, and the mode has not been changed meanwhile. Otherwise it boots to the last non-HID mode.
 
 Look: tick ring, no gauge arc. A green `USB HID CONNECTED` label curves along the top, the profile name is in the centre, the
 live action line shows the last action (`ZOOM IN (+)`) and `PRESS: ENTER`, and `HOLD: PROFILE` curves along the bottom. Without
@@ -236,7 +236,9 @@ phrases it as how long a consumer waits for a new value, so we use the 1.5.0 mea
 - Essential values per mode: autopilot state, heading and target. Anchor distance and radius. The dimmer levels. If an essential
   value is stale, the mode shows the stale overlay (section 4 above) with the reason, for example `NO HEADING`, and ignores that mode's
   controls (the mode ring still works). HID has none.
-- Stream down or no link: the full stale overlay as before (`LINK LOST`, last data age).
+- Stream down or no link: the full stale overlay as before (`LINK LOST`, last data age). While no data has arrived since boot
+  the same overlay says `CONNECTING` with the boot phase (`WI-FI`, `SIGNALK`, `TOKEN`) instead of an age, because nothing is
+  lost yet.
 
 ### Boot, setup and pairing screens
 
@@ -245,7 +247,7 @@ screens.
 
 | Screen | Shows |
 |---|---|
-| Boot | The splash picture (firmware/assets/splash.png) with a live progress bar and a status bar under it that names the current phase in text: `STARTING`, `WI-FI`, `SIGNALK`, `TOKEN`. It stays up until the stream is connected, then the last mode opens. The portal, approval and cannot-connect screens below replace it when they apply. No input needed |
+| Boot | The splash picture (firmware/assets/splash.png) with a live progress bar and a status bar under it that names the current phase in text: `STARTING`, `WI-FI`, `SIGNALK`, `TOKEN`. On a knob that is already paired (a SignalK token is stored) the last mode replaces it as soon as espOS reports the token, about 2 s after power on, under the `CONNECTING` overlay until the data arrives. A fresh knob keeps it until setup or pairing is needed. The last mode is the one last chosen on the mode ring (USB-HID only with a host, see section 3.4). The portal, approval and cannot-connect screens below replace it when they apply. No input needed |
 | Wi-Fi setup portal | `JOIN WI-FI`, the setup network name in a pill (an example, the real name comes from espOS), `THEN OPEN THE SETUP PAGE`, curved `SETUP ONLY`. Wi-Fi only, no pairing code |
 | Connecting | Three steps with drawn status marks: Wi-Fi, server, link (done = green disc with a check, current = cyan ring, pending = grey ring) |
 | Waiting for approval | Large straight text in the middle of the screen (28 px, three lines): `PAIRING`, `WAITING FOR`, `APPROVAL`. No curved labels. Under it, small: `APPROVE IN SIGNALK ADMIN UI` and the device name the request shows there. First connect only |

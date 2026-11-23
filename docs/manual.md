@@ -15,8 +15,9 @@ one round screen, an endless dial with a push button, five LEDs around the edge,
 3. **Pairing.** The knob finds the SignalK server on its own, or you give the server address on the settings page. It then shows
    `PAIRING, WAITING FOR APPROVAL`. In the SignalK admin UI open Security, Access Requests, find the request named after the knob and
    approve it with **read/write** permission. This is done once.
-4. **Online.** The splash picture shows the phases (`WI-FI`, `SIGNALK`, `TOKEN`) with a progress bar. When the data stream is up
-   the knob opens its last screen. A normal start takes about five seconds.
+4. **Online.** The splash picture shows the phases (`WI-FI`, `SIGNALK`, `TOKEN`) with a progress bar. Once the knob is paired, later
+   starts skip most of that: it opens the screen you used last after about two seconds and says `CONNECTING` until the data is
+   there, about five seconds after power on. The controls work from then on.
 
 If the knob is moved to a different network, or its approval is removed on the server, it goes through the steps again.
 
@@ -82,7 +83,7 @@ The GPS-lost alarm is raised while the anchor is armed and the position stops up
 ## 5. When data is missing
 
 Every value has its own age. If something the screen depends on stops arriving, the knob says so (`NO HEADING`, `NO AP STATE`,
-`LINK LOST`) and ignores that mode's controls. It never shows old values as current. The mode ring and the alarm acknowledge still
+`LINK LOST`, or `CONNECTING` right after a start) and ignores that mode's controls. It never shows old values as current. The mode ring and the alarm acknowledge still
 work. Values the boat does not publish show `---`.
 
 ## 6. Settings and live control

@@ -84,3 +84,19 @@ bool knob_gps_lost(bool armed, uint32_t now, uint32_t grace, bool pos_valid, uin
     if (!armed || now <= grace) return false;
     return !pos_valid || now - pos_ms > lost_after || (gps_known && !gps_fix);
 }
+
+bool knob_boot_show_mode(bool net_known, bool has_token, bool online)
+{
+    return online || (net_known && has_token);
+}
+
+int knob_boot_mode(int stored, int count, int hid_mode)
+{
+    if (stored < 0 || stored >= count || stored == hid_mode) return 0;
+    return stored;
+}
+
+bool knob_boot_hid(bool hid_last, bool host_present, uint32_t now_ms, uint32_t window_ms, bool user_changed_mode)
+{
+    return hid_last && host_present && now_ms < window_ms && !user_changed_mode;
+}

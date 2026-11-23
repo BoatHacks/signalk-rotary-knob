@@ -753,7 +753,9 @@ static void close_mode_ring(bool commit) {
     mode_ring_open = false;
     lv_obj_add_flag(ovl_mode_ring, LV_OBJ_FLAG_HIDDEN);
     if (commit) {
+        marine_ui_mode_t was = active_mode;
         active_mode = ring_slot_modes[ring_selected_slot];
+        if (active_mode != was) emit_action(active_mode, MARINE_ACT_MODE_CHANGED, active_mode, 0);
         anchor_preview_active = false;
         cancel_transients();
         lv_screen_load_anim(scr_modes[active_mode], LV_SCR_LOAD_ANIM_FADE_IN, 120, 0, false);
@@ -2013,8 +2015,11 @@ static void cancel_transients(void) {
 static void update_stale_overlay(void) {
     stale_state_t st = (snap.system_screen == MARINE_SCREEN_OPERATIONAL) ? current_stale() : STALE_NONE;
     const char *reason = (st == STALE_ESSENTIAL) ? essential_stale_reason() : NULL;
+    // No data since boot: the link is still coming up, not lost. Shows CONNECTING and the boot phase instead of an age.
+    bool connecting = (st == STALE_LINK) && snap.last_data_ms == 0;
+    static char last_phase[sizeof(snap.boot_phase)];
     uint32_t age_s = 0;
-    if (st == STALE_LINK) {
+    if (st == STALE_LINK && !connecting) {
         age_s = (snap.now_ms >= snap.last_data_ms) ? ((snap.now_ms - snap.last_data_ms) / 1000U) : 0U;
     }
 
@@ -2025,6 +2030,9 @@ static void update_stale_overlay(void) {
                  | (is_full_alarm_blocking() ? (1u << 17) : 0u);
     bool changed = (sig != last_stale_sig) || (reason != last_stale_reason);
     bool age_changed = (st == STALE_LINK) && (age_s != last_stale_age_s);
+    if (connecting && strcmp(last_phase, snap.boot_phase) != 0) age_changed = true;
+    if (connecting) memcpy(last_phase, snap.boot_phase, sizeof(last_phase));
+    else last_phase[0] = '\0';
     if (!changed && !age_changed) return;
     last_stale_sig = sig;
     last_stale_reason = reason;
@@ -2035,7 +2043,11 @@ static void update_stale_overlay(void) {
     // The overlay never covers the mode ring (the user can always leave) or the full-screen alarm.
     bool show = (st != STALE_NONE) && !mode_ring_open && !is_full_alarm_blocking();
     if (show) {
-        if (st == STALE_LINK) {
+        if (connecting) {
+            lv_label_set_text(stale_lbl_title, "CONNECTING");
+            lv_label_set_text(stale_lbl_age, snap.boot_phase);
+            lv_label_set_text(stale_lbl_sub, "CONTROLS OFF");
+        } else if (st == STALE_LINK) {
             char b[32];
             snprintf(b, sizeof(b), "LAST DATA %lu s AGO", (unsigned long)age_s);
             lv_label_set_text(stale_lbl_title, "LINK LOST");
@@ -2562,6 +2574,20 @@ void marine_ui_tick(uint32_t now_ms) {
         current_backlight_pct = target_bl;
         emit_action(active_mode, MARINE_ACT_POWER_SET_BACKLIGHT, target_bl, 0);
     }
+}
+
+void marine_ui_set_mode(marine_ui_mode_t mode) {
+    if ((int)mode < 0 || mode >= MARINE_MODE_COUNT || mode == active_mode) return;
+    if (mode_ring_open) close_mode_ring(false);
+    active_mode = mode;
+    anchor_preview_active = false;
+    cancel_transients();
+    // Under a system screen the mode screen is loaded when the snapshot leaves it (marine_ui_apply_snapshot).
+    if (snap.system_screen == MARINE_SCREEN_OPERATIONAL) {
+        lv_screen_load(scr_modes[active_mode]);
+        mode_registry[active_mode].refresh();
+    }
+    update_stale_overlay();
 }
 
 marine_ui_mode_t marine_ui_get_active_mode(void) {

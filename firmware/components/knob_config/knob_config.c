@@ -6,6 +6,7 @@
 
 #include "esp_log.h"
 #include "espos_config.h"
+#include "nvs.h"
 
 static const char *TAG = "knob_config";
 #define NS "knob"
@@ -50,4 +51,55 @@ void knob_config_load(knob_cfg_t *c)
     }
     ESP_LOGI(TAG, "autopilot '%s', heading %s, anchor radius %u m, %d light channel(s)", c->autopilot_id,
              c->heading_true ? "true" : "magnetic", (unsigned)c->anchor_radius_m, c->n_lights);
+}
+
+#define STATE_NS "knob_state"
+static bool s_state_read;
+static int s_last_mode = -1;
+static bool s_last_hid;
+
+static void state_read(void)
+{
+    if (s_state_read) return;
+    s_state_read = true;
+    nvs_handle_t h;
+    if (nvs_open(STATE_NS, NVS_READONLY, &h) != ESP_OK) return;
+    int8_t v;
+    uint8_t b;
+    if (nvs_get_i8(h, "mode", &v) == ESP_OK) s_last_mode = v;
+    if (nvs_get_u8(h, "hid", &b) == ESP_OK) s_last_hid = b != 0;
+    nvs_close(h);
+}
+
+int knob_config_last_mode(void)
+{
+    state_read();
+    return s_last_mode;
+}
+
+bool knob_config_last_hid(void)
+{
+    state_read();
+    return s_last_hid;
+}
+
+void knob_config_save_last_mode(int mode, bool hid)
+{
+    state_read();
+    if (hid) mode = s_last_mode;
+    if (mode == s_last_mode && hid == s_last_hid) return;
+    nvs_handle_t h;
+    esp_err_t e = nvs_open(STATE_NS, NVS_READWRITE, &h);
+    if (e == ESP_OK) {
+        e = nvs_set_i8(h, "mode", (int8_t)mode);
+        if (e == ESP_OK) e = nvs_set_u8(h, "hid", hid ? 1 : 0);
+        if (e == ESP_OK) e = nvs_commit(h);
+        nvs_close(h);
+    }
+    if (e == ESP_OK) {
+        s_last_mode = mode;
+        s_last_hid = hid;
+    } else {
+        ESP_LOGW(TAG, "last mode not stored: %s", esp_err_to_name(e));
+    }
 }

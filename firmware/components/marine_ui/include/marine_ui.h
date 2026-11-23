@@ -75,7 +75,8 @@ typedef enum {
     MARINE_ACT_SYS_FACTORY_RESET,   // value = 1 (fires after full 5 s hold)
     MARINE_ACT_POWER_SET_BACKLIGHT, // value = 0, 10, or 100 %
     MARINE_ACT_ALARM_LED_PULSE,     // value = 1 flash LEDs fast (alarm arrival or type change), 0 = stop (alarm cleared)
-    MARINE_ACT_ALARM_LED_SLOW_PULSE // value = 1 slow red pulse (alarm acknowledged, still active), 0 = stop
+    MARINE_ACT_ALARM_LED_SLOW_PULSE,// value = 1 slow red pulse (alarm acknowledged, still active), 0 = stop
+    MARINE_ACT_MODE_CHANGED         // value = marine_ui_mode_t the user switched to on the mode ring (to restore it at boot)
 } marine_ui_action_type_t;
 
 typedef struct {
@@ -122,7 +123,8 @@ typedef struct {
  * Display-only values (rudder, depth, voltage, GPS fix): when stale only that value is masked with `---`.
  * Essential values (AP state, heading, target; anchor data; dimmer levels): when stale the mode shows the stale overlay
  * with a reason and ignores its own controls. The mode ring still opens, and HID mode ignores SignalK staleness.
- * Stream down (`signalk_connected == false`) shows LINK LOST.
+ * Stream down (`signalk_connected == false`) shows LINK LOST, or CONNECTING with `boot_phase` while no data has arrived since
+ * boot (`last_data_ms == 0`).
  */
 typedef struct {
     uint32_t now_ms;
@@ -240,6 +242,12 @@ void marine_ui_tick(uint32_t now_ms);
  * @brief The mode whose screen is currently active (not the mode ring preview). Safe to read without the LVGL lock.
  */
 marine_ui_mode_t marine_ui_get_active_mode(void);
+
+/**
+ * @brief Opens a mode without the mode ring and without emitting MARINE_ACT_MODE_CHANGED, for the boot restore. A system
+ *        screen (splash, setup, pairing) stays on top until the snapshot leaves it. Call under the LVGL port lock.
+ */
+void marine_ui_set_mode(marine_ui_mode_t mode);
 
 /**
  * @brief Idle power settings. After dim_after_ms without input the backlight drops to dim_pct. After off_after_ms it goes to

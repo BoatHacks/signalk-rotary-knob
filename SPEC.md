@@ -155,7 +155,8 @@ layer (section 6.1).
 
 ## 8. Persistence
 
-NVS: pairing/token, server host, last mode, brightness limits, HID/Wi-Fi mode selection.
+NVS: pairing/token, server host, last mode (the last mode chosen on the ring, and whether USB-HID was chosen after it, see
+docs/ui-design.md section 3.4), brightness limits, HID/Wi-Fi mode selection.
 Everything else is ephemeral.
 
 ## 9. Configuration

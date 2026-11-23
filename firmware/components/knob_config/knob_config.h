@@ -27,3 +27,12 @@ typedef struct {
 
 /* Reads the settings. Falls back to the descriptor defaults, so it always fills in something usable. */
 void knob_config_load(knob_cfg_t *out);
+
+/* The last mode, kept in its own NVS namespace ("knob_state"), not on the settings page: the last non-HID mode (-1 when none
+ * is stored) and whether USB-HID was on screen after it. Call after espos_start() (NVS is up then). */
+int knob_config_last_mode(void);
+bool knob_config_last_hid(void);
+/* Stores a mode change when it differs from what is stored. hid true: USB-HID was chosen, mode is ignored and the last non-HID
+ * mode stays. Writes flash, which stops the caches: call it only from a task whose stack is in internal RAM (the LVGL task),
+ * never from one with a PSRAM stack (input, model, worker). */
+void knob_config_save_last_mode(int mode, bool hid);

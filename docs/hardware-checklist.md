@@ -15,7 +15,12 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 | Splash shows phase text and progress bar | ok | 2026-11-23 | 432c456 | |
 | Pairing screen shows straight text | open | | | knob already paired, needs a fresh pairing to see |
 | Online in under 10 s | ok | 2026-11-23 | 432c456 | 5.2 s |
-| Last screen in under 4 s | fail | 2026-11-23 | 432c456 | splash waits for the stream, decision open |
+| Last screen in under 4 s | open | | | was fail on 432c456 (splash waited for the stream). Option A built: a paired knob opens its last mode when espOS reports the token. Measure power on to mode screen |
+| Boot shows `CONNECTING` with the phase over the mode, gone when the data arrives | open | | | |
+| Each mode (autopilot, lights, anchor) comes back after a reboot | open | | | stored on a mode ring change, log line `boot mode` |
+| USB-HID last, host on the cable: boots into USB-HID. No host: the last non-HID mode | open | | | try with a charger and with a PC |
+| A stream drop while running shows `LINK LOST` over the mode, not the splash | open | | | bench command `x` only fakes it, stop the server or Wi-Fi |
+| A knob without a token keeps the splash, then the pairing screen | open | | | needs a forgotten token |
 | Stream stays up after boot | ok | 2026-11-23 | 549db49 | stayed up for 64 s. The earlier drops came with the RAM starvation. Separate: espOS sends a single-path unsubscribe that this server rejects with an error |
 | Reflash over the USB-Serial/JTAG port, automatic reset | ok | 2026-11-23 | 549db49 | no 1200 baud reboot any more. Not possible while the USB-HID mode is on screen |
 | Survives reboot and reflash with the token | ok | 2026-11-23 | 432c456 | |

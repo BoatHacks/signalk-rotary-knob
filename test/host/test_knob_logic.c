@@ -143,6 +143,38 @@ static void test_gps_lost(void)
     TEST_ASSERT_FALSE(knob_gps_lost(true, 100000, 45000, true, 99000, 30000, false, false)); /* fix state unknown */
 }
 
+/* ---- Boot ---- */
+
+static void test_boot_show_mode(void)
+{
+    TEST_ASSERT_FALSE(knob_boot_show_mode(false, false, false)); /* espOS not up yet */
+    TEST_ASSERT_FALSE(knob_boot_show_mode(false, true, false));  /* token flag from a status not read yet does not count */
+    TEST_ASSERT_FALSE(knob_boot_show_mode(true, false, false));  /* fresh knob: splash until setup or pairing */
+    TEST_ASSERT_TRUE(knob_boot_show_mode(true, true, false));    /* paired, still connecting: last mode early */
+    TEST_ASSERT_TRUE(knob_boot_show_mode(true, false, true));    /* online always shows the mode */
+    TEST_ASSERT_TRUE(knob_boot_show_mode(false, false, true));
+}
+
+static void test_boot_mode(void)
+{
+    /* four modes, HID is 3 */
+    TEST_ASSERT_EQUAL_INT(0, knob_boot_mode(0, 4, 3));
+    TEST_ASSERT_EQUAL_INT(1, knob_boot_mode(1, 4, 3));
+    TEST_ASSERT_EQUAL_INT(2, knob_boot_mode(2, 4, 3));
+    TEST_ASSERT_EQUAL_INT(0, knob_boot_mode(3, 4, 3));  /* HID is not a non-HID mode */
+    TEST_ASSERT_EQUAL_INT(0, knob_boot_mode(4, 4, 3));  /* out of range, for example from an older firmware */
+    TEST_ASSERT_EQUAL_INT(0, knob_boot_mode(-1, 4, 3)); /* nothing stored */
+}
+
+static void test_boot_hid(void)
+{
+    TEST_ASSERT_TRUE(knob_boot_hid(true, true, 3000, 10000, false));
+    TEST_ASSERT_FALSE(knob_boot_hid(false, true, 3000, 10000, false)); /* HID was not the last mode */
+    TEST_ASSERT_FALSE(knob_boot_hid(true, false, 3000, 10000, false)); /* no host: last non-HID mode */
+    TEST_ASSERT_FALSE(knob_boot_hid(true, true, 10000, 10000, false)); /* window closed */
+    TEST_ASSERT_FALSE(knob_boot_hid(true, true, 3000, 10000, true));   /* the user picked a mode meanwhile */
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -157,5 +189,8 @@ int main(void)
     RUN_TEST(test_steer_colours_and_hysteresis);
     RUN_TEST(test_night_fade);
     RUN_TEST(test_gps_lost);
+    RUN_TEST(test_boot_show_mode);
+    RUN_TEST(test_boot_mode);
+    RUN_TEST(test_boot_hid);
     return UNITY_END();
 }

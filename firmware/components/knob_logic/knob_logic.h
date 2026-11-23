@@ -45,6 +45,19 @@ uint32_t knob_fade_permille(uint32_t elapsed_ms, uint32_t hold_ms, uint32_t fade
 bool knob_gps_lost(bool anchor_armed, uint32_t now_ms, uint32_t boot_grace_ms, bool pos_valid, uint32_t pos_ms,
                    uint32_t lost_after_ms, bool gps_known, bool gps_fix);
 
+/* --- Boot --- */
+
+/* Whether the knob leaves the boot splash for its last mode. Once online, or as soon as espOS reports a stored SignalK token
+ * (net_known) while Wi-Fi and the stream are still coming up: the stale rules then mask the data that has not arrived. A
+ * fresh knob without a token keeps the splash until it needs setup or pairing. */
+bool knob_boot_show_mode(bool net_known, bool has_token, bool online);
+/* The mode to open at boot from the stored last non-HID mode: stored when it is a valid mode (0..count-1) other than
+ * hid_mode, else 0 (nothing stored, or a value from another firmware). */
+int knob_boot_mode(int stored, int count, int hid_mode);
+/* Whether to switch to USB-HID at boot: HID was the last mode, a USB host is on the cable, the boot window is still open and
+ * the user has not changed the mode since the restore. Otherwise the knob stays on the last non-HID mode. */
+bool knob_boot_hid(bool hid_last, bool host_present, uint32_t now_ms, uint32_t window_ms, bool user_changed_mode);
+
 #ifdef __cplusplus
 }
 #endif

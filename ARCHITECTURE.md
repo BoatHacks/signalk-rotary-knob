@@ -72,8 +72,11 @@ time. Activity is tracked here, **not** through LVGL's inactivity counter, so th
 ### 2.4a knob_net
 Polls espOS (Wi-Fi state machine, SignalK token state, stream status) every 250 ms and reports one boot phase: starting,
 setup portal, Wi-Fi, server search, pairing, token check, link, failed, online. It carries a short text for the splash
-status bar and a progress value for the progress bar. Polled, not event driven, so it cannot interfere with espOS. The model
-maps the phase to a system screen.
+status bar and a progress value for the progress bar, and whether a SignalK token is stored. Polled, not event driven, so it
+cannot interfere with espOS. The model maps the phase to a system screen: setup portal, pairing and failed have their own
+screens, online is the mode screen. In the other phases a knob with a stored token shows its mode screen at once, under the
+`CONNECTING` overlay until the first data and `LINK LOST` after a drop; a knob without a token keeps the splash (rule in
+`knob_logic`, `knob_boot_show_mode`).
 
 ### 2.5 knob_model
 The only owner of `marine_ui_snapshot_t`. Inputs, all copied and enqueued from callbacks (never blocking on the stream task):
@@ -260,7 +263,7 @@ espOS components used selectively (`espos_sk`, `espos_config`, `espos_net`) unde
 | Gate | Pass if | Status |
 |---|---|---|
 | Wi-Fi join and SignalK access request through the espOS portal | Token approved once, survives reboot | **passed 2026-11-23**: joined Wi-Fi, access request sent to the boat server (manual host through a tunnel), approved with readwrite, delta stream connected. The token survived a reboot and a reflash |
-| Boot to `SK_STREAM_CONNECTED` | ONLINE under 10 s, last screen under 4 s | **ONLINE passed 2026-11-23**: 5.2 s after boot by the chip clock (Wi-Fi joining from 2.4 s, server 3.4 s, token check 4.7 s, link 5.0 s, online 5.2 s; manual server). **Last screen under 4 s not met**: the splash stays until the stream is up. The stream dropped and reconnected once at 7.9 s, cause not investigated |
+| Boot to `SK_STREAM_CONNECTED` | ONLINE under 10 s, last screen under 4 s | **ONLINE passed 2026-11-23**: 5.2 s after boot by the chip clock (Wi-Fi joining from 2.4 s, server 3.4 s, token check 4.7 s, link 5.0 s, online 5.2 s; manual server). **Last screen under 4 s**: decided 2026-11-23 to open the last mode as soon as espOS reports a stored token, under a `CONNECTING` overlay until the stream brings data (docs/ui-design.md section 4). Implemented, to be measured on the panel. The stream drop at 7.9 s came with the internal RAM starvation and has not been seen since the fix |
 | espOS alive next to USB composite | setup AP or stream up while CDC+HID enumerated, no health reboot | unconfirmed |
 | Stream and REST under LVGL load | no dropped frames above 2 per minute during turning and a heartbeat | untested |
 | `espos_sk_http` autopilot `GET` against the real server | 200 with token | untested |
