@@ -45,6 +45,22 @@ Elecrow wiki, CNX Software, It's FOSS and the RIOT OS board page, and is unverif
 Encoder A/B use no internal pull-ups in the Elecrow code and are decoded by polling a quadrature state table
 (4 transitions per step). The firmware should use the ESP32-S3 PCNT peripheral or a GPIO interrupt instead.
 
+### Ambient LED positions
+
+The five WS2812s sit evenly spaced (72 degrees apart) around the rim of the base. Measured with `spikes/led-id`,
+looking at the knob from the front, the data line runs counter-clockwise:
+
+| Data-line index | Clock position |
+|---|---|
+| 0 | about 3:30 |
+| 1 | about 1 o'clock |
+| 2 | about 11 o'clock |
+| 3 | about 8:30 |
+| 4 | 6 o'clock |
+
+All five positions were confirmed on the bench.
+A clockwise sweep therefore walks the indexes downwards: 4, 3, 2, 1, 0.
+
 ## Facts that shape the firmware
 
 - Display and touch power is switched by GPIO1 and must be enabled before init. External 5 V on the MX1.25 sockets
