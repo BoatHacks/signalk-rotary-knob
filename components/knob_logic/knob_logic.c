@@ -135,7 +135,7 @@ bool knob_allow_control(bool stored, int override)
 }
 
 static const int s_brightness[] = { 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 };
-static const int s_dim_after[] = { 5, 10, 15, 20, 30, 45, 60, 90, 120, 300, 600, 1800, 3600 };
+static const int s_dim_after[] = { 0, 5, 10, 15, 20, 30, 45, 60, 90, 120, 300, 600, 1800, 3600 };
 static const int s_dim_level[] = { 1, 2, 5, 10, 15, 20, 30, 40, 50, 60, 80, 100 };
 static const int s_off_after[] = { 0, 1, 2, 5, 10, 15, 30, 60, 120, 240 };
 static const char *const s_night_w[] = { "SERVER", "DAY", "NIGHT" };
@@ -283,7 +283,7 @@ void knob_setting_format(knob_setting_t s, int value, char *out, size_t n)
     if (d->kind == KNOB_KIND_CHOICE) {
         snprintf(out, n, "%s", (value >= 0 && value < d->n_values) ? d->words[value] : "?");
     } else if (d->kind == KNOB_KIND_NUMBER) {
-        if ((s == KNOB_SET_OFF_AFTER || s == KNOB_SET_MOTOR_IDLE) && value == 0) snprintf(out, n, "NEVER");
+        if ((s == KNOB_SET_DIM_AFTER || s == KNOB_SET_OFF_AFTER || s == KNOB_SET_MOTOR_IDLE) && value == 0) snprintf(out, n, "NEVER");
         else snprintf(out, n, "%d %s", value, d->unit);
     }
 }

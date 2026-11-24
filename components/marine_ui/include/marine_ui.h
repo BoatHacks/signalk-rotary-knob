@@ -351,7 +351,8 @@ uint8_t marine_ui_get_selected_vol_target(void);
 void marine_ui_set_mode(marine_ui_mode_t mode);
 
 /**
- * @brief Idle power settings. After dim_after_ms without input the backlight drops to dim_pct. After off_after_ms it goes to
+ * @brief Idle power settings. After dim_after_ms without input the backlight drops to dim_pct (0 = never dims). After
+ *        off_after_ms it goes to
  *        0 % unless the autopilot is engaged or an alarm is active (0 = never fully off). Defaults: 30 s, 10 %, 10 min.
  *        Call under the LVGL port lock, or before the first snapshot.
  */

@@ -46,7 +46,9 @@ void knob_config_load(knob_cfg_t *c)
     if (espos_config_get_i32(NS, "anchor_radius", &r) == ESP_OK && r >= 5 && r <= 500) c->anchor_radius_m = (uint16_t)r;
 
     int32_t v = 0;
-    if (espos_config_get_i32(NS, "dim_after_s", &v) == ESP_OK && v >= 5 && v <= 3600) c->dim_after_ms = (uint32_t)v * 1000u;
+    if (espos_config_get_i32(NS, "dim_after_s", &v) == ESP_OK && v >= 0 && v <= 3600) {
+        c->dim_after_ms = (uint32_t)(v == 0 ? 0 : v < 5 ? 5 : v) * 1000u;   /* 0 = never, 1..4 s count as 5 */
+    }
     if (espos_config_get_i32(NS, "dim_level_pct", &v) == ESP_OK && v >= 1 && v <= 100) c->dim_level_pct = (uint8_t)v;
     if (espos_config_get_i32(NS, "off_after_min", &v) == ESP_OK && v >= 0 && v <= 240) c->off_after_ms = (uint32_t)v * 60000u;
     if (espos_config_get_i32(NS, "brightness_pct", &v) == ESP_OK && v >= 10 && v <= 100) c->brightness_pct = (uint8_t)v;

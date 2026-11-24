@@ -201,7 +201,7 @@ Items, in order: active brightness, dim after, dim level, off after, night mode 
 modes), heading reference (true or magnetic), HID profile, allow control, demo mode, setup access point, device info,
 SignalK, reset setup (14 items).
 
-Steps a turn moves through (clamped at the ends): brightness 10 to 100 % in tens; dim after 5, 10, 15, 20, 30, 45 s, 1, 1.5, 2,
+Steps a turn moves through (clamped at the ends): brightness 10 to 100 % in tens; dim after never (2026-11-24), 5, 10, 15, 20, 30, 45 s, 1, 1.5, 2,
 5, 10, 30, 60 min; dim level 1, 2, 5, 10, 15, 20, 30, 40, 50, 60, 80, 100 %; off after never, 1, 2, 5, 10, 15, 30, 60, 120, 240
 min. Values from the web page that sit between two steps move to the nearer step in the turn's direction.
 

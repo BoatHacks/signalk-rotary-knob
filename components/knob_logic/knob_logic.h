@@ -124,7 +124,7 @@ bool knob_allow_control(bool stored, int override);
 /* The items, in the order of the list. */
 typedef enum {
     KNOB_SET_BRIGHTNESS = 0, /* active brightness, % */
-    KNOB_SET_DIM_AFTER,      /* s */
+    KNOB_SET_DIM_AFTER,      /* s, 0 = never */
     KNOB_SET_DIM_LEVEL,      /* % */
     KNOB_SET_OFF_AFTER,      /* min, 0 = never */
     KNOB_SET_NIGHT,          /* 0 follow the server, 1 day, 2 night */

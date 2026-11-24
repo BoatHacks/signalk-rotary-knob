@@ -70,11 +70,11 @@
    "name": "dim_after_s",
    "type": "int",
    "default": 30,
-   "min": 5,
+   "min": 0,
    "max": 3600,
    "unit": "s",
    "title": "Dim after idle",
-   "description": "Seconds without input before the backlight drops to the dim level.",
+   "description": "Seconds without input before the backlight drops to the dim level. 0 = never (5 is the shortest otherwise).",
    "restart_required": false
   },
   {

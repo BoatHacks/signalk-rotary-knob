@@ -4046,7 +4046,7 @@ void marine_ui_tick(uint32_t now_ms) {
     uint8_t target_bl = 100;
     if (snap.motor_set_pct != 0) target_bl = 100;   // the motor is running: no dim, no off (#8)
     else if (idle_off_ms != 0 && idle_ms > idle_off_ms && !keep_awake) target_bl = 0;
-    else if (idle_ms > idle_dim_ms) target_bl = idle_dim_pct;
+    else if (idle_dim_ms != 0 && idle_ms > idle_dim_ms) target_bl = idle_dim_pct;   // 0 = never dim
 
     if (target_bl != current_backlight_pct) {
         current_backlight_pct = target_bl;

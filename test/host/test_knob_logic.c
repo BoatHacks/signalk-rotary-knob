@@ -250,8 +250,15 @@ static void test_setting_steps(void)
     TEST_ASSERT_EQUAL_INT(30, knob_setting_step(KNOB_SET_DIM_AFTER, 25, 1));    /* between 20 and 30: up to 30 */
     TEST_ASSERT_EQUAL_INT(20, knob_setting_step(KNOB_SET_DIM_AFTER, 25, -1));   /* and down to 20 */
     TEST_ASSERT_EQUAL_INT(45, knob_setting_step(KNOB_SET_DIM_AFTER, 25, 2));
-    TEST_ASSERT_EQUAL_INT(5, knob_setting_step(KNOB_SET_DIM_AFTER, 1, -1));     /* below the list */
-    TEST_ASSERT_EQUAL_INT(5, knob_setting_step(KNOB_SET_DIM_AFTER, 1, 1));      /* below the list, up: the first step */
+    TEST_ASSERT_EQUAL_INT(0, knob_setting_step(KNOB_SET_DIM_AFTER, 1, -1));     /* between NEVER and 5: down to NEVER */
+    TEST_ASSERT_EQUAL_INT(5, knob_setting_step(KNOB_SET_DIM_AFTER, 1, 1));      /* and up to 5 */
+    TEST_ASSERT_EQUAL_INT(0, knob_setting_step(KNOB_SET_DIM_AFTER, 5, -1));     /* 5 s, one down: never */
+    TEST_ASSERT_EQUAL_INT(5, knob_setting_step(KNOB_SET_DIM_AFTER, 0, 1));
+    {
+        char b[16];
+        knob_setting_format(KNOB_SET_DIM_AFTER, 0, b, sizeof(b));
+        TEST_ASSERT_EQUAL_STRING("NEVER", b);
+    }
     TEST_ASSERT_EQUAL_INT(3600, knob_setting_step(KNOB_SET_DIM_AFTER, 9999, 1));/* above the list */
     TEST_ASSERT_EQUAL_INT(1, knob_setting_step(KNOB_SET_OFF_AFTER, 0, 1));
     TEST_ASSERT_EQUAL_INT(2, knob_setting_step(KNOB_SET_NIGHT, 1, 1));
