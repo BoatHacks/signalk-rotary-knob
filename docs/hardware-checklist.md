@@ -136,17 +136,17 @@ First in demo mode (a simulated motor), then against a test plugin, then with th
 
 | Item | Status | Date | Commit | Notes |
 |---|---|---|---|---|
-| MOTOR on the ring just left of AUTO only with `knob.motor_mode` on | open | | | |
+| MOTOR on the ring just left of AUTO only with `knob.motor_mode` on | ok | 2026-11-24 | 36de0b5 | slot gone with the mode off, the screen switched to AUTO (old ring order) |
 | Ring order MOTOR, AUTO (12 o'clock), ANCHOR, LIGHTS, MUSIC, USB, SETUP; a switched-off mode leaves a gap-free ring in the same order | open | | | |
-| Arm: long press, one click right within 5 s, countdown arc; left click or timeout cancels | open | | | |
-| Arming refused with `SET NEUTRAL FIRST`, `CONTROL IS OFF`, `NO MOTOR DATA` | open | | | |
-| A spin that confirms does not raise the throttle (first 500 ms ignored) | open | | | |
-| Steps: slow 1 %, normal and fast bigger per preset; the arc follows | open | | | |
+| Arm: long press, one click right within 5 s, countdown arc; left click or timeout cancels | ok | 2026-11-24 | 36de0b5 | demo |
+| Arming refused with `SET NEUTRAL FIRST`, `CONTROL IS OFF`, `NO MOTOR DATA` | open | | | not in demo (control always allowed, gear always fresh): needs a test plugin |
+| A spin that confirms does not raise the throttle (first 500 ms ignored) | ok | 2026-11-24 | 36de0b5 | demo |
+| Steps: slow 1 %, normal and fast bigger per preset; the arc follows | ok | 2026-11-24 | 36de0b5 | demo, normal preset, "looks and feels right" |
 | From ahead the throttle stops at N, after 1 s still it goes on into astern, and back | open | | | |
-| Long press out of N: 0 at once (while holding), long press in N: disarm, single press nothing | open | | | |
-| Limit at 50 %: stops, warning, amber LED flash on every screen; double press lifts both, raises nothing | open | | | |
-| Tag `F 40 %` / `R 15 %` on other screens, not on the alarm; screen does not dim while out of N | open | | | |
-| LEDs: ahead green 1 o'clock then 3:30, astern amber 11 then 8:30, bottom LED the gear, dark at night | open | | | |
+| Long press out of N: 0 at once (while holding), long press in N: disarm, single press nothing | ok | 2026-11-24 | 36de0b5 | demo |
+| Limit at 50 %: stops, warning, amber LED flash on every screen; double press lifts both, raises nothing | ok | 2026-11-24 | 36de0b5 | demo; the warning now also clears below the limit (a0f768f), recheck |
+| Tag `F 40 %` / `R 15 %` on other screens, not on the alarm; screen does not dim while out of N | ok | 2026-11-24 | 36de0b5 | demo, the alarm case not tried |
+| LEDs: ahead blue 1 o'clock then 3:30, astern yellow 11 then 8:30, bottom LED the gear, dark at night | open | | | the fill worked in green and amber (36de0b5), colours changed by the owner, recheck |
 | Throttle PUT on change and every 1 s while out of N, one 0 on a disarm, nothing after a reboot | open | | | needs a test plugin or server log |
 | Link loss, stale gear (3 s), `Fault`, gear not following (3 s), control off: 0 and disarm | open | | | |
 | Idle 60 s in N disarms, 0 = never | open | | | |

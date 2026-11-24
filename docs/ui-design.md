@@ -265,8 +265,8 @@ stays until the next arm. Bottom line: `HOLD: ARM`, `TURN RIGHT TO ARM`, `HOLD: 
 - While out of neutral: the throttle is resent every 1 s (the motor side must go to neutral after about 3 s without it), every
   other screen except the alarm shows `F 40 %` (green) or `R 15 %` (amber) above the DEMO tag, and the screen neither dims
   nor goes off.
-- LEDs (section 7): ahead fills 1 o'clock then 3:30 in green, astern 11 then 8:30 in amber (`knob_led_fill`, two per side), the
-  bottom LED the reported gear (green F, amber R). Dark at night. The limit warning flashes all five amber at 4 Hz on every
+- LEDs (section 7): ahead fills 1 o'clock then 3:30 in blue, astern 11 then 8:30 in yellow (`knob_led_fill`, two per side), the
+  bottom LED the reported gear (blue F, yellow R; owner, 2026-11-24). Dark at night. The limit warning flashes all five amber at 4 Hz on every
   screen, also at night.
 - The motor's inputs skip the stale gate: knob_motor refuses or falls back by itself, and a long press for neutral is never
   swallowed. A stale link still shows the stale overlay.

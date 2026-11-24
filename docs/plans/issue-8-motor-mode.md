@@ -63,7 +63,7 @@ anything is unclear so that the motor side falls back to neutral by itself. Deci
   Values the boat does not publish are left out, not shown as zero. The arc's full length is 100 %, the limits are marked on it
   until they are lifted.
 - **LEDs:** ahead fills clockwise 1 o'clock then 3:30 (0 to 50 %, 50 to 100 %, fading in), astern counter-clockwise 11 then
-  8:30. The 6 o'clock LED shows the gear: green F, amber R, off in N. Off at night and with the LEDs setting off. Alarms win.
+  8:30. The 6 o'clock LED shows the gear: blue F, yellow R, off in N (the LEDs are blue ahead and yellow astern, changed by the owner on the bench 2026-11-24). Off at night and with the LEDs setting off. Alarms win.
   Fill and fade as in [issue-9-led-levels.md](issue-9-led-levels.md).
 
 ## SignalK paths (defaults, all settings)

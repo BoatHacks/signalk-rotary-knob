@@ -168,10 +168,11 @@ static void px_set(uint8_t f[][3], int i, const uint8_t col[3], uint32_t permill
     for (int c = 0; c < 3; c++) f[i][c] = (uint8_t)((col[c] * k + 50000) / 100000);
 }
 
-/* Motor (#8): the knob's throttle on two LEDs per side, ahead clockwise from 12 o'clock (1 o'clock, then 3:30) in green,
- * astern counter-clockwise (11, then 8:30) in amber; the bottom LED the gear the motor reports. Off at night. */
-static const uint8_t COL_AHEAD[3]  = { 0, 64, 0 };
-static const uint8_t COL_ASTERN[3] = { 64, 36, 0 };
+/* Motor (#8): the knob's throttle on two LEDs per side, ahead clockwise from 12 o'clock (1 o'clock, then 3:30) in blue,
+ * astern counter-clockwise (11, then 8:30) in yellow (owner, 2026-11-24: not green and amber, which read as the steering
+ * indicator and the warning); the bottom LED the gear the motor reports in the same colours. Off at night. */
+static const uint8_t COL_AHEAD[3]  = { 0, 16, 64 };   /* blue */
+static const uint8_t COL_ASTERN[3] = { 64, 56, 0 };   /* yellow */
 
 static void motor_pattern(const marine_ui_snapshot_t *s)
 {
