@@ -58,9 +58,10 @@ An overlay on LVGL's top layer, above every screen and the alarm takeover, drawn
 - The DEMO tag stays. The LEDs do what the real UI does (alarm red, steering indicator), plus #9's levels once that exists.
 
 ### Fonts
-The built-in Montserrat fonts cover ASCII, ° and • only, so `Eläkeläiset` shows boxes. Generate Montserrat 14 and 20 (the
-track and artist lines) with Latin-1 Supplement and Latin Extended-A (U+00A0 to U+017F) with LVGL's font converter, as C files
-in marine_ui. That also fixes real track names. Cost: about 15 to 25 KB of flash per size.
+The built-in Montserrat fonts cover ASCII, ° and • only, so `Eläkeläiset` shows boxes. Generated 2026-11-24 at 14, 20 and 32 px:
+Montserrat with Latin-1, Latin Extended-A, Cyrillic and typographic punctuation, Greek from DejaVu Sans, LVGL's symbols.
+Measured in a compile with the knob's flags: 43.5, 61.2 and 107.4 KB of flash (compressed format), no RAM. That also fixes
+real track names.
 
 ### Starting, stopping, looping
 - `DEMO MODE` becomes a choice: `OFF`, `ON` (today's manual demo), `AUTO`. Same key, same restart rule.
@@ -87,7 +88,9 @@ in marine_ui. That also fixes real track names. Cost: about 15 to 25 KB of flash
 
 ## Steps
 - [ ] Owner answers the open questions.
-- [ ] Latin-1 fonts for 14 and 20 px, track and artist lines switched to them, check the flash size.
+- [x] Fonts generated 2026-11-24 (owner chose the full set): `knob_font_14`, `_20`, `_32` in `components/marine_ui/fonts`,
+      from `tools/gen_fonts.sh`. Measured flash cost, compressed: 43.5, 61.2 and 107.4 KB.
+- [ ] Switch the text that can carry outside names (track, artist, zone and channel names) to them.
 - [ ] knob_demo: dimmer levels, music state with position, scripted swing, simulated USB host. Host tests.
 - [ ] Music screen: a position line (`0:53`) when the snapshot has one.
 - [ ] `knob_autodemo` step player and the script table in knob_logic. Host tests.
