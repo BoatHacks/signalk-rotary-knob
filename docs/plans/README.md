@@ -21,6 +21,7 @@ Name files `issue-<n>-<short-name>.md` for a GitHub issue, `<short-name>.md` oth
 | [issue-7-autopilot-modes.md](issue-7-autopilot-modes.md) | #7 | Needs the SeaTalk pilot wired to the server, compass mode proven on the boat, and an upstream fix for wind targets |
 | [issue-9-led-levels.md](issue-9-led-levels.md) | #9 | Small, knob_power only. Its level fill is reused by #8
 | [issue-8-motor-mode.md](issue-8-motor-mode.md) | #8 | Starts with the encoder timing spike. The motor side (plugin and path) is not decided, so the knob is built against configurable defaults and the demo
+| [issue-10-auto-demo.md](issue-10-auto-demo.md) | #10 | Builds on #4 and #6. Its Latin-1 fonts also fix real track names. Owner questions first |
 | [issue-2-user-manual.md](issue-2-user-manual.md) | #2 | Follows the behaviour, so it finishes last |
 | [release.md](release.md) | none | CI, signed releases, OTA manifest, espOS registry and the cleanup before going public. Its owner decisions come first |
 
