@@ -148,6 +148,8 @@ static volatile char s_ad_cmd;            /* 'p' toggle (serial), 'S' start, 'X'
 static volatile bool s_ad_shown_off;      /* the script stored DEMO MODE OFF: shown, not applied */
 static volatile uint8_t s_ad_hid = HID_PROFILE_NAV_KEYS; /* the HID profile while the automatic demo runs, never stored */
 static volatile uint32_t s_ad_boot_ms;    /* the simulated boot started, 0 = none */
+static volatile bool s_cfg_loaded;        /* knob_model_subscribe() has read the settings */
+static volatile bool s_ad_toggle_held;    /* a serial p before that: done once the settings are loaded */
 static int32_t s_demo_pos_ms = -1;        /* demo playback position */
 static bool ad_active(void) { return knob_ad_active(&s_ad); }
 
@@ -1339,11 +1341,16 @@ static void autodemo_hook(uint32_t now, bool user)
 
 void knob_model_autodemo_toggle(void)
 {
+    if (!s_cfg_loaded) {
+        /* Early in the boot it is not known yet whether demo mode is on (a serial p right after a reset): later. */
+        s_ad_toggle_held = true;
+        return;
+    }
     if (!s_demo) {
-        /* Not in demo mode: switch it on with the automatic tour. The knob restarts into it. */
+        /* Not in demo mode: switch it on with the automatic tour, QUIET kept if it is set. The knob restarts into it. */
         ESP_LOGW(TAG, "automatic demo: demo mode on, restarting");
         lv_port_lock();
-        queue_setting(KNOB_SET_DEMO, 2);
+        queue_setting(KNOB_SET_DEMO, s_cfg.demo_quiet ? 3 : 2);
         lv_port_unlock();
         return;
     }
@@ -1518,6 +1525,9 @@ void knob_model_subscribe(void)
     knob_actions_set_allow_control(cfg.allow_control, "boot");
     apply_device_settings(&cfg);
     knob_config_watch(on_config_key);
+    s_cfg_loaded = true;
+    bool held = s_ad_toggle_held;
+    s_ad_toggle_held = false;
     if (cfg.demo) {
         /* Demo mode: stop the SignalK client before Wi-Fi is even up, so not a byte goes to a server. Wi-Fi and the settings
          * page stay, to switch demo off from a phone. */
@@ -1532,9 +1542,12 @@ void knob_model_subscribe(void)
             s_ad_cmd = 'S';
             input_hook_enable(true);
             ESP_LOGW(TAG, "automatic demo: starting");
+        } else if (held) {
+            knob_model_autodemo_toggle();   /* a serial p during the boot: the manual demo starts the tour */
         }
         return;
     }
+    if (held) knob_model_autodemo_toggle();   /* a serial p during the boot: demo mode on, restart */
     subscribe_all();
     ESP_LOGI(TAG, "subscribed, %d light channel(s), autopilot '%s'", N_LIGHTS, s_cfg.autopilot_id);
 }
