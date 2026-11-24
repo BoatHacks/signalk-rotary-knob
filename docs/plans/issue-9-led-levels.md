@@ -41,14 +41,15 @@ The same fill shows the throttle in the motor mode (#8). Decided with the owner 
   LEDs setting off, alarm over a level, no flicker while turning.
 
 ## Open questions
-None. The exact violet-blue and warm white values are picked on the panel during the hardware check.
+None. The colours (violet-blue 24, 8, 64 and warm white 64, 40, 16 on the 0 to 64 scale) were kept on 2026-11-24.
 
 ## Steps
 - [x] knob_logic: `knob_led_fill` (the fill for any number of LEDs, so the motor reuses it), host tests.
 - [x] knob_power: music and lights level patterns, colours, night, LEDs setting, brightness and idle dim. The zone's `muted`
       is parsed and in the snapshot, marine_ui reports the selected channel and target.
 - [x] Docs: ui-design section 7, manual (lights, music), hardware checklist.
-- [ ] Build, flash, the hardware checklist rows (colours picked on the panel).
+- [x] Built and flashed 2026-11-24 (721471a). The owner checked music and lights on the panel and kept the colours.
+- [ ] The remaining hardware checklist rows (play/pause, muted, offline, night, idle dim, alarm).
 
 ## Files
 - `components/knob_logic/knob_logic.{c,h}`, `test/host/test_knob_logic.c`
