@@ -199,7 +199,8 @@ screen it goes through every mode on its own, engages the autopilot and turns it
 music up, raises and clears a drag alarm, changes the USB profile and ends in the settings. Every turn, press and touch it
 makes is drawn on the screen, with a short caption at the top. Touch or turn the knob and it stops and lets you take over;
 leave it alone for a minute and it starts again. Nothing is stored while it runs. To end it, set *Demo mode* to `OFF` or
-`ON`. *Demo mode* `QUIET` runs the same tour without the drawn inputs and captions, for filming the screen.
+`ON`. *Demo mode* `QUIET` runs the same tour without the drawn inputs and captions, for filming the screen. In `AUTO` and
+`QUIET` the screen stays at full brightness.
 
 ## 7. Updating the firmware
 

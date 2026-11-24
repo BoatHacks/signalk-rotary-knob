@@ -150,6 +150,14 @@ static volatile uint8_t s_ad_hid = HID_PROFILE_NAV_KEYS; /* the HID profile whil
 static volatile uint32_t s_ad_boot_ms;    /* the simulated boot started, 0 = none */
 static int32_t s_demo_pos_ms = -1;        /* demo playback position */
 static bool ad_active(void) { return knob_ad_active(&s_ad); }
+
+/* The idle timers for marine_ui: the stored ones, or none while the automatic demo is set (AUTO, QUIET) or running, so the
+ * screen never dims or goes dark in a demo (owner, 2026-11-24). Call under the LVGL port lock. */
+static void apply_power(void)
+{
+    bool demo_on = (s_cfg.demo && s_cfg.demo_auto) || knob_ad_active(&s_ad);
+    marine_ui_set_power(demo_on ? 0 : s_cfg.dim_after_ms, s_cfg.dim_level_pct, demo_on ? 0 : s_cfg.off_after_ms);
+}
 static marine_ui_mode_t first_enabled_mode(void);   /* MODES page: below */
 static void hook_action_result(uint8_t code);
 static volatile int s_alarm_inject;     /* 0 none, else marine_alarm_type_t */
@@ -1307,6 +1315,7 @@ static void autodemo_hook(uint32_t now, bool user)
     if (cmd == 'S' || (cmd == 'p' && !ad_active())) {
         if (!s_ad.script) knob_ad_init(&s_ad, knob_ad_script);
         knob_ad_start(&s_ad, now);
+        apply_power();   /* never dims while it runs (the hook holds the LVGL lock) */
         ESP_LOGI(TAG, "automatic demo: running");
         return;
     }
@@ -1315,6 +1324,7 @@ static void autodemo_hook(uint32_t now, bool user)
         s_ad_boot_ms = 0;
         s_ad_shown_off = false;
         input_hook_enable(false);
+        apply_power();
         ESP_LOGI(TAG, "automatic demo: stopped");
         return;
     }
@@ -1417,7 +1427,7 @@ static void apply_device_settings(const knob_cfg_t *cfg)
     knob_hid_set_profile((usb_hid_profile_t)cfg->hid_profile);
     s_night_override = night_override_of(cfg->night_mode);
     lv_port_lock();
-    marine_ui_set_power(cfg->dim_after_ms, cfg->dim_level_pct, cfg->off_after_ms);
+    apply_power();
     lv_port_unlock();
 }
 

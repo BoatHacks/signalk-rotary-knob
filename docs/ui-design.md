@@ -315,7 +315,7 @@ drawn on the top layer, above every screen and the alarm takeover:
 
 All in the primary colour, so red at night. In the automatic demo the lights are three simulated channels (two dimmers and a
 switch), a USB host counts as connected, the HID profile and the mode stay in memory, nothing is written to flash, and no
-USB device is started. The last step stores `OFF` in the settings: shown, not applied, and the tour starts again.
+USB device is started, and the screen never dims or goes dark (owner, 2026-11-24). The last step stores `OFF` in the settings: shown, not applied, and the tour starts again.
 
 Any real input pauses the tour and hands the knob to the person. After 60 s without input the tour starts again from the
 top. The serial command `p` starts or stops it, and outside demo mode switches demo mode to `AUTO` (the knob restarts into it).

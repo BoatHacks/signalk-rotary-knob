@@ -116,6 +116,7 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 | Every step does what the script says: engage and 23° to port, radius 20 m and drop, dim 80 to 20 % and off, volume 42 to 100 %, drag alarm, acknowledge, radius 30 m clears it, USB to media, setup to demo off | open | | | |
 | Every turn, press, double press, long press and touch is drawn, caption readable, at day and at night | open | | | |
 | `QUIET`: the same tour with nothing drawn on top and no captions, only the countdown | open | | | |
+| `AUTO` and `QUIET` never dim or turn the screen off, also while paused; `ON` and `OFF` dim as set | open | | | |
 | `Eläkeläiset` shows with the umlauts, the position counts up from 0:53 | open | | | |
 | Three runs in a row without a stuck step | open | | | |
 | Real input pauses it, 60 s later it starts again from the top | open | | | |
