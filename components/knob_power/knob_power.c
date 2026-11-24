@@ -31,9 +31,7 @@ static volatile uint32_t s_oncourse_since_ms; /* when the indicator last changed
 static volatile uint8_t s_full_pct = 100;  /* active brightness from the settings */
 static volatile uint8_t s_req_pct = 100;   /* what the UI asked for last */
 static volatile bool s_leds_on = true;     /* settings: false keeps every LED dark, the alarm included */
-static volatile bool s_demo;               /* demo mode: a slow purple pulse on the first LED while nothing else shows */
 
-void knob_power_set_demo(bool on) { s_demo = on; }
 
 static void apply_backlight(void)
 {
@@ -102,17 +100,12 @@ static void led_task(void *arg)
             break;
         }
         uint8_t f[BOARD_LED_COUNT][3];
-        bool dark = true;
         for (int i = 0; i < BOARD_LED_COUNT; i++) {
             f[i][0] = per_led ? s_px[i][0] : r;
             f[i][1] = per_led ? s_px[i][1] : g;
             f[i][2] = per_led ? s_px[i][2] : b;
             if (!s_leds_on) f[i][0] = f[i][1] = f[i][2] = 0;
-            if (f[i][0] || f[i][1] || f[i][2]) dark = false;
         }
-        bool demo_led = s_demo && s_leds_on && dark;
-        uint32_t ph = t % 4000;                       /* triangle wave, 4 s: slower than every other pattern */
-        uint32_t tri = ph < 2000 ? ph : 4000 - ph;
         /* Send a frame only when a colour changed: fades and pulses change every period, a steady state (dark included) sends
          * nothing, so a disturbed frame cannot show up again and again. */
         static uint8_t last[BOARD_LED_COUNT][3];
@@ -121,7 +114,6 @@ static void led_task(void *arg)
         bool changed = !sent || t - last_sent_ms >= 5000; /* and every 5 s, so a frame that did get disturbed heals */
         for (int i = 0; i < BOARD_LED_COUNT; i++) {
             uint8_t lr = f[i][0], lg = f[i][1], lb = f[i][2];
-            if (demo_led && i == 0) { lr = (uint8_t)(40 * tri / 2000); lg = 0; lb = (uint8_t)(64 * tri / 2000); }
             if (last[i][0] != lr || last[i][1] != lg || last[i][2] != lb) {
                 last[i][0] = lr; last[i][1] = lg; last[i][2] = lb;
                 changed = true;

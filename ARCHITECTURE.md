@@ -168,7 +168,7 @@ Chosen at boot from `knob.demo`; changing the key restarts the knob. In demo mod
 after `espos_start()` (before Wi-Fi is up), locks knob_actions (every action bound for SignalK is dropped, the autopilot poll
 stops, USB-HID still works) and feeds its model state from the simulation in knob_logic (`knob_demo.c`, host tested): the same
 `s_m` fields SignalK would fill, so the snapshot is built the same way. The UI's actions are applied to the simulation, anchor
-actions report OK. The snapshot carries `demo` for the tag, knob_power pulses the first LED, the status API reports it.
+actions report OK. The snapshot carries `demo` for the tag, the status API reports it. The LEDs show nothing extra (owner, 2026-11-24).
 
 ### 2.10 main
 `app_main` order, chosen for time to first pixels:

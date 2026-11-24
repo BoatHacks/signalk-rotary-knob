@@ -242,7 +242,8 @@ States follow SPEC section 3.1. In STALE (and while connecting):
 ### Demo mode (#4)
 
 The whole UI runs on a simulated boat. A small `DEMO` (12 px, purple, red at night) sits at the bottom edge, below the bottom
-lines, on every screen, and the first LED pulses slowly in purple whenever no other LED pattern shows. Everything else
+lines, on every screen. That tag is the only sign of demo mode: the LEDs show what they show on the boat (decided
+2026-11-24, the purple LED pulse was dropped). Everything else
 looks and works as on the boat, alarms included: setting the anchor radius below the boat's swing raises the drag alarm.
 
 ### CONTROL ON notice (agreed 2026-11-23, #3)

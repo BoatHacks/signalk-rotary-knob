@@ -1254,7 +1254,6 @@ void knob_model_subscribe(void)
          * page stay, to switch demo off from a phone. */
         espos_sk_stop();
         knob_actions_set_demo(true);
-        knob_power_set_demo(true);
         portENTER_CRITICAL(&s_mux);
         knob_demo_init(&s_dm, ms_now(), cfg.anchor_radius_m);
         portEXIT_CRITICAL(&s_mux);

@@ -81,7 +81,7 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 
 | Item | Status | Date | Commit | Notes |
 |---|---|---|---|---|
-| Demo on from the knob's settings and from the web page: restart, `DEMO` tag, purple LED pulse | open | | | |
+| Demo on from the knob's settings and from the web page: restart, `DEMO` tag, no extra LED pattern | open | | | |
 | No SignalK traffic in demo mode (server access log) | open | | | |
 | Autopilot: engage, target change, the heading follows, standby | open | | | |
 | Anchor: drop, swing, radius below the swing raises the drag alarm, acknowledge, raise | open | | | |

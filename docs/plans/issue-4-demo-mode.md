@@ -14,7 +14,8 @@ bench work, showing the knob away from the boat, and the manual's screenshots.
 - Simulation: heading that drifts and follows the target when engaged, a boat swinging on the anchor with a slow drag option,
   relays that switch at once, voltage and depth that move a little.
 - Actions are applied locally. knob_actions is not started in demo mode, so nothing can reach a server.
-- Marked on screen: a small `DEMO` tag on every mode screen, and a distinct slow LED pattern.
+- Marked on screen: a small `DEMO` tag on every mode screen, nothing else. A slow purple LED pulse was dropped on 2026-11-24
+  (owner: demo mode is shown by the tag only).
 - Turned on from the web settings page, the config API (#3) or the knob's settings screen (#5). Off by default, stored in the config so it survives a reboot, cleared by a
   factory reset (decided 2026-11-23). The serial bench commands (`a`, `g`, `c`, `x`, `s`, `n`) work in demo mode too.
 - Network in demo mode: Wi-Fi and the settings page stay up so demo can be switched off from a phone, the SignalK client is
@@ -32,7 +33,7 @@ None.
 - [x] Simulation in knob_logic (`knob_demo.c`, host tested), fed into the model state, local actions. Instead of a separate
       snapshot builder, the simulation fills the model state SignalK would, so the snapshot code stays one.
 - [x] Boot-time choice in knob_model from the config flag (`espos_sk_stop()` right after `espos_start()`), restart on a change.
-- [x] DEMO tag in marine_ui (a snapshot flag) and the LED pattern in knob_power.
+- [x] DEMO tag in marine_ui (a snapshot flag).
 - [x] Settings entry (`DEMO MODE`, item 10), status API `demo`, docs.
 - [ ] Flash and go through the hardware checklist section "Demo mode".
 
