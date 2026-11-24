@@ -49,6 +49,7 @@ typedef struct {
 // Mode ring slots in ring order. The visible ones are spaced evenly, clockwise from the top (ui-design section 2).
 static const marine_ui_mode_t ring_slot_modes[MARINE_MODE_COUNT] = {
     MARINE_MODE_AUTOPILOT,
+    MARINE_MODE_MOTOR,           // #8, after AUTO: the helm functions together
     MARINE_MODE_DIMMER,
     MARINE_MODE_ANCHOR_WATCH,
     MARINE_MODE_MUSIC,
@@ -318,6 +319,9 @@ static void music_on_input(marine_semantic_input_t ev, int32_t val);
 static void music_refresh(void);
 static void music_tick(void);
 static void music_touch(int16_t x, int16_t y);
+static lv_obj_t* build_motor_screen(void);
+static void motor_on_input(marine_semantic_input_t ev, int32_t val);
+static void motor_refresh(void);
 static bool settings_takes_double(void);
 static void settings_tick(void);
 static void settings_enter(void);
@@ -328,7 +332,8 @@ static const marine_mode_desc_t mode_registry[MARINE_MODE_COUNT] = {
     [MARINE_MODE_ANCHOR_WATCH] = { MARINE_MODE_ANCHOR_WATCH, "ANCHOR", build_anchor_screen, anchor_on_input, anchor_refresh },
     [MARINE_MODE_USB_HID]      = { MARINE_MODE_USB_HID,      "USB",    build_hid_screen,    hid_on_input,    hid_refresh },
     [MARINE_MODE_SETTINGS]     = { MARINE_MODE_SETTINGS,     "SETUP",  build_settings_screen, settings_on_input, settings_refresh },
-    [MARINE_MODE_MUSIC]       = { MARINE_MODE_MUSIC,       "MUSIC", build_music_screen, music_on_input, music_refresh }
+    [MARINE_MODE_MUSIC]       = { MARINE_MODE_MUSIC,       "MUSIC", build_music_screen, music_on_input, music_refresh },
+    [MARINE_MODE_MOTOR]       = { MARINE_MODE_MOTOR,       "MOTOR", build_motor_screen, motor_on_input, motor_refresh }
 };
 
 static void emit_action(marine_ui_mode_t mode, marine_ui_action_type_t act, int32_t val, int32_t meta) {
@@ -495,7 +500,7 @@ static void ap_tick_ring_maybe_update(void) {
 
 // --- Drawn vector icons (no font glyphs needed): AUTO gauge, LIGHT bulb, ANCHOR, USB, WARNING triangle ---
 typedef enum { ICON_AUTO = 0, ICON_LIGHT, ICON_ANCHOR, ICON_USB, ICON_GEAR, ICON_WARN, ICON_CROSS,
-               ICON_MUSIC, ICON_PREV, ICON_NEXT, ICON_PLAY, ICON_PAUSE } icon_id_t;
+               ICON_MUSIC, ICON_PREV, ICON_NEXT, ICON_PLAY, ICON_PAUSE, ICON_PROP } icon_id_t;
 
 static lv_obj_t* icon_canvas_create(lv_obj_t *parent, int size, uint8_t **out_buf) {
     size_t bytes = (size_t)size * (size_t)size * 4U;
@@ -608,6 +613,14 @@ static void icon_draw(lv_obj_t *cv, icon_id_t id, int size, lv_color_t col) {
         icon_line(&layer, IP(12.5f), IP(8), IP(25.5f), IP(5), w + 2, col);
         icon_line(&layer, IP(12.5f), IP(12.5f), IP(25.5f), IP(9.5f), w + 1, col);
         break;
+    case ICON_PROP:     // three-bladed propeller around a hub
+        for (int k = 0; k < 3; k++) {
+            float a = (float)(k * 120 - 90) * (float)(M_PI / 180.0);
+            float b = a + 0.45f;
+            icon_line(&layer, IP(16 + 4 * cosf(a)), IP(16 + 4 * sinf(a)), IP(16 + 13 * cosf(b)), IP(16 + 13 * sinf(b)), w + 3, col);
+        }
+        icon_circle(&layer, II(16), II(16), II(4), 0, true, col);
+        break;
     case ICON_PREV:     // bar and triangle to the left
         icon_line(&layer, IP(8), IP(8), IP(8), IP(24), w, col);
         icon_line(&layer, IP(24), IP(8), IP(12), IP(16), w, col);
@@ -715,6 +728,7 @@ static bool ring_slot_visible(int s) {
     if (m == MARINE_MODE_USB_HID) return snap.usb_host_enumerated;
     if (m == MARINE_MODE_SETTINGS) return snap.active_alarm == MARINE_ALARM_NONE;
     if (m == MARINE_MODE_MUSIC) return snap.music_mode;
+    if (m == MARINE_MODE_MOTOR) return snap.motor_mode;
     return true;
 }
 
@@ -741,7 +755,7 @@ static void refresh_mode_ring(void) {
         lv_obj_set_style_shadow_width(ring_slot_boxes[s], (sel && snap.fx_glow_enabled) ? 16 : 0, 0);
         lv_obj_set_style_shadow_color(ring_slot_boxes[s], c_primary(), 0);
         lv_obj_set_style_text_color(ring_slot_labels[s], sel ? c_primary() : c_text(), 0);
-        static const icon_id_t slot_icons[MARINE_MODE_COUNT] = { ICON_AUTO, ICON_LIGHT, ICON_ANCHOR, ICON_MUSIC, ICON_USB, ICON_GEAR };
+        static const icon_id_t slot_icons[MARINE_MODE_COUNT] = { ICON_AUTO, ICON_PROP, ICON_LIGHT, ICON_ANCHOR, ICON_MUSIC, ICON_USB, ICON_GEAR };
         icon_recolor(ring_slot_icons[s], slot_icons[s], 28, sel ? c_primary() : c_text(), &ring_icon_col[s]);
     }
 }
@@ -2716,6 +2730,196 @@ static void music_touch(int16_t x, int16_t y) {
 
 static uint8_t vol_sel_peek(void) { return vol_sel < snap.vol_target_count ? vol_sel : 0; }
 
+// --- Motor (#8, docs/plans/issue-8-motor-mode.md): the throttle. The rules (arming, the stop on neutral, limits, every reason
+// to fall back to neutral) live in knob_motor in knob_logic, run by the firmware; this screen shows its state and passes the
+// clicks and presses on. Neutral is at 12 o'clock: ahead fills clockwise in green, astern counter-clockwise in amber, 150 degrees
+// each way for 100 %. A thick arc for the knob's throttle, a dot for what the motor reports. ---
+#define MOTOR_SWEEP_DEG 150
+#define MOTOR_SHOW_WHY_MS 5000   // a refusal or disarm reason stays on top this long (a fault stays until the next arm)
+static lv_obj_t *mot_arc_ahead, *mot_arc_astern, *mot_arc_confirm, *mot_dot_rep, *mot_dot_lim[2];
+static lv_obj_t *mot_lbl_top, *mot_lbl_gear, *mot_lbl_set, *mot_lbl_rpm, *mot_lbl_data, *mot_lbl_hint;
+static lv_obj_t *ovl_motor_tag;   // F 40 % on every other screen while the motor is out of neutral
+
+static lv_color_t c_green(void) { return snap.night_palette ? COL_NIGHT_RED : COL_GREEN; }
+
+static lv_obj_t *mot_make_arc(lv_obj_t *scr, int size, int w, int a0, int a1) {
+    lv_obj_t *a = lv_arc_create(scr);
+    lv_obj_set_size(a, size, size);
+    lv_obj_center(a);
+    lv_arc_set_bg_angles(a, a0, a1);
+    lv_arc_set_range(a, 0, 100);
+    lv_obj_set_style_arc_width(a, w, LV_PART_MAIN);
+    lv_obj_set_style_arc_width(a, w, LV_PART_INDICATOR);
+    lv_obj_set_style_arc_color(a, lv_color_hex(0x16263E), LV_PART_MAIN);
+    lv_obj_set_style_arc_rounded(a, false, LV_PART_INDICATOR);
+    lv_obj_remove_style(a, NULL, LV_PART_KNOB);
+    lv_obj_remove_flag(a, LV_OBJ_FLAG_CLICKABLE);
+    return a;
+}
+
+static lv_obj_t *mot_make_dot(lv_obj_t *scr, int d) {
+    lv_obj_t *o = lv_obj_create(scr);
+    lv_obj_set_size(o, d, d);
+    lv_obj_set_style_radius(o, LV_RADIUS_CIRCLE, 0);
+    lv_obj_set_style_border_width(o, 0, 0);
+    lv_obj_remove_flag(o, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+    return o;
+}
+
+// A dot on a circle of radius r at a throttle in percent (0 at 12 o'clock, +100 at 150 degrees clockwise).
+static void mot_place(lv_obj_t *o, int d, float r, float pct) {
+    float deg = 270.0f + pct * (float)MOTOR_SWEEP_DEG / 100.0f;
+    float rad = deg * (float)(M_PI / 180.0);
+    lv_obj_set_pos(o, (int32_t)(120.0f + r * cosf(rad)) - d / 2, (int32_t)(120.0f + r * sinf(rad)) - d / 2);
+}
+
+static lv_obj_t* build_motor_screen(void) {
+    lv_obj_t *scr = lv_obj_create(NULL);
+    lv_obj_set_size(scr, 240, 240);
+    lv_obj_set_style_bg_color(scr, COL_BG, 0);
+    lv_obj_remove_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
+
+    mot_arc_ahead = mot_make_arc(scr, 222, 10, 270, 270 + MOTOR_SWEEP_DEG - 360);
+    mot_arc_astern = mot_make_arc(scr, 222, 10, 270 - MOTOR_SWEEP_DEG, 270);
+    lv_arc_set_mode(mot_arc_astern, LV_ARC_MODE_REVERSE);   // fills from 12 o'clock counter-clockwise
+    mot_arc_confirm = mot_make_arc(scr, 196, 4, 0, 360);    // the confirm countdown
+    lv_obj_set_style_arc_opa(mot_arc_confirm, LV_OPA_TRANSP, LV_PART_MAIN);
+    mot_dot_rep = mot_make_dot(scr, 10);
+    for (int i = 0; i < 2; i++) mot_dot_lim[i] = mot_make_dot(scr, 6);
+
+    mot_lbl_top = anc_make_label(scr, &lv_font_montserrat_20, -80);
+    lv_label_set_long_mode(mot_lbl_top, LV_LABEL_LONG_MODE_DOTS);   // about 170 px at y 40
+    lv_obj_set_width(mot_lbl_top, 170);
+    lv_obj_set_style_text_align(mot_lbl_top, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_align(mot_lbl_top, LV_ALIGN_CENTER, 0, -80);
+    mot_lbl_gear = anc_make_label(scr, &lv_font_montserrat_44, -26);
+    mot_lbl_set = anc_make_label(scr, &lv_font_montserrat_20, 14);
+    mot_lbl_rpm = anc_make_label(scr, &lv_font_montserrat_14, 40);
+    mot_lbl_data = anc_make_label(scr, &lv_font_montserrat_12, 60);
+    mot_lbl_hint = anc_make_label(scr, &lv_font_montserrat_12, 82);
+    lv_label_set_long_mode(mot_lbl_hint, LV_LABEL_LONG_MODE_DOTS);  // in the arc's gap, about 160 px at y 202
+    lv_obj_set_width(mot_lbl_hint, 160);
+    lv_obj_set_style_text_align(mot_lbl_hint, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_align(mot_lbl_hint, LV_ALIGN_CENTER, 0, 82);
+    return scr;
+}
+
+static bool mot_fresh(uint32_t ms) { return ms != 0 && snap.now_ms - ms <= 5000; }
+
+static void motor_refresh(void) {
+    if (!mot_arc_ahead) return;
+    char b[48];
+    int set = snap.motor_set_pct;
+    bool armed = snap.motor_state == 2, confirm = snap.motor_state == 1;
+
+    lv_arc_set_value(mot_arc_ahead, set > 0 ? set : 0);
+    lv_arc_set_value(mot_arc_astern, set < 0 ? -set : 0);
+    lv_obj_set_style_arc_color(mot_arc_ahead, armed ? c_green() : c_muted(), LV_PART_INDICATOR);
+    lv_obj_set_style_arc_color(mot_arc_astern, armed ? c_amber() : c_muted(), LV_PART_INDICATOR);
+
+    if (confirm) {
+        uint32_t el = snap.now_ms - snap.motor_confirm_ms;
+        int left = el >= 5000 ? 0 : (int)((5000 - el) / 50);   // 100 .. 0
+        lv_arc_set_value(mot_arc_confirm, left);
+        lv_obj_set_style_arc_color(mot_arc_confirm, c_green(), LV_PART_INDICATOR);
+        lv_obj_remove_flag(mot_arc_confirm, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_add_flag(mot_arc_confirm, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    if (mot_fresh(snap.motor_reported_ms)) {
+        float r = snap.motor_reported_pct;
+        if (r > 100) r = 100;
+        if (r < -100) r = -100;
+        mot_place(mot_dot_rep, 10, 100.0f, r);
+        lv_obj_set_style_bg_color(mot_dot_rep, c_text(), 0);
+        lv_obj_remove_flag(mot_dot_rep, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_add_flag(mot_dot_rep, LV_OBJ_FLAG_HIDDEN);
+    }
+    for (int i = 0; i < 2; i++) {
+        if (snap.motor_limit_lifted) { lv_obj_add_flag(mot_dot_lim[i], LV_OBJ_FLAG_HIDDEN); continue; }
+        mot_place(mot_dot_lim[i], 6, 111.0f, i == 0 ? (float)snap.motor_max_ahead_pct : -(float)snap.motor_max_astern_pct);
+        lv_obj_set_style_bg_color(mot_dot_lim[i], c_amber(), 0);
+        lv_obj_remove_flag(mot_dot_lim[i], LV_OBJ_FLAG_HIDDEN);
+    }
+
+    // Top: the state, or for a while why the knob refused or let go.
+    bool fault = !armed && !confirm && snap.motor_why == 5;   // KNOB_MOTOR_WHY_FAULT stays until the next arm
+    bool show_why = !armed && !confirm && snap.motor_why_ms && snap.now_ms - snap.motor_why_ms < MOTOR_SHOW_WHY_MS;
+    static const char *const whys[] = { "", "CONTROL IS OFF", "NO LINK", "NO MOTOR DATA", "SET NEUTRAL FIRST", "MOTOR FAULT",
+                                        "IDLE, DISARMED", "DISARMED", "CANCELLED" };
+    if (fault) anc_set_line(mot_lbl_top, "MOTOR FAULT", c_red());
+    else if (show_why && snap.motor_why < sizeof(whys) / sizeof(whys[0]) && whys[snap.motor_why][0])
+        anc_set_line(mot_lbl_top, whys[snap.motor_why], snap.motor_why == 7 ? c_muted() : c_amber());
+    else if (armed) anc_set_line(mot_lbl_top, "ARMED", c_green());
+    else if (confirm) anc_set_line(mot_lbl_top, "ARM MOTOR?", c_text());
+    else anc_set_line(mot_lbl_top, "MOTOR", c_muted());
+
+    // Centre: the gear the motor reports, large.
+    bool gear_ok = mot_fresh(snap.motor_gear_ms);
+    int g = gear_ok ? snap.motor_gear : 0;
+    const char *gw = g == 1 ? "F" : g == 2 ? "N" : g == 3 ? "R" : g == 4 ? "!" : "---";
+    anc_set_line(mot_lbl_gear, gw, g == 1 ? c_green() : g == 3 ? c_amber() : g == 4 ? c_red() : g == 2 ? c_text() : c_muted());
+
+    if (armed) {
+        if (set == 0) snprintf(b, sizeof(b), "NEUTRAL");
+        else snprintf(b, sizeof(b), "%s %d %%", set > 0 ? "AHEAD" : "ASTERN", set > 0 ? set : -set);
+        anc_set_line(mot_lbl_set, b, set > 0 ? c_green() : set < 0 ? c_amber() : c_text());
+    } else {
+        anc_set_line(mot_lbl_set, "", c_muted());
+    }
+    if (mot_fresh(snap.motor_rpm_ms)) snprintf(b, sizeof(b), "%d RPM", (int)lroundf(snap.motor_rpm));
+    else b[0] = '\0';
+    anc_set_line(mot_lbl_rpm, b, c_text());
+    b[0] = '\0';
+    size_t n = 0;
+    if (mot_fresh(snap.motor_torque_ms)) n += (size_t)snprintf(b + n, sizeof(b) - n, "TORQUE %d %%", (int)lroundf(snap.motor_torque_pct));
+    if (mot_fresh(snap.motor_power_ms) && n < sizeof(b)) {
+        float w = snap.motor_power_w;
+        if (w >= 1000.0f || w <= -1000.0f) snprintf(b + n, sizeof(b) - n, "%s%.1f kW", n ? " \xE2\x80\xA2 " : "", w / 1000.0f);
+        else snprintf(b + n, sizeof(b) - n, "%s%d W", n ? " \xE2\x80\xA2 " : "", (int)lroundf(w));
+    }
+    anc_set_line(mot_lbl_data, b, c_muted());
+
+    // Bottom: what the knob does next.
+    if (armed && snap.motor_limit_warning) {
+        snprintf(b, sizeof(b), "LIMIT %d %% \xE2\x80\xA2 2x: ALLOW MORE", set >= 0 ? snap.motor_max_ahead_pct : snap.motor_max_astern_pct);
+        anc_set_line(mot_lbl_hint, b, c_amber());
+    } else if (armed) {
+        anc_set_line(mot_lbl_hint, set != 0 ? "HOLD: NEUTRAL" : "HOLD: DISARM", c_muted());
+    } else if (confirm) {
+        anc_set_line(mot_lbl_hint, "TURN RIGHT TO ARM", c_text());
+    } else {
+        anc_set_line(mot_lbl_hint, "HOLD: ARM", c_muted());
+    }
+}
+
+// Every click goes to the firmware one by one, at once: knob_motor measures the time between them for the step size.
+static void motor_on_input(marine_semantic_input_t ev, int32_t val) {
+    if (ev == MARINE_INPUT_TURN) {
+        int dir = val < 0 ? -1 : 1, n = val < 0 ? -val : val;
+        for (int i = 0; i < n; i++) emit_action(MARINE_MODE_MOTOR, MARINE_ACT_MOTOR_TURN, dir, 0);
+    } else if (ev == MARINE_INPUT_LONG_PRESS) {
+        emit_action(MARINE_MODE_MOTOR, MARINE_ACT_MOTOR_LONG, 1, 0);
+    }   // a single press does nothing here: it only counts after the 300 ms double-press wait, too slow for neutral
+    motor_refresh();
+}
+
+// The tag on the other screens while the motor runs: F 40 % in green, R 15 % in amber. Not on the alarm screen.
+static void motor_tag_update(void) {
+    if (!ovl_motor_tag) return;
+    int set = snap.motor_set_pct;
+    bool show = set != 0 && active_mode != MARINE_MODE_MOTOR && !is_full_alarm_blocking() &&
+                snap.system_screen == MARINE_SCREEN_OPERATIONAL;
+    if (!show) { lv_obj_add_flag(ovl_motor_tag, LV_OBJ_FLAG_HIDDEN); return; }
+    char b[12];
+    snprintf(b, sizeof(b), "%c %d %%", set > 0 ? 'F' : 'R', set > 0 ? set : -set);
+    anc_set_line(ovl_motor_tag, b, set > 0 ? c_green() : c_amber());
+    lv_obj_remove_flag(ovl_motor_tag, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(ovl_motor_tag);
+}
+
 // --- CONTROL ON notice: allow control was switched on from the web page or the API (ui-design section 4) ---
 static void build_control_notice(void) {
     ovl_ctl_ring = lv_obj_create(lv_layer_top());
@@ -2940,6 +3144,12 @@ static void dispatch_semantic(marine_semantic_input_t ev, int32_t val) {
         return;
     }
 
+    if (ev == MARINE_INPUT_DOUBLE_PRESS && !mode_ring_open && active_mode == MARINE_MODE_MOTOR && snap.motor_state == 2 &&
+        snap.motor_limit_warning) {
+        emit_action(MARINE_MODE_MOTOR, MARINE_ACT_MOTOR_ACK, 1, 0);   // lifts both limits, raises nothing
+        return;
+    }
+
     if (ev == MARINE_INPUT_DOUBLE_PRESS) {
         anchor_dialogs_close();
         if (mode_ring_open) close_mode_ring(false);
@@ -2960,6 +3170,13 @@ static void dispatch_semantic(marine_semantic_input_t ev, int32_t val) {
         } else if (ev == MARINE_INPUT_SINGLE_PRESS) {
             close_mode_ring(true);
         }
+        return;
+    }
+
+    // The motor's inputs always reach knob_motor, also with the link or the motor's data gone: it refuses or falls back to
+    // neutral by itself, and a long press for neutral must never be swallowed here.
+    if (active_mode == MARINE_MODE_MOTOR) {
+        motor_on_input(ev, val);
         return;
     }
 
@@ -3043,6 +3260,11 @@ void marine_ui_init(marine_ui_action_cb_t action_cb, void *user_ctx) {
     lv_obj_set_style_text_font(ovl_demo_tag, &lv_font_montserrat_12, 0);
     lv_obj_align(ovl_demo_tag, LV_ALIGN_CENTER, 0, 110);   // below the bottom lines, inside the round edge
     lv_obj_add_flag(ovl_demo_tag, LV_OBJ_FLAG_HIDDEN);
+    ovl_motor_tag = lv_label_create(lv_layer_top());
+    lv_label_set_text(ovl_motor_tag, "");
+    lv_obj_set_style_text_font(ovl_motor_tag, &lv_font_montserrat_14, 0);
+    lv_obj_align(ovl_motor_tag, LV_ALIGN_CENTER, 0, 95);   // above the DEMO tag
+    lv_obj_add_flag(ovl_motor_tag, LV_OBJ_FLAG_HIDDEN);
     lv_screen_load(scr_modes[active_mode]);
     mode_registry[active_mode].refresh();
 }
@@ -3180,6 +3402,8 @@ void marine_ui_apply_snapshot(const marine_ui_snapshot_t *snapshot) {
     } else {
         lv_obj_add_flag(ovl_demo_tag, LV_OBJ_FLAG_HIDDEN);
     }
+
+    motor_tag_update();
 
     if (snap.control_on_seq != ctl_last_seq) {
         ctl_last_seq = snap.control_on_seq;
@@ -3334,6 +3558,7 @@ void marine_ui_tick(uint32_t now_ms) {
     snap.now_ms = now_ms;
     settings_tick();
     music_tick();
+    if (active_mode == MARINE_MODE_MOTOR) motor_refresh();   // the confirm countdown and the reason timeouts
     if (pilot_open && (now_ms - pilot_opened_ms >= 5000 || !snap.ap_engaged || active_mode != MARINE_MODE_AUTOPILOT ||
                        is_full_alarm_blocking())) {
         pilot_close();   // 5 s without input, or the pilot went to standby by itself, leaves the dialog
@@ -3436,7 +3661,8 @@ void marine_ui_tick(uint32_t now_ms) {
     uint32_t idle_ms = now_ms - last_input_ms;
     bool keep_awake = snap.ap_engaged || (snap.active_alarm != MARINE_ALARM_NONE);
     uint8_t target_bl = 100;
-    if (idle_off_ms != 0 && idle_ms > idle_off_ms && !keep_awake) target_bl = 0;
+    if (snap.motor_set_pct != 0) target_bl = 100;   // the motor is running: no dim, no off (#8)
+    else if (idle_off_ms != 0 && idle_ms > idle_off_ms && !keep_awake) target_bl = 0;
     else if (idle_ms > idle_dim_ms) target_bl = idle_dim_pct;
 
     if (target_bl != current_backlight_pct) {
