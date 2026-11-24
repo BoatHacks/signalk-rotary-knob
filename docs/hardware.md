@@ -61,6 +61,25 @@ looking at the knob from the front, the data line runs counter-clockwise:
 All five positions were confirmed on the bench.
 A clockwise sweep therefore walks the indexes downwards: 4, 3, 2, 1, 0.
 
+### Encoder
+
+Measured 2026-11-24 with `spikes/encoder-timing` (PCNT x4 as in the firmware, sampled every 1 ms):
+
+- **30 detents per full turn, 4 edges per detent.** Every rest during slow turning was exactly 4 edges after the last, as
+  `BOARD_ENC_EDGES_PER_STEP` assumes. Turning right counts up.
+- **Time between clicks:**
+
+| Turning | Median | Range |
+|---|---|---|
+| Very slow, one click at a time (full turn) | 918 ms | 769 to 987 ms |
+| Slow, as for fine adjustment | 288 ms | 251 to 332 ms |
+| Normal | 75 ms | 58 to 156 ms |
+| Fast spin | 20 ms | 10 to 93 ms (90 % under 93 ms) |
+
+- During the fast spin 12 of 50 rests sat between two detents (the hand holding the knob mid-detent while regripping, or
+  edges lost at speed; not settled). Dividing by 4 makes this harmless.
+- Used by the motor mode's step presets (#8): fast under 50 ms, slow over 150 ms, normal between.
+
 ## Facts that shape the firmware
 
 - Display and touch power is switched by GPIO1 and must be enabled before init. External 5 V on the MX1.25 sockets

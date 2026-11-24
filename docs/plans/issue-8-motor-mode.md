@@ -22,7 +22,9 @@ anything is unclear so that the motor side falls back to neutral by itself. Deci
 - **Command:** the knob sends only a throttle, a signed ratio from -1.0 (full astern) to +1.0 (full ahead), 0 is neutral. The
   motor controller reports F, N or R on its own path. The knob never sends a gear.
 - **Turn:** right raises, left lowers. Steps depend on the turning speed, with three presets as a setting: Gentle 1/1/2 %,
-  Normal 1/2/5 % (default), Quick 1/3/10 % (slow, normal and fast clicks). The click-time thresholds come from the spike.
+  Normal 1/2/5 % (default), Quick 1/3/10 % (slow, normal and fast clicks). A click is fast under 50 ms after the last one,
+  slow over 150 ms, normal between (spike 2026-11-24, docs/hardware.md "Encoder"). With 30 detents per turn a full turn at
+  normal speed is 30, 60 or 90 %, a fast spin with Normal reaches full power in two thirds of a turn.
 - **Neutral stop:** from ahead to astern or back the throttle stops at 0, further clicks are ignored. Once the knob has been
   still for about 1 s, the next turn goes on into the other direction. A fast spin never crosses neutral.
 - **Press:** a single press goes to neutral at once and stays armed. A long press goes to neutral and disarms.
@@ -78,11 +80,9 @@ SignalK has no standard path for a throttle command. Defaults, `<id>` is `knob.m
 
 ## Open questions
 - Which motor and which plugin take the throttle. The knob's defaults are a guess until then **(verify)**.
-- Click-time thresholds and detents per turn: from the spike.
 
 ## Steps
-- [ ] **Spike `spikes/encoder-timing`:** log the raw PCNT count per detent and the time between clicks; the owner turns slowly,
-      normally and fast and one full turn. Gives the detents per turn and the thresholds for the three presets.
+- [x] **Spike `spikes/encoder-timing`** (2026-11-24): 30 detents per turn, 4 edges each, thresholds 50 and 150 ms.
 - [ ] knob_logic: motor state machine and step presets, host tests.
 - [ ] knob_config keys and settings items.
 - [ ] knob_model subscriptions, stale reason, snapshot fields. knob_actions: throttle PUT, keepalive, neutral on disarm.

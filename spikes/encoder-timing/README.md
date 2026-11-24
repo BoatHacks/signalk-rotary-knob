@@ -25,7 +25,10 @@ Press the knob to start a run, turn, press again: the summary prints on the seri
 Each summary gives the net edges and detents, where the knob came to rest, and the time between clicks (min, p10, median,
 p90, max and a histogram). Gaps over 1 s count as pauses and are left out.
 
-Result: see "Encoder" in [docs/hardware.md](../../docs/hardware.md) (to be written from the runs).
+Result: see "Encoder" in [docs/hardware.md](../../docs/hardware.md): 30 detents per turn, 4 edges per detent.
+
+Known issue: in the 2026-11-24 runs only the first press registered, so no run ended and no summary printed. The numbers were
+worked out from the click lines instead (split at pauses over 2 s). Not chased, the click log is enough.
 
 Build and flash with ESP-IDF 6.1:
 
