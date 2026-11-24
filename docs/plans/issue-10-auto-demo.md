@@ -53,7 +53,7 @@ An overlay on LVGL's top layer, above every screen and the alarm takeover, drawn
 - **Press:** a ring pulsing out from the centre. **Double press:** two quick pulses. **Long press:** a ring filling around the
   centre for the hold time, then a pulse.
 - **Touch:** a fingertip circle at the touch point with a ripple.
-- **Caption:** one short line on the lower rim saying what happens (`ENGAGE`, `23° TO PORT`, `DIM TO 20 %`, `ACKNOWLEDGE`).
+- **Caption:** one short line in a pill at the top edge saying what happens (`ENGAGE`, `23° TO PORT`, `DIM TO 20 %`, `ACKNOWLEDGE`).
   Owner to confirm that captions are wanted.
 - The DEMO tag stays. The LEDs do what the real UI does (alarm red, steering indicator), plus #9's levels once that exists.
 
@@ -80,25 +80,31 @@ real track names.
 - Record one run on video for the README.
 
 ## Open questions
-- **Last step** (owner): show the `OFF` and loop (proposed), or really switch demo off and restart into normal use?
-- **Captions** (owner): wanted, and in which words?
-- **Music position on the real knob** (verify): does signalk-jukebox publish the playback position (and the track length)?
-  If yes, the music screen shows `0:53` from the real path too, otherwise the position line exists in demo only.
-- **Loop timing** (owner): 60 s idle before the script restarts, about 2.5 minutes for one run?
+Taken as proposed on 2026-11-24 (owner: "start the full-auto demo plan", no answers given, so the plan's proposals stand;
+easy to change in the script table):
+- **Last step:** `OFF` is shown, not applied, and the tour loops.
+- **Captions:** on, short upper-case words in a pill at the top edge.
+- **Loop timing:** 60 s idle before the tour starts again, about two and a half minutes for one run.
+- **Music position on the real knob** (still to verify): does signalk-jukebox publish the playback position? Until then the
+  position line shows in demo mode only (`track_pos_s` is -1 otherwise).
+
+Added by the owner on 2026-11-24: the tour opens with a 3, 2, 1 countdown, then the splash with a simulated boot.
 
 ## Steps
-- [ ] Owner answers the open questions.
+- [x] Owner questions: defaults taken, see above.
 - [x] Fonts generated 2026-11-24 (owner chose the full set): `knob_font_14`, `_20`, `_32` in `components/marine_ui/fonts`,
       from `tools/gen_fonts.sh`. Measured flash cost, compressed: 43.5, 61.2 and 107.4 KB.
-- [ ] Switch the text that can carry outside names (track, artist, zone and channel names) to them.
-- [ ] knob_demo: dimmer levels, music state with position, scripted swing, simulated USB host. Host tests.
-- [ ] Music screen: a position line (`0:53`) when the snapshot has one.
-- [ ] `knob_autodemo` step player and the script table in knob_logic. Host tests.
-- [ ] Input overlay in marine_ui (turn arrow, press pulses, long press fill, touch ripple, caption).
-- [ ] Wire it up: `DEMO MODE` choice in knob_config and the settings screen, the player in the input task, pause and
-      restart, no TinyUSB in demo.
-- [ ] Bench run through the checklist section, video for the README.
-- [ ] Docs: ui-design section 4, the manual's demo section, SPEC section 12 decisions.
+- [x] Track and artist on the music screen use `knob_font_14`. Zone and channel names still to switch.
+- [x] knob_demo: dimmer levels, a swing that moves to a target. The music position, the simulated USB host and the
+      three demo light channels live in knob_model. Host tests for the player.
+- [x] Music screen: the position line (`0:53`, `PAUSED 0:53`) when the snapshot has one.
+- [x] `knob_autodemo` step player and the script table in knob_logic, 5 host tests (gestures, waits and the countdown, ring
+      and settings navigation, pause and restart, the whole script loops).
+- [x] Input overlay in marine_ui (turn arc and count, press rings, long press fill, touch dot, caption, countdown).
+- [x] Wired up: `DEMO MODE` `OFF`/`ON`/`AUTO` (`knob.demo` plus `knob.demo_auto`), the player in the input task's hook,
+      pause on real input and restart after 60 s, serial command `p`, no USB device, no flash writes, the simulated boot.
+- [ ] Bench run through the hardware checklist section "Automatic demo", video for the README.
+- [x] Docs: ui-design section 4 "Automatic demo", manual section 6a, hardware checklist.
 
 ## Files
 `components/knob_logic/knob_autodemo.{c,h}` (new), `components/knob_logic/knob_demo.{c,h}`, `components/input/input.c`,

@@ -5,6 +5,7 @@
 #include "knob_logic.h"
 #include "knob_demo.h"
 #include "knob_motor.h"
+#include "knob_autodemo.h"
 #include "unity.h"
 
 void setUp(void) {}
@@ -748,6 +749,204 @@ static void test_gear_from_str(void)
     TEST_ASSERT_EQUAL_INT(KNOB_GEAR_UNKNOWN, knob_gear_from_str(NULL));
 }
 
+/* ---- Automatic demo player (#10) ---- */
+
+/* A fake knob: it classifies button edges like marine_ui does (long press after 750 ms held, a single press 300 ms after
+ * the release, two releases close together a double press) and runs a small mode ring and settings list. */
+typedef struct {
+    uint32_t now;
+    bool down; uint32_t down_ms, last_up_ms; int clicks; bool long_fired;
+    int singles, doubles, longs, turns_cw, turns_ccw, touches;
+    int mode, ring_open, ring_focus, set_index;
+    int fx_turn, fx_press, fx_double, fx_long, fx_count_last, fx_clear;
+    const char *caption;
+    bool cond_ok; int events[8]; int n_events;
+} fake_t;
+
+static const int ring_order[] = { 0, 1, 2, 5, 3, 4 };   /* autopilot, lights, anchor, music, USB, settings */
+
+static int ring_next(int m)
+{
+    for (int i = 0; i < 6; i++) if (ring_order[i] == m) return ring_order[(i + 1) % 6];
+    return 0;
+}
+
+static void f_semantic(fake_t *f, int kind) /* 1 single, 2 double, 3 long */
+{
+    if (kind == 1) { f->singles++; if (f->ring_open) { f->mode = f->ring_focus; f->ring_open = 0; } }
+    if (kind == 2) { f->doubles++; f->ring_open = !f->ring_open; f->ring_focus = f->mode; }
+    if (kind == 3) f->longs++;
+}
+
+static void f_poll(fake_t *f)
+{
+    if (f->down && !f->long_fired && f->now - f->down_ms >= 750) { f->long_fired = true; f->clicks = 0; f_semantic(f, 3); }
+    if (!f->down && f->clicks == 1 && f->now - f->last_up_ms >= 300) { f->clicks = 0; f_semantic(f, 1); }
+}
+
+static void f_turn(void *c, int dir)
+{
+    fake_t *f = c;
+    if (dir > 0) f->turns_cw++; else f->turns_ccw++;
+    if (f->ring_open) f->ring_focus = ring_next(f->ring_focus);
+    else if (f->mode == KNOB_MODE_SETTINGS) f->set_index += dir;
+}
+static void f_button(void *c, bool down)
+{
+    fake_t *f = c;
+    if (down) { f->down = true; f->down_ms = f->now; f->long_fired = false; return; }
+    f->down = false;
+    if (f->long_fired) return;
+    f->clicks++;
+    f->last_up_ms = f->now;
+    if (f->clicks >= 2) { f->clicks = 0; f_semantic(f, 2); }
+}
+static void f_touch(void *c, int16_t x, int16_t y, bool down) { (void)x; (void)y; if (down) ((fake_t *)c)->touches++; }
+static void f_show(void *c, knob_ad_fx_t fx, int a, int b)
+{
+    fake_t *f = c;
+    (void)b;
+    if (fx == KNOB_AD_FX_TURN) f->fx_turn++;
+    if (fx == KNOB_AD_FX_PRESS) f->fx_press++;
+    if (fx == KNOB_AD_FX_DOUBLE) f->fx_double++;
+    if (fx == KNOB_AD_FX_LONG) f->fx_long++;
+    if (fx == KNOB_AD_FX_COUNT) f->fx_count_last = a;
+    if (fx == KNOB_AD_FX_CLEAR) f->fx_clear++;
+}
+static void f_caption(void *c, const char *t) { ((fake_t *)c)->caption = t; }
+static bool f_cond(void *c, int id) { (void)id; return ((fake_t *)c)->cond_ok; }
+static void f_event(void *c, int id) { fake_t *f = c; if (f->n_events < 8) f->events[f->n_events++] = id; if (id == KNOB_AD_EV_RESET) f->mode = 0; }
+static int f_query(void *c, knob_ad_query_t q)
+{
+    fake_t *f = c;
+    switch (q) {
+    case KNOB_AD_Q_MODE: return f->mode;
+    case KNOB_AD_Q_RING_OPEN: return f->ring_open;
+    case KNOB_AD_Q_RING_FOCUS: return f->ring_focus;
+    case KNOB_AD_Q_SET_INDEX: return f->mode == KNOB_MODE_SETTINGS ? f->set_index : -1;
+    }
+    return -1;
+}
+
+static knob_ad_ops_t fake_ops(fake_t *f)
+{
+    knob_ad_ops_t o = { f_turn, f_button, f_touch, f_show, f_caption, f_cond, f_event, f_query, f };
+    return o;
+}
+
+/* Runs the player and the fake UI in 5 ms steps for ms milliseconds. */
+static void run_ms(knob_ad_t *p, fake_t *f, const knob_ad_ops_t *o, uint32_t ms)
+{
+    for (uint32_t end = f->now + ms; f->now < end; f->now += 5) {
+        knob_ad_tick(p, f->now, o);
+        f_poll(f);
+    }
+}
+
+static void test_autodemo_gestures(void)
+{
+    static const knob_ad_step_t s[] = {
+        { KNOB_AD_PRESS, 0, 0, 0, NULL }, { KNOB_AD_LONG, 0, 0, 0, NULL }, { KNOB_AD_DOUBLE, 0, 0, 0, NULL },
+        { KNOB_AD_TURN, -3, 0, 0, NULL }, { KNOB_AD_TOUCH, 200, 120, 0, NULL }, { KNOB_AD_WAIT, 0, 0, 60000, NULL },
+        { KNOB_AD_END, 0, 0, 0, NULL },
+    };
+    fake_t f = { .now = 1000 };
+    knob_ad_ops_t o = fake_ops(&f);
+    knob_ad_t p;
+    knob_ad_init(&p, s);
+    knob_ad_start(&p, f.now);
+    run_ms(&p, &f, &o, 8000);
+    TEST_ASSERT_EQUAL_INT(1, f.singles);   /* the press resolved as a single press, not as half of a double */
+    TEST_ASSERT_EQUAL_INT(1, f.longs);
+    TEST_ASSERT_EQUAL_INT(1, f.doubles);
+    TEST_ASSERT_EQUAL_INT(3, f.turns_ccw);
+    TEST_ASSERT_EQUAL_INT(1, f.touches);
+    TEST_ASSERT_EQUAL_INT(3, f.fx_turn);   /* every click shown */
+    TEST_ASSERT_EQUAL_INT(1, f.fx_press);
+    TEST_ASSERT_EQUAL_INT(1, f.fx_long);
+    TEST_ASSERT_EQUAL_INT(1, f.fx_double);
+    TEST_ASSERT_FALSE(f.down);
+}
+
+static void test_autodemo_until_and_countdown(void)
+{
+    static const knob_ad_step_t s[] = {
+        { KNOB_AD_COUNTDOWN, 3, 0, 0, NULL }, { KNOB_AD_UNTIL, 1, 0, 2000, NULL }, { KNOB_AD_CAPTION, 0, 0, 0, "HI" },
+        { KNOB_AD_WAIT, 0, 0, 60000, NULL }, { KNOB_AD_END, 0, 0, 0, NULL },
+    };
+    fake_t f = { .now = 0 };
+    knob_ad_ops_t o = fake_ops(&f);
+    knob_ad_t p;
+    knob_ad_init(&p, s);
+    knob_ad_start(&p, f.now);
+    run_ms(&p, &f, &o, 1500);
+    TEST_ASSERT_EQUAL_INT(2, f.fx_count_last);      /* 3 at 0 s, 2 at 1 s */
+    run_ms(&p, &f, &o, 2000);
+    TEST_ASSERT_EQUAL_INT(0, f.fx_count_last);      /* hidden after 1 */
+    TEST_ASSERT_NULL(f.caption);                    /* the condition never holds: still waiting for the timeout */
+    run_ms(&p, &f, &o, 1600);
+    TEST_ASSERT_EQUAL_STRING("HI", f.caption);      /* moved on after the 2 s timeout */
+}
+
+static void test_autodemo_ring_and_settings(void)
+{
+    static const knob_ad_step_t s[] = {
+        { KNOB_AD_RING_TO, KNOB_MODE_MUSIC, 0, 0, NULL }, { KNOB_AD_RING_TO, KNOB_MODE_MUSIC, 0, 0, NULL },
+        { KNOB_AD_RING_TO, KNOB_MODE_SETTINGS, 0, 0, NULL }, { KNOB_AD_SET_TO, KNOB_SET_DEMO, 0, 0, NULL },
+        { KNOB_AD_WAIT, 0, 0, 60000, NULL }, { KNOB_AD_END, 0, 0, 0, NULL },
+    };
+    fake_t f = { .now = 0 };
+    knob_ad_ops_t o = fake_ops(&f);
+    knob_ad_t p;
+    knob_ad_init(&p, s);
+    knob_ad_start(&p, f.now);
+    run_ms(&p, &f, &o, 4000);
+    TEST_ASSERT_EQUAL_INT(KNOB_MODE_MUSIC, f.mode);
+    run_ms(&p, &f, &o, 14000);
+    TEST_ASSERT_EQUAL_INT(2, f.doubles);            /* music and settings: the second RING_TO to music did nothing */
+    TEST_ASSERT_EQUAL_INT(KNOB_MODE_SETTINGS, f.mode);
+    TEST_ASSERT_EQUAL_INT(0, f.ring_open);
+    TEST_ASSERT_EQUAL_INT(KNOB_SET_DEMO, f.set_index);
+}
+
+static void test_autodemo_pause_and_restart(void)
+{
+    static const knob_ad_step_t s[] = {
+        { KNOB_AD_EVENT, 7, 0, 0, NULL }, { KNOB_AD_LONG, 0, 0, 0, NULL }, { KNOB_AD_WAIT, 0, 0, 60000, NULL },
+        { KNOB_AD_END, 0, 0, 0, NULL },
+    };
+    fake_t f = { .now = 0 };
+    knob_ad_ops_t o = fake_ops(&f);
+    knob_ad_t p;
+    knob_ad_init(&p, s);
+    knob_ad_start(&p, f.now);
+    run_ms(&p, &f, &o, 300);                        /* in the middle of the long press */
+    TEST_ASSERT_TRUE(f.down);
+    knob_ad_user_input(&p, f.now, &o);
+    TEST_ASSERT_FALSE(f.down);                      /* the held button is let go */
+    TEST_ASSERT_EQUAL_INT(KNOB_AD_PAUSED, p.state);
+    TEST_ASSERT_EQUAL_INT(1, f.fx_clear);
+    run_ms(&p, &f, &o, KNOB_AD_IDLE_RESTART_MS - 1000);
+    TEST_ASSERT_EQUAL_INT(1, f.n_events);           /* still paused */
+    run_ms(&p, &f, &o, 2000);
+    TEST_ASSERT_EQUAL_INT(KNOB_AD_RUNNING, p.state);
+    TEST_ASSERT_EQUAL_INT(2, f.n_events);           /* started again from the top */
+}
+
+/* The real script runs to its end and starts again, with every condition holding. */
+static void test_autodemo_script_loops(void)
+{
+    fake_t f = { .now = 0, .cond_ok = true };
+    knob_ad_ops_t o = fake_ops(&f);
+    knob_ad_t p;
+    knob_ad_init(&p, knob_ad_script);
+    knob_ad_start(&p, f.now);
+    run_ms(&p, &f, &o, 240000);
+    TEST_ASSERT_TRUE(p.loops >= 1);
+    TEST_ASSERT_EQUAL_INT(KNOB_AD_EV_RESET, f.events[0]);
+    TEST_ASSERT_TRUE(f.longs >= 6);                 /* engage, light off, drop, two profile changes */
+    TEST_ASSERT_TRUE(f.doubles >= 6);               /* six trips through the ring */
+}
 int main(void)
 {
     UNITY_BEGIN();
@@ -788,5 +987,10 @@ int main(void)
     RUN_TEST(test_motor_disarm_reasons);
     RUN_TEST(test_motor_idle_and_keepalive);
     RUN_TEST(test_gear_from_str);
+    RUN_TEST(test_autodemo_gestures);
+    RUN_TEST(test_autodemo_until_and_countdown);
+    RUN_TEST(test_autodemo_ring_and_settings);
+    RUN_TEST(test_autodemo_pause_and_restart);
+    RUN_TEST(test_autodemo_script_loops);
     return UNITY_END();
 }

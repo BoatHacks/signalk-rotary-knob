@@ -41,6 +41,9 @@ void knob_model_restore_mode(void);
  *  l flip allow control for this session only (bench override on top of the stored setting knob.allow_control)
  *  h help */
 void knob_model_command(char c);
+/* Automatic demo (#10, serial command p): starts or stops it in demo mode. Outside demo mode it switches demo mode on with
+ * the automatic tour, and the knob restarts into it. */
+void knob_model_autodemo_toggle(void);
 
 /* Stall diagnostics. phase: 1 building, 2 waiting for the LVGL lock, 3 inside marine_ui_apply_snapshot, 4 sleeping. */
 void knob_model_get_diag(int *phase, uint32_t *loop_age_ms, uint32_t *apply_age_ms);

@@ -21,6 +21,12 @@ static const char *TAG = "input";
 
 static uint32_t now_ms(void) { return (uint32_t)(esp_timer_get_time() / 1000); }
 
+static input_hook_t s_hook;
+static volatile bool s_hook_on;
+
+void input_set_hook(input_hook_t hook) { s_hook = hook; }
+void input_hook_enable(bool on) { s_hook_on = on; }
+
 static void input_task(void *arg)
 {
     bool btn_prev = false, touch_prev = false;
@@ -34,8 +40,10 @@ static void input_task(void *arg)
         bool touch = board_touch_read(&x, &y);
         uint32_t now = now_ms();
         bool tick = (now - last_tick) >= TICK_EVERY_MS;
+        bool user = steps || btn != btn_prev || (touch && !touch_prev);
+        bool hook = s_hook && s_hook_on;
 
-        if (steps || btn != btn_prev || touch || touch_prev || tick) {
+        if (steps || btn != btn_prev || touch || touch_prev || tick || hook) {
             lv_port_lock();
             for (; steps > 0; steps--) marine_ui_feed_encoder_step(1);
             for (; steps < 0; steps++) marine_ui_feed_encoder_step(-1);
@@ -47,6 +55,7 @@ static void input_task(void *arg)
             } else if (touch_prev) {
                 marine_ui_feed_touch((int16_t)tx, (int16_t)ty, false);
             }
+            if (hook) s_hook(now, user);   /* after the real inputs: real input pauses the automatic demo */
             if (tick) {
                 marine_ui_tick(now);
                 last_tick = now;

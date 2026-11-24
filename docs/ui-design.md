@@ -246,6 +246,31 @@ lines, on every screen. That tag is the only sign of demo mode: the LEDs show wh
 2026-11-24, the purple LED pulse was dropped). Everything else
 looks and works as on the boat, alarms included: setting the anchor radius below the boat's swing raises the drag alarm.
 
+### Automatic demo (#10, built 2026-11-24)
+
+`DEMO MODE` has three values: `OFF`, `ON` (the manual demo above) and `AUTO`. In `AUTO` the knob drives itself through every
+mode the way a person would, always through the mode ring, and runs one typical action in each (the script is
+`knob_ad_script` in `components/knob_logic/knob_autodemo.c`, docs/plans/issue-10-auto-demo.md). It starts with a 3, 2, 1
+countdown, then the splash with the boot phases (`WI-FI`, `SIGNALK`, `TOKEN`), then the tour, about two and a half minutes,
+and starts again from the top.
+
+The simulated inputs go through the same entry points as the hardware, so the real gesture timing applies, and every one is
+drawn on the top layer, above every screen and the alarm takeover:
+- **Turn:** a short arc on the rim on the turning side (right for clockwise), a chevron at its end and the click count
+  (`+3`, `-12`), gone 0.6 s after the last click.
+- **Press:** a ring grows from the centre and fades. **Double press:** two of them. **Long press:** a ring around the
+  centre fills for the 750 ms hold, then the press ring.
+- **Touch:** a fingertip dot at the point with a ripple.
+- **Caption:** one short line in a pill at the top edge (`ENGAGE`, `23° TO PORT`, `ACKNOWLEDGE`).
+- **Countdown:** a large digit on a dark screen.
+
+All in the primary colour, so red at night. In the automatic demo the lights are three simulated channels (two dimmers and a
+switch), a USB host counts as connected, the HID profile and the mode stay in memory, nothing is written to flash, and no
+USB device is started. The last step stores `OFF` in the settings: shown, not applied, and the tour starts again.
+
+Any real input pauses the tour and hands the knob to the person. After 60 s without input the tour starts again from the
+top. The serial command `p` starts or stops it, and outside demo mode switches demo mode to `AUTO` (the knob restarts into it).
+
 ### CONTROL ON notice (agreed 2026-11-23, #3)
 
 When allow control goes on from the web page or the API (never when it is switched on at the knob), the current screen shows a

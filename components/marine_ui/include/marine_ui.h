@@ -293,6 +293,7 @@ typedef struct {
     uint32_t motor_reported_ms;
     char track[40];
     char artist[32];
+    int32_t track_pos_s;           // playback position in seconds, -1 unknown (shown as 0:53 under the volume while known)
 } marine_ui_snapshot_t;
 
 /**
@@ -355,6 +356,22 @@ void marine_ui_set_mode(marine_ui_mode_t mode);
  */
 void marine_ui_set_power(uint32_t dim_after_ms, uint8_t dim_pct, uint32_t off_after_ms);
 
+/* ---- Automatic demo (#10): the overlay that shows the simulated inputs, and what the script asks the UI ----
+ * All under the LVGL port lock. The overlay is only drawn while the automatic demo runs. */
+typedef enum {
+    MARINE_DEMO_FX_TURN = 0,  // a: direction (+1 clockwise, -1), b: clicks so far in this turn
+    MARINE_DEMO_FX_PRESS,
+    MARINE_DEMO_FX_DOUBLE,
+    MARINE_DEMO_FX_LONG,      // a hold starts: a ring fills for the long press time
+    MARINE_DEMO_FX_TOUCH,     // a: x, b: y
+    MARINE_DEMO_FX_COUNT,     // a: countdown digit, 0 hides it
+    MARINE_DEMO_FX_CLEAR      // hide everything
+} marine_demo_fx_t;
+void marine_ui_demo_fx(marine_demo_fx_t fx, int a, int b);
+void marine_ui_demo_caption(const char *text);   // NULL hides it
+bool marine_ui_ring_is_open(void);
+marine_ui_mode_t marine_ui_ring_focus(void);     // the mode the ring's focus is on (the active mode while it is closed)
+int marine_ui_settings_index(void);              // the focused settings item, -1 outside the settings list
 #ifdef __cplusplus
 }
 #endif

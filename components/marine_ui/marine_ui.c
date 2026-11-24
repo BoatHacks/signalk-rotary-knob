@@ -4,6 +4,9 @@
 #include <math.h>
 #include "esp_heap_caps.h"
 #include "knob_logic.h"
+#include "knob_fonts.h"
+
+static void dfx_create(void);   // automatic demo overlay (#10), at the end of the file
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -2619,12 +2622,13 @@ static lv_obj_t* build_music_screen(void) {
     lv_obj_remove_flag(vol_arc, LV_OBJ_FLAG_CLICKABLE);
 
     vol_lbl_target = anc_make_label(scr, &lv_font_montserrat_14, -74);
-    vol_lbl_track = anc_make_label(scr, &lv_font_montserrat_12, -52);
+    // Track and artist come from outside (any language): the fonts with Latin-1, Latin Extended-A, Cyrillic and Greek.
+    vol_lbl_track = anc_make_label(scr, &knob_font_14, -52);
     lv_label_set_long_mode(vol_lbl_track, LV_LABEL_LONG_MODE_DOTS);
     lv_obj_set_width(vol_lbl_track, 150);
     lv_obj_set_style_text_align(vol_lbl_track, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_align(vol_lbl_track, LV_ALIGN_CENTER, 0, -52);
-    vol_lbl_artist = anc_make_label(scr, &lv_font_montserrat_12, -36);
+    vol_lbl_artist = anc_make_label(scr, &knob_font_14, -36);
     lv_label_set_long_mode(vol_lbl_artist, LV_LABEL_LONG_MODE_DOTS);
     lv_obj_set_width(vol_lbl_artist, 140);
     lv_obj_set_style_text_align(vol_lbl_artist, LV_TEXT_ALIGN_CENTER, 0);
@@ -2657,8 +2661,15 @@ static void music_refresh(void) {
     if (stale) snprintf(b, sizeof(b), "---");
     else snprintf(b, sizeof(b), "%d", pct);
     anc_set_line(vol_lbl_pct, b, vol_pending_active ? c_amber() : c_text());
-    anc_set_line(vol_lbl_state, !t->connected ? "ZONE OFFLINE" : (playing ? "" : (snap.play_state == MARINE_PLAY_PAUSED ? "PAUSED" : "")),
-                 !t->connected ? c_amber() : c_muted());
+    // The line under the volume: the playback position while it is known (0:53, PAUSED 0:53), else the state.
+    char st[24] = "";
+    bool paused = snap.play_state == MARINE_PLAY_PAUSED;
+    if (snap.track_pos_s >= 0 && snap.play_state != MARINE_PLAY_STOPPED) {
+        snprintf(st, sizeof(st), "%s%d:%02d", paused ? "PAUSED " : "", (int)(snap.track_pos_s / 60), (int)(snap.track_pos_s % 60));
+    } else if (paused) {
+        snprintf(st, sizeof(st), "PAUSED");
+    }
+    anc_set_line(vol_lbl_state, !t->connected ? "ZONE OFFLINE" : st, !t->connected ? c_amber() : c_muted());
 
     lv_obj_t *btns[3] = { vol_btn_prev, vol_btn_next, vol_btn_play };
     for (int i = 0; i < 3; i++) {
@@ -3265,12 +3276,272 @@ void marine_ui_init(marine_ui_action_cb_t action_cb, void *user_ctx) {
     lv_obj_set_style_text_font(ovl_motor_tag, &lv_font_montserrat_14, 0);
     lv_obj_align(ovl_motor_tag, LV_ALIGN_CENTER, 0, 95);   // above the DEMO tag
     lv_obj_add_flag(ovl_motor_tag, LV_OBJ_FLAG_HIDDEN);
+    dfx_create();   // last: the demo overlay sits above everything else on the top layer
     lv_screen_load(scr_modes[active_mode]);
     mode_registry[active_mode].refresh();
 }
 
-void marine_ui_load_demo_snapshot(marine_ui_snapshot_t *out_snap) {
-    if (!out_snap) return;
+// --- Automatic demo overlay (#10, docs/plans/issue-10-auto-demo.md): the simulated inputs made visible. On the top layer,
+// created last so it sits above every screen, the ring and the alarm takeover. Only the automatic demo calls it. ---
+static lv_obj_t *dfx_turn_arc, *dfx_turn_tip, *dfx_turn_count;
+static lv_obj_t *dfx_pulse[2], *dfx_long_arc, *dfx_touch_dot, *dfx_touch_ring;
+static lv_obj_t *dfx_cap_box, *dfx_cap_lbl, *dfx_count_bg, *dfx_count_lbl;
+static uint32_t dfx_turn_ms, dfx_touch_ms;
+static bool dfx_turn_on, dfx_touch_on;
+
+static void dfx_anim_size(void *o, int32_t v) {
+    lv_obj_set_size(o, v, v);
+    lv_obj_center(o);
+}
+static void dfx_anim_size_at(void *o, int32_t v) {       // keeps the centre where the touch was (stored in user data)
+    intptr_t xy = (intptr_t)lv_obj_get_user_data(o);
+    lv_obj_set_size(o, v, v);
+    lv_obj_set_pos(o, (int32_t)(xy >> 16) - v / 2, (int32_t)(xy & 0xFFFF) - v / 2);
+}
+static void dfx_anim_opa(void *o, int32_t v) { lv_obj_set_style_opa(o, (lv_opa_t)v, 0); }
+static void dfx_anim_arc(void *o, int32_t v) { lv_arc_set_value(o, v); }
+static void dfx_anim_done(lv_anim_t *a) { lv_obj_add_flag(a->var, LV_OBJ_FLAG_HIDDEN); }
+
+static lv_obj_t *dfx_ring_obj(int w) {
+    lv_obj_t *o = lv_obj_create(lv_layer_top());
+    lv_obj_set_style_radius(o, LV_RADIUS_CIRCLE, 0);
+    lv_obj_set_style_bg_opa(o, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(o, w, 0);
+    lv_obj_set_style_pad_all(o, 0, 0);
+    lv_obj_remove_flag(o, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_flag(o, LV_OBJ_FLAG_HIDDEN);
+    return o;
+}
+
+// A ring grows from the centre and fades out: the knob's push.
+static void dfx_pulse_start(lv_obj_t *o, uint32_t delay_ms) {
+    lv_anim_delete(o, NULL);
+    lv_obj_set_style_border_color(o, c_primary(), 0);
+    lv_obj_set_style_opa(o, LV_OPA_COVER, 0);
+    dfx_anim_size(o, 34);
+    lv_obj_remove_flag(o, LV_OBJ_FLAG_HIDDEN);
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, o);
+    lv_anim_set_delay(&a, delay_ms);
+    lv_anim_set_duration(&a, 450);
+    lv_anim_set_values(&a, 34, 150);
+    lv_anim_set_exec_cb(&a, dfx_anim_size);
+    lv_anim_start(&a);
+    lv_anim_set_values(&a, LV_OPA_COVER, LV_OPA_TRANSP);
+    lv_anim_set_exec_cb(&a, dfx_anim_opa);
+    lv_anim_set_completed_cb(&a, dfx_anim_done);
+    lv_anim_start(&a);
+}
+
+static void dfx_create(void) {
+    dfx_turn_arc = lv_arc_create(lv_layer_top());
+    lv_obj_set_size(dfx_turn_arc, 236, 236);
+    lv_obj_center(dfx_turn_arc);
+    lv_arc_set_bg_angles(dfx_turn_arc, 0, 0);
+    lv_obj_set_style_arc_opa(dfx_turn_arc, LV_OPA_TRANSP, LV_PART_MAIN);
+    lv_obj_set_style_arc_width(dfx_turn_arc, 7, LV_PART_INDICATOR);
+    lv_obj_set_style_arc_rounded(dfx_turn_arc, true, LV_PART_INDICATOR);
+    lv_obj_remove_style(dfx_turn_arc, NULL, LV_PART_KNOB);
+    lv_obj_remove_flag(dfx_turn_arc, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_flag(dfx_turn_arc, LV_OBJ_FLAG_HIDDEN);
+    dfx_turn_tip = lv_label_create(lv_layer_top());
+    lv_obj_set_style_text_font(dfx_turn_tip, &lv_font_montserrat_20, 0);
+    lv_obj_add_flag(dfx_turn_tip, LV_OBJ_FLAG_HIDDEN);
+    dfx_turn_count = lv_label_create(lv_layer_top());
+    lv_obj_set_style_text_font(dfx_turn_count, &lv_font_montserrat_20, 0);
+    lv_obj_add_flag(dfx_turn_count, LV_OBJ_FLAG_HIDDEN);
+
+    for (int i = 0; i < 2; i++) dfx_pulse[i] = dfx_ring_obj(3);
+
+    dfx_long_arc = lv_arc_create(lv_layer_top());
+    lv_obj_set_size(dfx_long_arc, 96, 96);
+    lv_obj_center(dfx_long_arc);
+    lv_arc_set_rotation(dfx_long_arc, 270);
+    lv_arc_set_bg_angles(dfx_long_arc, 0, 360);
+    lv_arc_set_range(dfx_long_arc, 0, 100);
+    lv_obj_set_style_arc_width(dfx_long_arc, 5, LV_PART_MAIN);
+    lv_obj_set_style_arc_width(dfx_long_arc, 5, LV_PART_INDICATOR);
+    lv_obj_set_style_arc_opa(dfx_long_arc, LV_OPA_30, LV_PART_MAIN);
+    lv_obj_remove_style(dfx_long_arc, NULL, LV_PART_KNOB);
+    lv_obj_remove_flag(dfx_long_arc, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_flag(dfx_long_arc, LV_OBJ_FLAG_HIDDEN);
+
+    dfx_touch_ring = dfx_ring_obj(3);
+    dfx_touch_dot = lv_obj_create(lv_layer_top());
+    lv_obj_set_size(dfx_touch_dot, 34, 34);
+    lv_obj_set_style_radius(dfx_touch_dot, LV_RADIUS_CIRCLE, 0);
+    lv_obj_set_style_bg_color(dfx_touch_dot, lv_color_white(), 0);
+    lv_obj_set_style_bg_opa(dfx_touch_dot, LV_OPA_50, 0);
+    lv_obj_set_style_border_width(dfx_touch_dot, 0, 0);
+    lv_obj_remove_flag(dfx_touch_dot, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_flag(dfx_touch_dot, LV_OBJ_FLAG_HIDDEN);
+
+    dfx_cap_box = lv_obj_create(lv_layer_top());
+    lv_obj_set_size(dfx_cap_box, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
+    lv_obj_align(dfx_cap_box, LV_ALIGN_CENTER, 0, -101);
+    lv_obj_set_style_radius(dfx_cap_box, 10, 0);
+    lv_obj_set_style_bg_color(dfx_cap_box, COL_BG, 0);
+    lv_obj_set_style_bg_opa(dfx_cap_box, LV_OPA_80, 0);
+    lv_obj_set_style_border_width(dfx_cap_box, 1, 0);
+    lv_obj_set_style_pad_hor(dfx_cap_box, 8, 0);
+    lv_obj_set_style_pad_ver(dfx_cap_box, 2, 0);
+    lv_obj_remove_flag(dfx_cap_box, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+    dfx_cap_lbl = lv_label_create(dfx_cap_box);
+    lv_obj_set_style_text_font(dfx_cap_lbl, &knob_font_14, 0);
+    lv_obj_add_flag(dfx_cap_box, LV_OBJ_FLAG_HIDDEN);
+
+    dfx_count_bg = lv_obj_create(lv_layer_top());
+    lv_obj_set_size(dfx_count_bg, 240, 240);
+    lv_obj_center(dfx_count_bg);
+    lv_obj_set_style_bg_color(dfx_count_bg, COL_BG, 0);
+    lv_obj_set_style_bg_opa(dfx_count_bg, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(dfx_count_bg, 0, 0);
+    lv_obj_set_style_radius(dfx_count_bg, 0, 0);
+    lv_obj_remove_flag(dfx_count_bg, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+    dfx_count_lbl = lv_label_create(dfx_count_bg);
+    lv_obj_set_style_text_font(dfx_count_lbl, &lv_font_montserrat_44, 0);
+    lv_obj_set_style_transform_scale(dfx_count_lbl, 512, 0);   // twice the 44 px font
+    lv_obj_center(dfx_count_lbl);
+    lv_obj_add_flag(dfx_count_bg, LV_OBJ_FLAG_HIDDEN);
+}
+
+void marine_ui_demo_fx(marine_demo_fx_t fx, int a, int b) {
+    if (!dfx_turn_arc) return;
+    lv_color_t col = c_primary();
+    switch (fx) {
+    case MARINE_DEMO_FX_TURN: {
+        // A short arc on the rim on the side of the turn (right for clockwise), a chevron at its end and the click count.
+        bool cw = a >= 0;
+        lv_arc_set_angles(dfx_turn_arc, cw ? 330 : 150, cw ? 30 : 210);
+        lv_obj_set_style_arc_color(dfx_turn_arc, col, LV_PART_INDICATOR);
+        lv_label_set_text(dfx_turn_tip, LV_SYMBOL_DOWN);
+        lv_obj_set_style_text_color(dfx_turn_tip, col, 0);
+        lv_obj_align(dfx_turn_tip, LV_ALIGN_CENTER, cw ? 100 : -100, 58);
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%s%d", cw ? "+" : "-", b);
+        lv_label_set_text(dfx_turn_count, buf);
+        lv_obj_set_style_text_color(dfx_turn_count, col, 0);
+        lv_obj_align(dfx_turn_count, LV_ALIGN_CENTER, cw ? 86 : -86, 0);
+        lv_obj_remove_flag(dfx_turn_arc, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_remove_flag(dfx_turn_tip, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_remove_flag(dfx_turn_count, LV_OBJ_FLAG_HIDDEN);
+        dfx_turn_on = true;
+        dfx_turn_ms = snap.now_ms;
+        break;
+    }
+    case MARINE_DEMO_FX_PRESS: dfx_pulse_start(dfx_pulse[0], 0); break;
+    case MARINE_DEMO_FX_DOUBLE: dfx_pulse_start(dfx_pulse[0], 0); dfx_pulse_start(dfx_pulse[1], 200); break;
+    case MARINE_DEMO_FX_LONG: {
+        lv_anim_delete(dfx_long_arc, NULL);
+        lv_obj_set_style_arc_color(dfx_long_arc, col, LV_PART_MAIN);
+        lv_obj_set_style_arc_color(dfx_long_arc, col, LV_PART_INDICATOR);
+        lv_obj_set_style_opa(dfx_long_arc, LV_OPA_COVER, 0);
+        lv_arc_set_value(dfx_long_arc, 0);
+        lv_obj_remove_flag(dfx_long_arc, LV_OBJ_FLAG_HIDDEN);
+        lv_anim_t an;
+        lv_anim_init(&an);
+        lv_anim_set_var(&an, dfx_long_arc);
+        lv_anim_set_duration(&an, 750);              // the UI's long press time
+        lv_anim_set_values(&an, 0, 100);
+        lv_anim_set_exec_cb(&an, dfx_anim_arc);
+        lv_anim_start(&an);
+        lv_anim_set_delay(&an, 750);
+        lv_anim_set_duration(&an, 300);
+        lv_anim_set_values(&an, LV_OPA_COVER, LV_OPA_TRANSP);
+        lv_anim_set_exec_cb(&an, dfx_anim_opa);
+        lv_anim_set_completed_cb(&an, dfx_anim_done);
+        lv_anim_start(&an);
+        dfx_pulse_start(dfx_pulse[0], 750);          // the moment it fires
+        break;
+    }
+    case MARINE_DEMO_FX_TOUCH: {
+        lv_obj_set_pos(dfx_touch_dot, a - 17, b - 17);
+        lv_obj_remove_flag(dfx_touch_dot, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_user_data(dfx_touch_ring, (void *)(intptr_t)((a << 16) | (b & 0xFFFF)));
+        lv_anim_delete(dfx_touch_ring, NULL);
+        lv_obj_set_style_border_color(dfx_touch_ring, lv_color_white(), 0);
+        lv_obj_set_style_opa(dfx_touch_ring, LV_OPA_COVER, 0);
+        lv_obj_remove_flag(dfx_touch_ring, LV_OBJ_FLAG_HIDDEN);
+        lv_anim_t an;
+        lv_anim_init(&an);
+        lv_anim_set_var(&an, dfx_touch_ring);
+        lv_anim_set_duration(&an, 500);
+        lv_anim_set_values(&an, 34, 80);
+        lv_anim_set_exec_cb(&an, dfx_anim_size_at);
+        lv_anim_start(&an);
+        lv_anim_set_values(&an, LV_OPA_COVER, LV_OPA_TRANSP);
+        lv_anim_set_exec_cb(&an, dfx_anim_opa);
+        lv_anim_set_completed_cb(&an, dfx_anim_done);
+        lv_anim_start(&an);
+        dfx_touch_on = true;
+        dfx_touch_ms = snap.now_ms;
+        break;
+    }
+    case MARINE_DEMO_FX_COUNT:
+        if (a <= 0) {
+            lv_obj_add_flag(dfx_count_bg, LV_OBJ_FLAG_HIDDEN);
+        } else {
+            char buf[12];
+            snprintf(buf, sizeof(buf), "%d", a);
+            lv_label_set_text(dfx_count_lbl, buf);
+            lv_obj_set_style_text_color(dfx_count_lbl, col, 0);
+            lv_obj_center(dfx_count_lbl);
+            lv_obj_remove_flag(dfx_count_bg, LV_OBJ_FLAG_HIDDEN);
+        }
+        break;
+    case MARINE_DEMO_FX_CLEAR:
+    default: {
+        lv_obj_t *all[] = { dfx_turn_arc, dfx_turn_tip, dfx_turn_count, dfx_pulse[0], dfx_pulse[1], dfx_long_arc,
+                            dfx_touch_dot, dfx_touch_ring, dfx_count_bg, dfx_cap_box };
+        for (size_t i = 0; i < sizeof(all) / sizeof(all[0]); i++) {
+            lv_anim_delete(all[i], NULL);
+            lv_obj_add_flag(all[i], LV_OBJ_FLAG_HIDDEN);
+        }
+        dfx_turn_on = dfx_touch_on = false;
+        break;
+    }
+    }
+}
+
+// The turn arc fades 0.6 s after the last click, the fingertip 0.5 s after the touch. From marine_ui_tick().
+static void dfx_tick(void) {
+    if (dfx_turn_on && snap.now_ms - dfx_turn_ms >= 600) {
+        dfx_turn_on = false;
+        lv_obj_add_flag(dfx_turn_arc, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(dfx_turn_tip, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(dfx_turn_count, LV_OBJ_FLAG_HIDDEN);
+    }
+    if (dfx_touch_on && snap.now_ms - dfx_touch_ms >= 500) {
+        dfx_touch_on = false;
+        lv_obj_add_flag(dfx_touch_dot, LV_OBJ_FLAG_HIDDEN);
+    }
+}
+
+void marine_ui_demo_caption(const char *text) {
+    if (!dfx_cap_box) return;
+    if (!text || !text[0]) {
+        lv_obj_add_flag(dfx_cap_box, LV_OBJ_FLAG_HIDDEN);
+        return;
+    }
+    lv_label_set_text(dfx_cap_lbl, text);
+    lv_obj_set_style_text_color(dfx_cap_lbl, c_primary(), 0);
+    lv_obj_set_style_border_color(dfx_cap_box, c_primary(), 0);
+    lv_obj_remove_flag(dfx_cap_box, LV_OBJ_FLAG_HIDDEN);
+}
+
+bool marine_ui_ring_is_open(void) { return mode_ring_open; }
+
+marine_ui_mode_t marine_ui_ring_focus(void) {
+    return mode_ring_open ? ring_slot_modes[ring_selected_slot] : active_mode;
+}
+
+int marine_ui_settings_index(void) {
+    if (active_mode != MARINE_MODE_SETTINGS || mode_ring_open || set_view != SET_LIST) return -1;
+    return set_index;
+}
+
+void marine_ui_load_demo_snapshot(marine_ui_snapshot_t *out_snap) {    if (!out_snap) return;
     memset(out_snap, 0, sizeof(*out_snap));
     out_snap->signalk_connected = true;
     out_snap->fx_glass_enabled = true;
@@ -3299,6 +3570,7 @@ void marine_ui_load_demo_snapshot(marine_ui_snapshot_t *out_snap) {
     out_snap->dimmer_groups[2].on = false;
     out_snap->dimmer_groups[2].level_pct = 0;
     out_snap->usb_host_enumerated = true;
+    out_snap->track_pos_s = -1;
     strcpy(out_snap->device_name, "HELM-DIAL-04");
     strcpy(out_snap->setup_ap_ssid, "HelmDial-Setup-04");
 }
@@ -3558,6 +3830,7 @@ void marine_ui_tick(uint32_t now_ms) {
     snap.now_ms = now_ms;
     settings_tick();
     music_tick();
+    dfx_tick();
     if (active_mode == MARINE_MODE_MOTOR) motor_refresh();   // the confirm countdown and the reason timeouts
     if (pilot_open && (now_ms - pilot_opened_ms >= 5000 || !snap.ap_engaged || active_mode != MARINE_MODE_AUTOPILOT ||
                        is_full_alarm_blocking())) {

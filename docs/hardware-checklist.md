@@ -104,6 +104,18 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 | LEDs: 6 o'clock green while playing, off when paused; a muted zone's level dimmed; offline zone all dark | open | | | |
 | LEDs follow the reported volume after a turn, and a change from the jukebox web UI | open | | | |
 
+## Automatic demo (#10)
+
+| Item | Status | Date | Commit | Notes |
+|---|---|---|---|---|
+| `DEMO MODE` `AUTO` from the knob and the web page, and serial `p`: countdown, splash with the boot phases, then the tour | open | | | |
+| Every step does what the script says: engage and 23° to port, dim 80 to 20 % and off, radius 20 m and drop, volume 42 to 100 %, drag alarm, acknowledge, radius 30 m clears it, USB to media, setup to demo off | open | | | |
+| Every turn, press, double press, long press and touch is drawn, caption readable, at day and at night | open | | | |
+| `Eläkeläiset` shows with the umlauts, the position counts up from 0:53 | open | | | |
+| Three runs in a row without a stuck step | open | | | |
+| Real input pauses it, 60 s later it starts again from the top | open | | | |
+| Nothing written to flash (last mode and HID profile unchanged afterwards), no USB device, no SignalK traffic | open | | | |
+
 ## Release and OTA (docs/plans/release.md)
 
 | Item | Status | Date | Commit | Notes |

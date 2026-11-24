@@ -23,7 +23,9 @@ typedef struct {
     float anchor_dist_m;       /* boat from the anchor */
     float anchor_bearing_deg;  /* boat from the anchor */
     float swing_m;             /* how far the boat swings out from the anchor */
+    float swing_target_m;      /* the swing moves towards it at 1 m a second (knob_demo_set_swing) */
     bool light[KNOB_DEMO_LIGHTS];
+    uint8_t level[KNOB_DEMO_LIGHTS]; /* dimmer level while on, 0..100 (kept while off, restored when switched on) */
     float depth_m, voltage_v;
 } knob_demo_t;
 
@@ -39,7 +41,10 @@ void knob_demo_set_target(knob_demo_t *d, float deg);
 void knob_demo_drop(knob_demo_t *d, uint16_t radius_m);
 void knob_demo_raise(knob_demo_t *d);
 void knob_demo_set_radius(knob_demo_t *d, uint16_t radius_m);
-void knob_demo_set_light(knob_demo_t *d, int index, bool on);
+void knob_demo_set_light(knob_demo_t *d, int index, bool on);   /* on restores the kept level (100 if none) */
+void knob_demo_set_level(knob_demo_t *d, int index, int pct);  /* 0 switches it off and keeps the level it had */
+/* How far the boat swings out: it moves there at 1 m a second. The automatic demo (#10) widens it to raise the drag alarm. */
+void knob_demo_set_swing(knob_demo_t *d, float m);
 
 /* The drag alarm: the boat is outside the watch circle. Setting a radius below the swing raises it, which is how the demo
  * shows a drag. */

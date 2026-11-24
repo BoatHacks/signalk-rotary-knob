@@ -25,6 +25,8 @@
 #include "esp_system.h"
 #include "knob_logic.h"
 #include "knob_demo.h"
+#include "knob_autodemo.h"
+#include "input.h"
 #include "knob_motor.h"
 #include "knob_net.h"
 #include "knob_power.h"
@@ -140,6 +142,14 @@ static void setup_ap(bool open);
  * built the same way, and the UI's actions are applied to it instead of being sent. */
 static bool s_demo;
 static knob_demo_t s_dm;
+/* Automatic demo (#10): the step player, run by the input task's hook. */
+static knob_ad_t s_ad;
+static volatile char s_ad_cmd;            /* 'p' toggle (serial), 'S' start, 'X' stop (setting changed): handled in the hook */
+static volatile bool s_ad_shown_off;      /* the script stored DEMO MODE OFF: shown, not applied */
+static volatile uint8_t s_ad_hid = HID_PROFILE_NAV_KEYS; /* the HID profile while the automatic demo runs, never stored */
+static volatile uint32_t s_ad_boot_ms;    /* the simulated boot started, 0 = none */
+static int32_t s_demo_pos_ms = -1;        /* demo playback position */
+static bool ad_active(void) { return knob_ad_active(&s_ad); }
 static void hook_action_result(uint8_t code);
 static volatile int s_alarm_inject;     /* 0 none, else marine_alarm_type_t */
 static volatile bool s_ack_latch;
@@ -494,7 +504,7 @@ static void settings_snapshot(marine_ui_snapshot_t *s, const knob_net_status_t *
     s->setting[KNOB_SET_HEADING] = c.heading_true ? 0 : 1;
     s->setting[KNOB_SET_HID_PROFILE] = c.hid_profile;
     s->setting[KNOB_SET_ALLOW_CONTROL] = c.allow_control ? 1 : 0;
-    s->setting[KNOB_SET_DEMO] = c.demo ? 1 : 0;
+    s->setting[KNOB_SET_DEMO] = s_ad_shown_off ? 0 : c.demo ? (c.demo_auto ? 2 : 1) : 0;
     s->setting[KNOB_SET_MOTOR_STEPS] = c.motor_curve;
     s->setting[KNOB_SET_MOTOR_AHEAD] = c.motor_max_ahead_pct;
     s->setting[KNOB_SET_MOTOR_ASTERN] = c.motor_max_astern_pct;
@@ -568,6 +578,12 @@ static void demo_feed(uint32_t now)
         snprintf(s_m.artist, sizeof(s_m.artist), "Demo Crew");
     }
     s_m.vol_master_ms = now;
+    {
+        static uint32_t last;
+        if (s_demo_pos_ms < 0) s_demo_pos_ms = 53000;
+        if (s_m.play_state == MARINE_PLAY_PLAYING && last) s_demo_pos_ms = (s_demo_pos_ms + (int32_t)(now - last)) % 220000;
+        last = now;
+    }
     /* motor (#8): the gear follows the knob's throttle at once, RPM, torque and power follow its size */
     int sp = s_motor.set_pct;
     s_m.gear = (uint8_t)(sp > 0 ? KNOB_GEAR_FORWARD : sp < 0 ? KNOB_GEAR_REVERSE : KNOB_GEAR_NEUTRAL);
@@ -600,7 +616,7 @@ static void demo_action(const marine_ui_action_t *a)
         if (a->value >= 0 && a->value < KNOB_DEMO_LIGHTS) knob_demo_set_light(&s_dm, (int)a->value, !s_dm.light[a->value]);
         lit = true;
         break;
-    case MARINE_ACT_DIMMER_SET_LEVEL: knob_demo_set_light(&s_dm, (int)a->meta, a->value > 0); lit = true; break;
+    case MARINE_ACT_DIMMER_SET_LEVEL: knob_demo_set_level(&s_dm, (int)a->meta, (int)a->value); lit = true; break;
     case MARINE_ACT_VOL_SET: if (a->meta == 0) s_m.vol_master = (int16_t)a->value; break;
     case MARINE_ACT_VOL_CONTROL:
         if (a->value == MARINE_VOL_PLAY) s_m.play_state = MARINE_PLAY_PLAYING;
@@ -814,6 +830,7 @@ static void build_snapshot(marine_ui_snapshot_t *s, uint32_t now)
     s->motor_reported_ms = m.thr_ms;
     memcpy(s->track, m.track, sizeof(s->track));
     memcpy(s->artist, m.artist, sizeof(s->artist));
+    s->track_pos_s = -1; /* no SignalK source yet (verify: signalk-jukebox), the demo sets it */
 
     s->usb_host_enumerated = usb_dev_host_present(); /* a host on the cable: the USB-HID mode is offered on the ring */
     s->hid_profile = knob_hid_profile();
@@ -830,6 +847,38 @@ static void build_snapshot(marine_ui_snapshot_t *s, uint32_t now)
         s->voltage_v = s_dm.voltage_v;
         portEXIT_CRITICAL(&s_mux);
         s->rudder_updated_ms = s->depth_updated_ms = s->voltage_updated_ms = now;
+        s->track_pos_s = s_demo_pos_ms >= 0 ? s_demo_pos_ms / 1000 : -1;
+        if (ad_active()) {
+            /* Automatic demo (#10): dimmable lights, a USB host on the cable, the HID profile in memory only. */
+            static const char *const names[] = { "SALOON", "COCKPIT", "DECK" };
+            portENTER_CRITICAL(&s_mux);
+            s->dimmer_group_count = 3;
+            for (int i = 0; i < 3; i++) {
+                marine_dimmer_group_t *g = &s->dimmer_groups[i];
+                memset(g, 0, sizeof(*g));
+                strncpy(g->name, names[i], sizeof(g->name) - 1);
+                g->onoff_only = i == 2;
+                g->on = s_dm.light[i];
+                g->level_pct = g->on ? (g->onoff_only ? 100 : s_dm.level[i]) : 0;
+            }
+            portEXIT_CRITICAL(&s_mux);
+            s->dimmer_updated_ms = now;
+            s->usb_host_enumerated = true;
+            s->hid_profile = (usb_hid_profile_t)s_ad_hid;
+            uint32_t b = s_ad_boot_ms;
+            if (b) {
+                /* The simulated boot: the splash with the phases a real knob goes through, then the mode screen. */
+                uint32_t e = now - b;
+                if (e < 6000) {
+                    s->system_screen = MARINE_SCREEN_BOOT;
+                    const char *ph = e < 1800 ? "WI-FI" : e < 4000 ? "SIGNALK" : "TOKEN";
+                    strncpy(s->boot_phase, ph, sizeof(s->boot_phase) - 1);
+                    s->boot_progress_pct = (uint8_t)(e * 100 / 6000);
+                } else {
+                    s_ad_boot_ms = 0;
+                }
+            }
+        }
     }
 }
 
@@ -860,7 +909,8 @@ static void model_task(void *arg)
         }
         if (s_ap_until_ms && (int32_t)(ms_now() - s_ap_until_ms) >= 0) setup_ap(false);
         knob_power_apply_snapshot(&snap, mode);
-        usb_dev_set_hid(mode == MARINE_MODE_USB_HID); /* a HID device only while the USB-HID mode is on screen */
+        /* a HID device only while the USB-HID mode is on screen, never in the automatic demo */
+        usb_dev_set_hid(mode == MARINE_MODE_USB_HID && !ad_active());
         s_phase = 2;
         lv_port_lock();
         s_phase = 3;
@@ -982,7 +1032,16 @@ static void setting_write_async(void *arg)
     case KNOB_SET_HEADING: knob_config_set_str("heading_source", v ? "magnetic" : "true"); break;
     case KNOB_SET_HID_PROFILE: if (v >= 0 && v < 3) knob_config_set_str("hid_profile", hid[v]); break;
     case KNOB_SET_ALLOW_CONTROL: knob_config_set_bool("allow_control", v != 0); break;
-    case KNOB_SET_DEMO: knob_config_set_bool("demo", v != 0); break;
+    case KNOB_SET_DEMO:
+        if (v == 0 && s_demo && knob_ad_running(&s_ad)) {
+            /* The automatic demo's last step: OFF is shown, not applied, and the script starts again (#10). */
+            s_ad_shown_off = true;
+            ESP_LOGI(TAG, "automatic demo: demo mode off shown, not applied");
+            break;
+        }
+        knob_config_set_bool("demo_auto", v == 2);
+        knob_config_set_bool("demo", v != 0);
+        break;
     case KNOB_SET_MOTOR_STEPS: {
         static const char *const curve[] = { "gentle", "normal", "quick" };
         if (v >= 0 && v < 3) knob_config_set_str("motor_curve", curve[v]);
@@ -1034,6 +1093,7 @@ void knob_model_action_cb(const marine_ui_action_t *act, void *ctx)
     case MARINE_ACT_ALARM_LED_PULSE: knob_power_led_alarm(act->value ? KNOB_LED_ALARM_FAST : KNOB_LED_ALARM_OFF); return;
     case MARINE_ACT_ALARM_LED_SLOW_PULSE: knob_power_led_alarm(act->value ? KNOB_LED_ALARM_SLOW : KNOB_LED_ALARM_OFF); return;
     case MARINE_ACT_MODE_CHANGED:
+        if (ad_active()) return; /* the automatic demo writes nothing to flash */
         /* The input task that calls this has its stack in PSRAM, where a flash write must not run. The LVGL task's stack is
          * in internal RAM, so the write is handed to it. */
         s_mode_to_save = (int)act->value;
@@ -1043,6 +1103,7 @@ void knob_model_action_cb(const marine_ui_action_t *act, void *ctx)
     case MARINE_ACT_SETUP_AP: setup_ap(act->value != 0); return;
     case MARINE_ACT_SYS_FACTORY_RESET: lv_async_call(reset_setup_async, NULL); return;
     case MARINE_ACT_HID_NEXT_PROFILE: /* stored, so it survives a restart. The change applies through the watcher. */
+        if (ad_active()) { s_ad_hid = (uint8_t)((s_ad_hid + 1) % HID_PROFILE_COUNT); return; } /* automatic demo: memory only */
         queue_setting(KNOB_SET_HID_PROFILE, (knob_hid_profile() + 1) % HID_PROFILE_COUNT);
         return;
     case MARINE_ACT_MOTOR_TURN: motor_event(MARINE_ACT_MOTOR_TURN, (int)act->value); return;
@@ -1051,6 +1112,7 @@ void knob_model_action_cb(const marine_ui_action_t *act, void *ctx)
     case MARINE_ACT_ALARM_ACK: s_ack_latch = true; break; /* and the server call below */
     default: break;
     }
+    if (ad_active() && (act->action == MARINE_ACT_HID_TURN || act->action == MARINE_ACT_HID_PRESS)) return; /* no USB in the automatic demo */
     if (s_demo && act->action != MARINE_ACT_HID_TURN && act->action != MARINE_ACT_HID_PRESS) {
         demo_action(act);
         return;
@@ -1100,6 +1162,130 @@ void knob_model_restore_mode(void)
     s_boot_hid = knob_config_last_hid(); /* the model task switches to USB-HID if a host shows up in the boot window */
 }
 
+/* ------------------------------------------------------------------------------------------------------------------
+ * Automatic demo (#10). The player runs in the input task's hook, under the LVGL port lock, so its inputs go through the
+ * same marine_ui entry points as the hardware's. Only in demo mode: nothing here can reach a server.
+ * ---------------------------------------------------------------------------------------------------------------- */
+static void ad_turn(void *c, int dir) { (void)c; marine_ui_feed_encoder_step((int8_t)dir); }
+static void ad_button(void *c, bool down) { (void)c; marine_ui_feed_button_edge(down); }
+static void ad_touch(void *c, int16_t x, int16_t y, bool down) { (void)c; marine_ui_feed_touch(x, y, down); }
+static void ad_show(void *c, knob_ad_fx_t fx, int a, int b) { (void)c; marine_ui_demo_fx((marine_demo_fx_t)fx, a, b); }
+static void ad_caption(void *c, const char *text) { (void)c; marine_ui_demo_caption(text); }
+
+static bool ad_cond(void *c, int id)
+{
+    (void)c;
+    bool r = false;
+    portENTER_CRITICAL(&s_mux);
+    switch (id) {
+    case KNOB_AD_COND_BOOT_DONE: r = s_ad_boot_ms == 0; break;
+    case KNOB_AD_COND_ENGAGED: r = s_dm.engaged; break;
+    case KNOB_AD_COND_HEADING_SETTLED:
+        r = s_dm.engaged && fabsf(knob_course_error(s_dm.target_deg, s_dm.heading_deg)) < 1.0f;
+        break;
+    case KNOB_AD_COND_ANCHOR_DROPPED: r = s_dm.anchor_down; break;
+    case KNOB_AD_COND_ALARM: r = knob_demo_dragging(&s_dm); break;
+    case KNOB_AD_COND_NO_ALARM: r = !knob_demo_dragging(&s_dm); break;
+    default: break;
+    }
+    portEXIT_CRITICAL(&s_mux);
+    return r;
+}
+
+static void ad_event(void *c, int id)
+{
+    (void)c;
+    uint32_t now = ms_now();
+    switch (id) {
+    case KNOB_AD_EV_RESET:
+        /* The start state of the script: autopilot in standby, two dimmers on (80 % and 40 %), the anchor raised with 35 m,
+         * the boat swinging 17 m, music playing at 0:53 with the volume at 42 %, the USB profile on cursor keys. */
+        portENTER_CRITICAL(&s_mux);
+        knob_demo_init(&s_dm, now, 35);
+        s_dm.swing_m = 17.0f;
+        knob_demo_set_swing(&s_dm, 17.0f);
+        knob_demo_set_level(&s_dm, 0, 80);
+        knob_demo_set_level(&s_dm, 1, 40);
+        knob_demo_set_light(&s_dm, 2, false);
+        s_m.vol_master = 42;
+        s_m.play_state = MARINE_PLAY_PLAYING;
+        snprintf(s_m.track, sizeof(s_m.track), "Robotti humppa");
+        snprintf(s_m.artist, sizeof(s_m.artist), "El\xC3\xA4kel\xC3\xA4iset");
+        s_demo_pos_ms = 53000;
+        s_ack_latch = false;
+        portEXIT_CRITICAL(&s_mux);
+        s_ad_hid = HID_PROFILE_NAV_KEYS;
+        s_ad_shown_off = false;
+        s_ad_boot_ms = 0;
+        knob_actions_set_anchor_radius(35);
+        marine_ui_set_mode(MARINE_MODE_AUTOPILOT);
+        break;
+    case KNOB_AD_EV_BOOT: s_ad_boot_ms = now | 1u; break;
+    case KNOB_AD_EV_DRAG:
+        portENTER_CRITICAL(&s_mux);
+        knob_demo_set_swing(&s_dm, 26.0f);   /* past the 20 m circle, inside the 30 m one */
+        portEXIT_CRITICAL(&s_mux);
+        break;
+    default: break;
+    }
+}
+
+static int ad_query(void *c, knob_ad_query_t q)
+{
+    (void)c;
+    switch (q) {
+    case KNOB_AD_Q_MODE: return (int)marine_ui_get_active_mode();
+    case KNOB_AD_Q_RING_OPEN: return marine_ui_ring_is_open() ? 1 : 0;
+    case KNOB_AD_Q_RING_FOCUS: return (int)marine_ui_ring_focus();
+    case KNOB_AD_Q_SET_INDEX: return marine_ui_settings_index();
+    }
+    return -1;
+}
+
+static const knob_ad_ops_t s_ad_ops = { ad_turn, ad_button, ad_touch, ad_show, ad_caption, ad_cond, ad_event, ad_query, NULL };
+
+/* The input task's hook: real input pauses the script, commands start and stop it. */
+static void autodemo_hook(uint32_t now, bool user)
+{
+    char cmd = s_ad_cmd;
+    s_ad_cmd = 0;
+    if (cmd == 'S' || (cmd == 'p' && !ad_active())) {
+        if (!s_ad.script) knob_ad_init(&s_ad, knob_ad_script);
+        knob_ad_start(&s_ad, now);
+        ESP_LOGI(TAG, "automatic demo: running");
+        return;
+    }
+    if (cmd == 'X' || cmd == 'p') {
+        knob_ad_stop(&s_ad, &s_ad_ops);
+        s_ad_boot_ms = 0;
+        s_ad_shown_off = false;
+        input_hook_enable(false);
+        ESP_LOGI(TAG, "automatic demo: stopped");
+        return;
+    }
+    if (!ad_active()) {
+        input_hook_enable(false);
+        return;
+    }
+    if (user && knob_ad_running(&s_ad)) ESP_LOGI(TAG, "automatic demo: paused by real input, again after 60 s idle");
+    if (user) knob_ad_user_input(&s_ad, now, &s_ad_ops);
+    knob_ad_tick(&s_ad, now, &s_ad_ops);
+}
+
+void knob_model_autodemo_toggle(void)
+{
+    if (!s_demo) {
+        /* Not in demo mode: switch it on with the automatic tour. The knob restarts into it. */
+        ESP_LOGW(TAG, "automatic demo: demo mode on, restarting");
+        lv_port_lock();
+        queue_setting(KNOB_SET_DEMO, 2);
+        lv_port_unlock();
+        return;
+    }
+    s_ad_cmd = 'p';
+    input_hook_enable(true);
+}
+
 void knob_model_command(char c)
 {
     switch (c) {
@@ -1113,9 +1299,13 @@ void knob_model_command(char c)
     case 'l':
         knob_actions_toggle_override();
         return;
+    case 'p':
+        knob_model_autodemo_toggle();
+        return;
     default:
         ESP_LOGI(TAG, "commands: a anchor alarm, g gps alarm, c clear, x stream down, s freeze heading, n night override, "
-                      "d bypass network gating, l allow control override for this session (control now %s)",
+                      "d bypass network gating, l allow control override for this session (control now %s), "
+                      "p automatic demo start or stop",
                  knob_actions_is_live() ? "ON" : "off");
         return;
     }
@@ -1141,6 +1331,8 @@ void knob_model_start(void)
     s_cfg.heading_true = true;
     s_cfg.anchor_radius_m = 35;
     knob_motor_init(&s_motor);
+    knob_ad_init(&s_ad, knob_ad_script);
+    input_set_hook(autodemo_hook);
     s_cfg.motor_curve = 1;
     s_cfg.motor_max_ahead_pct = s_cfg.motor_max_astern_pct = 50;
     s_cfg.motor_idle_s = 60;
@@ -1201,6 +1393,7 @@ static void on_config_key(const char *key)
     s_cfg.leds_on = cfg.leds_on;
     s_cfg.hid_profile = cfg.hid_profile;
     s_cfg.demo = cfg.demo;
+    s_cfg.demo_auto = cfg.demo_auto;
     s_cfg.music_mode = cfg.music_mode;
     s_cfg.motor_mode = cfg.motor_mode;
     s_cfg.motor_curve = cfg.motor_curve;
@@ -1227,6 +1420,11 @@ static void on_config_key(const char *key)
             const esp_timer_create_args_t a = { .callback = restart_cb, .name = "demo_rst" };
             if (!t && esp_timer_create(&a, &t) != ESP_OK) t = NULL;
             if (t) esp_timer_start_once(t, 800 * 1000); /* let the reply and the log line out first */
+        }
+    } else if (!strcmp(key, "demo_auto")) {
+        if (s_demo) {
+            s_ad_cmd = now.demo_auto ? 'S' : 'X';   /* started or stopped live, no restart */
+            input_hook_enable(true);
         }
     } else if (!strncmp(key, "light", 5)) {
         ESP_LOGW(TAG, "light channel settings apply after a restart");
@@ -1259,6 +1457,11 @@ void knob_model_subscribe(void)
         portEXIT_CRITICAL(&s_mux);
         s_demo = true;
         ESP_LOGW(TAG, "DEMO MODE: simulated data, the SignalK client is stopped, nothing is sent");
+        if (cfg.demo_auto) {
+            s_ad_cmd = 'S';
+            input_hook_enable(true);
+            ESP_LOGW(TAG, "automatic demo: starting");
+        }
         return;
     }
     subscribe_all();

@@ -132,7 +132,7 @@ typedef enum {
     KNOB_SET_HEADING,        /* 0 true, 1 magnetic */
     KNOB_SET_HID_PROFILE,    /* 0 chartplotter, 1 media, 2 navigation keys */
     KNOB_SET_ALLOW_CONTROL,  /* 0 off, 1 on (off to on needs the confirm turn) */
-    KNOB_SET_DEMO,           /* 0 off, 1 on: the knob restarts into or out of demo mode */
+    KNOB_SET_DEMO,           /* 0 off, 1 on, 2 automatic (#10): the knob restarts into or out of demo mode */
     KNOB_SET_MOTOR_STEPS,    /* motor (#8): 0 gentle, 1 normal, 2 quick */
     KNOB_SET_MOTOR_AHEAD,    /* %, the soft limit ahead */
     KNOB_SET_MOTOR_ASTERN,   /* %, the soft limit astern */

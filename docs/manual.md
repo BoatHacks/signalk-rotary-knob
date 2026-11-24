@@ -189,6 +189,12 @@ the boat swings on the anchor, the lights switch. Set the anchor radius smaller 
 Nothing is sent to SignalK in demo mode, the knob does not even connect to the server, but Wi-Fi and the settings page stay up,
 so you can switch demo off from a phone. It stays on across restarts until you switch it off, a factory reset clears it.
 
+**Automatic demo.** Set *Demo mode* to AUTO and the knob shows itself off: after a 3, 2, 1 countdown and its start-up
+screen it goes through every mode on its own, engages the autopilot and turns it, dims a light, drops the anchor, turns the
+music up, raises and clears a drag alarm, changes the USB profile and ends in the settings. Every turn, press and touch it
+makes is drawn on the screen, with a short caption at the top. Touch or turn the knob and it stops and lets you take over;
+leave it alone for a minute and it starts again. Nothing is stored while it runs. To end it, set *Demo mode* to OFF or ON.
+
 ## 7. Updating the firmware
 
 **Over the air.** A knob running a release checks this project's update manifest for newer releases on its channel

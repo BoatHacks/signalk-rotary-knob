@@ -21,7 +21,8 @@ void knob_demo_init(knob_demo_t *d, uint32_t now_ms, uint16_t radius_m)
     d->heading_deg = 284.0f;
     d->target_deg = 284.0f;
     d->radius_m = radius_m ? radius_m : 35;
-    d->swing_m = 22.0f;
+    d->swing_m = d->swing_target_m = 22.0f;
+    for (int i = 0; i < KNOB_DEMO_LIGHTS; i++) d->level[i] = 100;
     d->anchor_bearing_deg = 200.0f;
     d->depth_m = 6.4f;
     d->voltage_v = 12.8f;
@@ -50,6 +51,9 @@ void knob_demo_step(knob_demo_t *d, uint32_t now_ms)
         d->target_deg = d->heading_deg;
         d->rudder_deg = 0.0f;
     }
+
+    if (d->swing_m < d->swing_target_m) d->swing_m = fminf(d->swing_target_m, d->swing_m + dt);
+    else if (d->swing_m > d->swing_target_m) d->swing_m = fmaxf(d->swing_target_m, d->swing_m - dt);
 
     if (d->anchor_down) {
         d->anchor_bearing_deg = wrap360(200.0f + 40.0f * sinf(t * 2.0f * DEMO_PI / 60.0f));
@@ -88,8 +92,20 @@ void knob_demo_set_radius(knob_demo_t *d, uint16_t radius_m)
 
 void knob_demo_set_light(knob_demo_t *d, int index, bool on)
 {
-    if (index >= 0 && index < KNOB_DEMO_LIGHTS) d->light[index] = on;
+    if (index < 0 || index >= KNOB_DEMO_LIGHTS) return;
+    d->light[index] = on;
+    if (on && d->level[index] == 0) d->level[index] = 100;
 }
+
+void knob_demo_set_level(knob_demo_t *d, int index, int pct)
+{
+    if (index < 0 || index >= KNOB_DEMO_LIGHTS) return;
+    if (pct <= 0) { d->light[index] = false; return; }
+    d->level[index] = (uint8_t)(pct > 100 ? 100 : pct);
+    d->light[index] = true;
+}
+
+void knob_demo_set_swing(knob_demo_t *d, float m) { d->swing_target_m = m > 1.0f ? m : 1.0f; }
 
 bool knob_demo_dragging(const knob_demo_t *d)
 {
