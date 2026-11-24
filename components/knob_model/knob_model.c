@@ -430,7 +430,9 @@ static bool motor_link(void)
     return ns.phase == KNOB_NET_ONLINE && !s_force_down;
 }
 
-static bool motor_allowed(void) { return s_demo || knob_actions_is_live(); }
+/* Allowed to arm or stay armed: the mode is on the ring (switching it off mid-run neutrals and disarms, like control off) and
+ * allow control is on (always in demo, where nothing is sent). */
+static bool motor_allowed(void) { return s_cfg.motor_mode && (s_demo || knob_actions_is_live()); }
 
 /* A click or press on the motor screen, from the input task (the LVGL lock is held: nothing here blocks). The model task is
  * woken so a new throttle, neutral above all, goes out at once instead of at the next 100 ms tick. */
