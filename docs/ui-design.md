@@ -35,7 +35,8 @@ switcher, scaled to the number of visible modes (and the position text, for exam
 
 The HID mode is listed only while a USB host has enumerated the knob (section 3.4). Without a host it is hidden from the ring.
 
-MUSIC sits after ANCHOR when `knob.music_mode` is on (section 3.6). The last slot is **Settings** (gear icon, label `SETUP` because `SETTINGS` does not fit the 54 px slot, section 3.5), hidden
+MOTOR sits after AUTO when `knob.motor_mode` is on (section 3.7, off by default). MUSIC sits after ANCHOR when
+`knob.music_mode` is on (section 3.6). The full order: AUTO, MOTOR, LIGHTS, ANCHOR, MUSIC, USB, SETUP. The last slot is **Settings** (gear icon, label `SETUP` because `SETTINGS` does not fit the 54 px slot, section 3.5), hidden
 while an alarm is active. Agreed 2026-11-23 from a mockup: the visible slots are spaced evenly at r 86, clockwise from the top
 (5 with a USB host, 4 without). The centre shows the mode you are in.
 
@@ -234,6 +235,40 @@ shows the stale overlay (`NO VOLUME`).
 On the mode ring MUSIC (music notes icon) sits after ANCHOR: AUTO, LIGHTS, ANCHOR, MUSIC, USB, SETUP. The setting
 `knob.music_mode` (on by default) takes it off the ring on a boat without the jukebox. Up to four zones, named from the
 plugin's REST API (the id until the name arrives). The master volume never received counts as `NO VOLUME`, like a stale one.
+
+### 3.7 Motor
+
+Decided 2026-11-24 with the owner (#8, docs/plans/issue-8-motor-mode.md). The rules are knob_motor in knob_logic; the screen only
+shows its state. Needs allow control. Not verified on a real motor yet.
+
+| Input | Disarmed | Armed |
+|---|---|---|
+| Long press | Arm: then one click right within 5 s (countdown arc). Refused out of neutral, without allow control, without a fresh gear, on a fault | Out of neutral: throttle 0 at once (at 750 ms, while still holding), stays armed. In neutral: disarm |
+| Turn | Nothing | Right more ahead, left more astern. 1 % per slow click (over 150 ms apart), more when faster (gentle 1/1/2, normal 1/2/5, quick 1/3/10 %). Stops at neutral from either side; still for 1 s, then on into the other direction. Clicks in the first 500 ms after arming are ignored |
+| Single press | Nothing | Nothing (it only counts after the 300 ms double-press wait, too slow for neutral) |
+| Double press | Mode ring | Limit warning showing: lift both limits until the next disarm, the throttle stays. Otherwise the mode ring (the throttle keeps its value) |
+
+Look: neutral at 12 o'clock. Ahead is a green arc clockwise, astern an amber arc counter-clockwise, 150 degrees each way for
+100 %; a white dot shows what the motor reports, small amber dots mark the limits until they are lifted. The centre: the gear the
+motor reports, large (`F` green, `N`, `R` amber, `!` red for a fault, `---` without a gear), the set throttle (`AHEAD 40 %`),
+then RPM, and torque and power when the boat publishes them. Top line: `MOTOR`, `ARM MOTOR?`, `ARMED`, or for 5 s why the knob
+refused or let go (`CONTROL IS OFF`, `NO LINK`, `NO MOTOR DATA`, `SET NEUTRAL FIRST`, `IDLE, DISARMED`); `MOTOR FAULT` in red
+stays until the next arm. Bottom line: `HOLD: ARM`, `TURN RIGHT TO ARM`, `HOLD: NEUTRAL`, `HOLD: DISARM`, or the limit warning
+`LIMIT 50 % · 2x: ALLOW MORE` in amber.
+
+- Limits: max ahead and max astern, 50 % by default. The first time in an arm cycle the throttle stops there and the warning
+  shows, nothing above the limit is sent.
+- The knob falls back to neutral (sends 0, disarms) on allow control off, link loss, a gear older than 3 s, a `Fault`, a gear
+  that does not match the throttle's sign for 3 s, or 60 s in neutral without input (0 = never). A reboot starts disarmed and
+  sends nothing.
+- While out of neutral: the throttle is resent every 1 s (the motor side must go to neutral after about 3 s without it), every
+  other screen except the alarm shows `F 40 %` (green) or `R 15 %` (amber) above the DEMO tag, and the screen neither dims
+  nor goes off.
+- LEDs (section 7): ahead fills 1 o'clock then 3:30 in green, astern 11 then 8:30 in amber (`knob_led_fill`, two per side), the
+  bottom LED the reported gear (green F, amber R). Dark at night. The limit warning flashes all five amber at 4 Hz on every
+  screen, also at night.
+- The motor's inputs skip the stale gate: knob_motor refuses or falls back by itself, and a long press for neutral is never
+  swallowed. A stale link still shows the stale overlay.
 
 ## 4. Link state and stale handling
 

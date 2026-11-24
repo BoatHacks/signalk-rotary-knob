@@ -113,9 +113,10 @@ SignalK has no standard path for a throttle command. Defaults, `<id>` is `knob.m
 - [x] marine_ui: motor screen, arming, refusals, limit warning, tag, ring slot, keep-awake (ef12138).
 - [x] knob_power: the throttle LED pattern (two LEDs per side with `knob_led_fill`, the bottom LED the reported gear, off at
       night) and the limit warning's amber 4 Hz flash on every screen, also at night.
-- [x] Docs: SPEC 6.3, manual. [ ] ui-design (ring order, a motor section), hardware checklist, ARCHITECTURE (wait for the
-      other session's edits to those files to be committed).
-- [ ] Host test run, bench check in demo mode, then the motor side at the boat.
+- [x] Docs: SPEC 6.3, manual, ui-design (ring order, section 3.7), hardware checklist (motor section), ARCHITECTURE 2.9e.
+- [x] Host tests run 2026-11-24 on the Pi: 37 tests, 0 failures, no warnings.
+- [ ] Bench check in demo mode (the build on the knob since f9ac9d3 has the screen; the LEDs came with d6c03bb).
+- [ ] The motor side: which plugin takes the throttle, then the checks at the boat.
 
 ## Files
 - `spikes/encoder-timing/` (new)

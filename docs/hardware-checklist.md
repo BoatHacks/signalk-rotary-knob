@@ -129,6 +129,27 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 | An image that crashes before it reaches the network rolls back to the previous one | open | | | |
 | `GET /api/v1/system/ping` reports app `signalk-rotary-knob` and the release version | open | | | |
 
+## Motor (#8)
+
+First in demo mode (a simulated motor), then against a test plugin, then with the real motor at the boat.
+
+| Item | Status | Date | Commit | Notes |
+|---|---|---|---|---|
+| MOTOR on the ring after AUTO only with `knob.motor_mode` on | open | | | |
+| Arm: long press, one click right within 5 s, countdown arc; left click or timeout cancels | open | | | |
+| Arming refused with `SET NEUTRAL FIRST`, `CONTROL IS OFF`, `NO MOTOR DATA` | open | | | |
+| A spin that confirms does not raise the throttle (first 500 ms ignored) | open | | | |
+| Steps: slow 1 %, normal and fast bigger per preset; the arc follows | open | | | |
+| From ahead the throttle stops at N, after 1 s still it goes on into astern, and back | open | | | |
+| Long press out of N: 0 at once (while holding), long press in N: disarm, single press nothing | open | | | |
+| Limit at 50 %: stops, warning, amber LED flash on every screen; double press lifts both, raises nothing | open | | | |
+| Tag `F 40 %` / `R 15 %` on other screens, not on the alarm; screen does not dim while out of N | open | | | |
+| LEDs: ahead green 1 o'clock then 3:30, astern amber 11 then 8:30, bottom LED the gear, dark at night | open | | | |
+| Throttle PUT on change and every 1 s while out of N, one 0 on a disarm, nothing after a reboot | open | | | needs a test plugin or server log |
+| Link loss, stale gear (3 s), `Fault`, gear not following (3 s), control off: 0 and disarm | open | | | |
+| Idle 60 s in N disarms, 0 = never | open | | | |
+| At the boat, before connecting the motor: the motor side goes to neutral without the keepalive | open | | | needs the motor plugin |
+
 ## Lights
 
 | Item | Status | Date | Commit | Notes |
