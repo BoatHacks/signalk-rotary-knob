@@ -988,8 +988,8 @@ static void setting_write_async(void *arg)
         if (v >= 0 && v < 3) knob_config_set_str("motor_curve", curve[v]);
         break;
     }
-    case KNOB_SET_MOTOR_AHEAD: knob_config_set_int("motor_max_ahead", v); break;
-    case KNOB_SET_MOTOR_ASTERN: knob_config_set_int("motor_max_astern", v); break;
+    case KNOB_SET_MOTOR_AHEAD: knob_config_set_int("motor_ahead", v); break;
+    case KNOB_SET_MOTOR_ASTERN: knob_config_set_int("motor_astern", v); break;
     case KNOB_SET_MOTOR_IDLE: knob_config_set_int("motor_idle_s", v); break;
     default: break;
     }
@@ -1230,7 +1230,7 @@ static void on_config_key(const char *key)
         }
     } else if (!strncmp(key, "light", 5)) {
         ESP_LOGW(TAG, "light channel settings apply after a restart");
-    } else if (!strcmp(key, "motor_id") || !strcmp(key, "motor_power_path")) {
+    } else if (!strcmp(key, "motor_id") || !strcmp(key, "motor_power")) {
         ESP_LOGW(TAG, "motor paths apply after a restart");
     } else {
         apply_device_settings(&now);

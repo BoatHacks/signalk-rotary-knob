@@ -156,7 +156,7 @@
    "restart_required": true
   },
   {
-   "name": "motor_power_path",
+   "name": "motor_power",
    "type": "string",
    "default": "",
    "maxLength": 127,
@@ -178,7 +178,7 @@
    "restart_required": false
   },
   {
-   "name": "motor_max_ahead",
+   "name": "motor_ahead",
    "type": "int",
    "default": 50,
    "min": 10,
@@ -189,7 +189,7 @@
    "restart_required": false
   },
   {
-   "name": "motor_max_astern",
+   "name": "motor_astern",
    "type": "int",
    "default": 50,
    "min": 10,

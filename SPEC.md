@@ -163,6 +163,12 @@ layer (section 6.1).
   `.playback.track` (object `{name, artist?, album?}`), `.zones.<id>.volume` (ratio, `PUT`), `.zones.<id>.connected`, and the
   momentary controls `.playback.controls.play|pause|next|previous` (`PUT` 1 then 0). Zone names from
   `GET /plugins/signalk-jukebox/api/zones` with the token. Allow control is not needed for these.
+- **Motor (#8)**, `propulsion.<knob.motor_id>` (default `main`): the knob sends `PUT propulsion.<id>.throttle` with a ratio
+  from -1 (full astern) to 1 (full ahead) over the stream, on every change and every 1 s while out of neutral, and reads
+  `.throttle` back, `.transmission.gear` (`Forward`, `Neutral`, `Reverse`, `Fault`), `.revolutions` (Hz) and `.engineTorque`
+  (ratio), and watts from `knob.motor_power` if set. There is no standard throttle command path; the default is a guess
+  until a motor plugin exists **(verify)**. Requirement on the motor side: go to neutral after about 3 s without a throttle.
+  Needs allow control.
 - **Alarm ack/silence**: documented only for the server Notifications API
   (`POST /signalk/v2/api/notifications/{id}/acknowledge` and `/silence`). Unconfirmed whether the anchor plugin's
   alarms go through it.

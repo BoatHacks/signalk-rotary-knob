@@ -72,7 +72,7 @@ SignalK has no standard path for a throttle command. Defaults, `<id>` is `knob.m
 - Gear: `propulsion.<id>.transmission.gear` (`Forward`, `Neutral`, `Reverse`, per the SignalK spec).
 - RPM: `propulsion.<id>.revolutions` (Hz, shown as rpm).
 - Torque: `propulsion.<id>.engineTorque` (spec: ratio, shown as %).
-- Power: `knob.motor_power_path`, empty by default, the value is hidden while it is empty (the draw may come from the motor or
+- Power: `knob.motor_power`, empty by default, the value is hidden while it is empty (the draw may come from the motor or
   a battery monitor). Watts.
 
 ## Approach
@@ -85,8 +85,8 @@ SignalK has no standard path for a throttle command. Defaults, `<id>` is `knob.m
 - **marine_ui:** the motor screen, the arm confirm, `SET NEUTRAL FIRST`, `NO LINK`, `NO MOTOR DATA`, the tag on the other
   screens, the propeller icon, the ring with seven slots (check that seven labels fit at r86).
 - **knob_power:** the throttle LED pattern and the limit warning's amber flash.
-- **knob_config:** `motor_mode` (off), `motor_id` (`main`), `motor_power_path` (empty), `motor_curve` (normal),
-  `motor_idle_s` (60, 0 never), `motor_max_ahead` and `motor_max_astern` (50 %). Settings screen items for the curve, the idle
+- **knob_config:** `motor_mode` (off), `motor_id` (`main`), `motor_power` (empty), `motor_curve` (normal),
+  `motor_idle_s` (60, 0 never), `motor_ahead` and `motor_astern` (50 %). Settings screen items for the curve, the idle
   timeout and the two limits.
 - **Demo mode:** a simulated motor (RPM and torque following the throttle, the gear following the sign) so the screen can be
   photographed without a motor.
@@ -105,11 +105,17 @@ SignalK has no standard path for a throttle command. Defaults, `<id>` is `knob.m
 
 ## Steps
 - [x] **Spike `spikes/encoder-timing`** (2026-11-24): 30 detents per turn, 4 edges each, thresholds 50 and 150 ms.
-- [ ] knob_logic: motor state machine and step presets, host tests.
-- [ ] knob_config keys and settings items.
-- [ ] knob_model subscriptions, stale reason, snapshot fields. knob_actions: throttle PUT, keepalive, neutral on disarm.
-- [ ] marine_ui: motor screen, arming, refusals, tag, ring slot. knob_power: LED pattern. Demo motor.
-- [ ] Docs: SPEC 2, 6.3, 9, 12; ARCHITECTURE; ui-design (ring, new section for motor); manual; hardware checklist.
+- [x] knob_logic: `knob_motor` state machine and step presets, host tests (def719c). Clicks in the first 500 ms after arming
+      are ignored, so a confirming spin cannot run the throttle up.
+- [x] knob_config keys and settings items (62294f1).
+- [x] knob_model: subscriptions, the state machine wired to inputs and the tick, the throttle as a PUT over the stream (no
+      worker queue, a click wakes the model task so neutral goes out at once), demo motor (62294f1).
+- [x] marine_ui: motor screen, arming, refusals, limit warning, tag, ring slot, keep-awake (ef12138).
+- [ ] knob_power: the throttle LED pattern and the limit warning's amber flash (waits: another session is editing
+      knob_power.c).
+- [x] Docs: SPEC 6.3, manual. [ ] ui-design (ring order, a motor section), hardware checklist, ARCHITECTURE (wait for the
+      other session's edits to those files to be committed).
+- [ ] Host test run, bench check in demo mode, then the motor side at the boat.
 
 ## Files
 - `spikes/encoder-timing/` (new)

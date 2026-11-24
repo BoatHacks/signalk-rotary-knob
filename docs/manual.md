@@ -99,6 +99,27 @@ the right, play or pause at the bottom, tap the name at the top for the next zon
 The LEDs around the base show the volume in violet-blue, filling clockwise from the bottom left (half volume lights the left
 two), dimmer for a muted zone. The bottom LED is green while the music plays. They stay dark at night. **(not verified)**
 
+### Motor
+**(not verified, no motor has been driven by the knob yet)** For a motor whose controller takes a throttle over SignalK. Off
+by default: switch *MOTOR mode* on in the settings page, and set *Motor id* (the `<id>` in `propulsion.<id>`) and, if you
+have one, *Motor power path*. The mode then sits after AUTO on the ring. Throttle commands need **allow control** (section 6).
+
+- **Arm:** with the motor in neutral, hold the knob, then turn one click right within 5 seconds. The knob never takes over a
+  running motor: out of neutral it says `SET NEUTRAL FIRST`.
+- **Throttle:** turn right for more ahead, left for more astern. Slow clicks are 1 %, faster turning takes bigger steps (the
+  *Throttle steps* setting: gentle, normal or quick). Neutral is at 12 o'clock, ahead in green clockwise, astern in amber.
+- **Through neutral:** coming from ahead the throttle stops at neutral. Keep the knob still for a second, then turn on into
+  astern (and the same the other way).
+- **Neutral:** hold the knob. Hold it again in neutral to disarm. A single press does nothing.
+- **Limits:** the throttle stops at 50 % each way (*Throttle limit ahead / astern*) and warns. A double press allows more until
+  the knob is disarmed.
+- **The knob lets go by itself**, sending neutral first, when allow control is switched off, the link drops, the motor stops
+  reporting its gear for 3 seconds, the gear reports a fault or does not follow the throttle, or after a minute in neutral
+  without input (*Motor disarm when idle*, 0 = never). Arm again to go on.
+- While the motor runs, the knob repeats the throttle every second. The motor's controller has to go to neutral by itself
+  when it hears nothing for about 3 seconds, so a knob that dies or loses Wi-Fi leaves the motor in neutral.
+- While the motor is out of neutral, every other screen shows `F 40 %` or `R 15 %` at the bottom and the screen stays on.
+
 ### USB-HID
 Listed in the mode ring only while a computer has recognised the knob over USB. The dial then acts as an input device for that computer:
 chartplotter profile (mouse wheel zoom, push is a click), media profile (volume, push is mute), navigation keys (arrow keys, push is Enter).

@@ -56,12 +56,12 @@ void knob_config_load(knob_cfg_t *c)
     if (espos_config_get_bool(NS, "motor_mode", &mm) == ESP_OK) c->motor_mode = mm;
     espos_config_get_str(NS, "motor_id", c->motor_id, sizeof(c->motor_id), NULL);
     if (!c->motor_id[0]) strcpy(c->motor_id, "main");
-    espos_config_get_str(NS, "motor_power_path", c->motor_power_path, sizeof(c->motor_power_path), NULL);
+    espos_config_get_str(NS, "motor_power", c->motor_power_path, sizeof(c->motor_power_path), NULL);
     char mc[8] = "normal";
     espos_config_get_str(NS, "motor_curve", mc, sizeof(mc), NULL);
     c->motor_curve = !strcmp(mc, "gentle") ? 0 : !strcmp(mc, "quick") ? 2 : 1;
-    if (espos_config_get_i32(NS, "motor_max_ahead", &v) == ESP_OK && v >= 10 && v <= 100) c->motor_max_ahead_pct = (uint8_t)v;
-    if (espos_config_get_i32(NS, "motor_max_astern", &v) == ESP_OK && v >= 10 && v <= 100) c->motor_max_astern_pct = (uint8_t)v;
+    if (espos_config_get_i32(NS, "motor_ahead", &v) == ESP_OK && v >= 10 && v <= 100) c->motor_max_ahead_pct = (uint8_t)v;
+    if (espos_config_get_i32(NS, "motor_astern", &v) == ESP_OK && v >= 10 && v <= 100) c->motor_max_astern_pct = (uint8_t)v;
     if (espos_config_get_i32(NS, "motor_idle_s", &v) == ESP_OK && v >= 0 && v <= 300) c->motor_idle_s = (uint16_t)(v && v < 10 ? 10 : v);
     char hp[16] = "chartplotter";
     espos_config_get_str(NS, "hid_profile", hp, sizeof(hp), NULL);
