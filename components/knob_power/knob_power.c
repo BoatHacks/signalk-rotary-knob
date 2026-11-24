@@ -11,13 +11,16 @@
 #include "esp_heap_caps.h"
 #include "freertos/task.h"
 
+#include <string.h>
+
 static const char *TAG = "knob_power";
 
 #define LED_PERIOD_MS 40
 #define LED_MAX       64 /* WS2812s at full power are blinding on a dark helm, scale to a quarter */
 
 static volatile knob_led_alarm_t s_alarm;
-static volatile uint8_t s_state_r, s_state_g, s_state_b;
+static volatile uint8_t s_px[BOARD_LED_COUNT][3]; /* the steady frame, per LED (one colour on all five, or a level) */
+static volatile bool s_level;                      /* s_px is a level pattern (#9): off at night */
 static volatile bool s_night;
 
 /* Steering indicator kind, set by knob_power_apply_snapshot. At night only these are shown (steady colours are off). */
@@ -57,7 +60,8 @@ void knob_power_led_alarm(knob_led_alarm_t mode) { s_alarm = mode; }
 
 void knob_power_led_state(uint8_t r, uint8_t g, uint8_t b)
 {
-    s_state_r = r; s_state_g = g; s_state_b = b;
+    for (int i = 0; i < BOARD_LED_COUNT; i++) { s_px[i][0] = r; s_px[i][1] = g; s_px[i][2] = b; }
+    s_level = false;
 }
 
 void knob_power_set_night(bool night) { s_night = night; }
@@ -67,6 +71,7 @@ static void led_task(void *arg)
     for (;;) {
         uint32_t t = (uint32_t)(esp_timer_get_time() / 1000);
         uint8_t r = 0, g = 0, b = 0;
+        bool per_led = false;                         /* the frame is s_px, not one colour on all five */
         switch (s_alarm) {
         case KNOB_LED_ALARM_FAST:
             r = ((t / 150) & 1) ? LED_MAX : 0;
@@ -79,7 +84,9 @@ static void led_task(void *arg)
         }
         default:
             if (!s_night) {
-                r = s_state_r; g = s_state_g; b = s_state_b;
+                per_led = true;
+            } else if (s_level) {
+                /* night: the level patterns are off (#9) */
             } else if (s_steer == STEER_PORT) {
                 r = LED_MAX;                          /* night: red and green stay on while steering */
             } else if (s_steer == STEER_STBD) {
@@ -94,8 +101,16 @@ static void led_task(void *arg)
             }
             break;
         }
-        if (!s_leds_on) r = g = b = 0;
-        bool demo_led = s_demo && s_leds_on && !r && !g && !b;
+        uint8_t f[BOARD_LED_COUNT][3];
+        bool dark = true;
+        for (int i = 0; i < BOARD_LED_COUNT; i++) {
+            f[i][0] = per_led ? s_px[i][0] : r;
+            f[i][1] = per_led ? s_px[i][1] : g;
+            f[i][2] = per_led ? s_px[i][2] : b;
+            if (!s_leds_on) f[i][0] = f[i][1] = f[i][2] = 0;
+            if (f[i][0] || f[i][1] || f[i][2]) dark = false;
+        }
+        bool demo_led = s_demo && s_leds_on && dark;
         uint32_t ph = t % 4000;                       /* triangle wave, 4 s: slower than every other pattern */
         uint32_t tri = ph < 2000 ? ph : 4000 - ph;
         /* Send a frame only when a colour changed: fades and pulses change every period, a steady state (dark included) sends
@@ -105,7 +120,7 @@ static void led_task(void *arg)
         static uint32_t last_sent_ms;
         bool changed = !sent || t - last_sent_ms >= 5000; /* and every 5 s, so a frame that did get disturbed heals */
         for (int i = 0; i < BOARD_LED_COUNT; i++) {
-            uint8_t lr = r, lg = g, lb = b;
+            uint8_t lr = f[i][0], lg = f[i][1], lb = f[i][2];
             if (demo_led && i == 0) { lr = (uint8_t)(40 * tri / 2000); lg = 0; lb = (uint8_t)(64 * tri / 2000); }
             if (last[i][0] != lr || last[i][1] != lg || last[i][2] != lb) {
                 last[i][0] = lr; last[i][1] = lg; last[i][2] = lb;
@@ -131,6 +146,64 @@ void knob_power_init(void)
 
 /* --- Steady colour from the state ------------------------------------------------------------------------------ */
 #include <math.h>
+
+/* Level colours (#9), at LED_MAX scale before the brightness. */
+static const uint8_t COL_MUSIC[3] = { 24, 8, 64 };  /* violet-blue */
+static const uint8_t COL_WARM[3]  = { 64, 40, 16 }; /* warm white */
+static const uint8_t COL_PLAY[3]  = { 0, 64, 0 };   /* green */
+
+/* The level fill order around the rim, clockwise from the bottom left: 8:30, 11, 1 and 3:30 (docs/hardware.md). */
+static const uint8_t FILL_IDX[4] = { 3, 2, 1, 0 };
+#define LED_BOTTOM 4                                 /* 6 o'clock */
+
+/* What the screen's backlight is now, 0..100: the level LEDs follow the brightness setting and the idle dim. */
+static uint32_t led_pct(void)
+{
+    uint32_t p = s_req_pct;
+    if (p >= 100 || p > s_full_pct) p = s_full_pct;
+    return p;
+}
+
+static void px_set(uint8_t f[][3], int i, const uint8_t col[3], uint32_t permille)
+{
+    uint32_t k = permille * led_pct();                /* 0..100000 */
+    for (int c = 0; c < 3; c++) f[i][c] = (uint8_t)((col[c] * k + 50000) / 100000);
+}
+
+/* Music and lights (#9): the reported level on four LEDs, the bottom LED for play or on. Stale data: all off. */
+static void level_pattern(const marine_ui_snapshot_t *s, marine_ui_mode_t mode)
+{
+    uint8_t f[BOARD_LED_COUNT][3];
+    memset(f, 0, sizeof(f));
+    uint16_t lv[4];
+    if (mode == MARINE_MODE_DIMMER) {
+        uint8_t i = marine_ui_get_selected_light();
+        bool fresh = s->dimmer_updated_ms != 0 && !knob_stale_by(s->now_ms, s->dimmer_updated_ms, s->dimmer_timeout_ms);
+        if (fresh && i < s->dimmer_group_count && s->dimmer_groups[i].on) {
+            const marine_dimmer_group_t *g = &s->dimmer_groups[i];
+            if (g->onoff_only) {
+                for (int k = 0; k < BOARD_LED_COUNT; k++) px_set(f, k, COL_WARM, 1000);
+            } else {
+                knob_led_fill(g->level_pct / 100.0f, 4, lv);
+                for (int k = 0; k < 4; k++) px_set(f, FILL_IDX[k], COL_WARM, lv[k]);
+                px_set(f, LED_BOTTOM, COL_WARM, 1000);
+            }
+        }
+    } else {
+        uint8_t i = marine_ui_get_selected_vol_target();
+        if (i < s->vol_target_count) {
+            const marine_vol_target_t *v = &s->vol_targets[i];
+            bool fresh = v->connected && v->updated_ms != 0 && !knob_stale_by(s->now_ms, v->updated_ms, v->timeout_ms);
+            if (fresh) {
+                knob_led_fill(v->pct / 100.0f, 4, lv);
+                for (int k = 0; k < 4; k++) px_set(f, FILL_IDX[k], COL_MUSIC, v->muted ? lv[k] / 4u : lv[k]);
+                if (s->play_state == MARINE_PLAY_PLAYING) px_set(f, LED_BOTTOM, COL_PLAY, 1000);
+            }
+        }
+    }
+    for (int i = 0; i < BOARD_LED_COUNT; i++) { s_px[i][0] = f[i][0]; s_px[i][1] = f[i][1]; s_px[i][2] = f[i][2]; }
+    s_level = true;
+}
 
 void knob_power_apply_snapshot(const marine_ui_snapshot_t *s, marine_ui_mode_t active_mode)
 {
@@ -165,6 +238,11 @@ void knob_power_apply_snapshot(const marine_ui_snapshot_t *s, marine_ui_mode_t a
         }
     } else {
         on_course = false;
+        if ((active_mode == MARINE_MODE_DIMMER || active_mode == MARINE_MODE_MUSIC) && s->active_alarm == MARINE_ALARM_NONE) {
+            s_steer = STEER_NONE;
+            level_pattern(s, active_mode);
+            return;
+        }
         if (s->ap_engaged) g = 40;
         else if (s->anchor_dropped) { g = 20; b = 40; }
     }

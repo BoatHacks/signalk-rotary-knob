@@ -304,3 +304,14 @@ int knob_adjust_steps(int from_deg, int to_deg, int *out, int max)
     while (d >= 1 && n < max) { out[n++] = sign; d -= 1; }
     return n;
 }
+
+void knob_led_fill(float ratio, int n, uint16_t *out_permille)
+{
+    if (!(ratio > 0.0f)) ratio = 0.0f; /* also NaN */
+    if (ratio > 1.0f) ratio = 1.0f;
+    long r = lroundf(ratio * (float)n * 1000.0f);
+    for (int k = 0; k < n; k++) {
+        long v = r - (long)k * 1000;
+        out_permille[k] = (uint16_t)(v < 0 ? 0 : v > 1000 ? 1000 : v);
+    }
+}

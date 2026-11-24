@@ -117,6 +117,7 @@ typedef struct {
     char name[16];           // MASTER, or the zone's name (its id until the name is known)
     uint8_t pct;             // 0..100
     bool connected;          // a zone's client is there (master: always)
+    bool muted;              // a zone is muted (master: never, the jukebox has no master mute)
     uint32_t updated_ms;     // 0 = never received
     uint32_t timeout_ms;     // 0 = event driven (master)
 } marine_vol_target_t;
@@ -307,6 +308,13 @@ void marine_ui_tick(uint32_t now_ms);
  * @brief The mode whose screen is currently active (not the mode ring preview). Safe to read without the LVGL lock.
  */
 marine_ui_mode_t marine_ui_get_active_mode(void);
+
+/**
+ * @brief The light group selected on the lights screen and the target selected on the music screen (0 master, then the
+ *        zones), for the LED levels (#9). Safe to read without the LVGL lock (single bytes).
+ */
+uint8_t marine_ui_get_selected_light(void);
+uint8_t marine_ui_get_selected_vol_target(void);
 
 /**
  * @brief Opens a mode without the mode ring and without emitting MARINE_ACT_MODE_CHANGED, for the boot restore. A system

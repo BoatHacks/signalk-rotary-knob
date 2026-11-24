@@ -436,6 +436,36 @@ static void test_adjust_steps(void)
     TEST_ASSERT_EQUAL_INT(3, knob_adjust_steps(0, 90, s, 3)); /* capped */
 }
 
+static void test_led_fill(void)
+{
+    uint16_t o[4];
+    knob_led_fill(0.0f, 4, o);
+    TEST_ASSERT_EQUAL_UINT16(0, o[0]);
+    TEST_ASSERT_EQUAL_UINT16(0, o[3]);
+    knob_led_fill(0.125f, 4, o);
+    TEST_ASSERT_EQUAL_UINT16(500, o[0]);
+    TEST_ASSERT_EQUAL_UINT16(0, o[1]);
+    knob_led_fill(0.25f, 4, o);
+    TEST_ASSERT_EQUAL_UINT16(1000, o[0]);
+    TEST_ASSERT_EQUAL_UINT16(0, o[1]);
+    knob_led_fill(0.5f, 4, o);                     /* the left two full, the right two off */
+    TEST_ASSERT_EQUAL_UINT16(1000, o[1]);
+    TEST_ASSERT_EQUAL_UINT16(0, o[2]);
+    knob_led_fill(0.625f, 4, o);
+    TEST_ASSERT_EQUAL_UINT16(1000, o[1]);
+    TEST_ASSERT_EQUAL_UINT16(500, o[2]);
+    TEST_ASSERT_EQUAL_UINT16(0, o[3]);
+    knob_led_fill(1.0f, 4, o);
+    TEST_ASSERT_EQUAL_UINT16(1000, o[3]);
+    knob_led_fill(1.5f, 4, o);                     /* clamped */
+    TEST_ASSERT_EQUAL_UINT16(1000, o[3]);
+    knob_led_fill(-0.3f, 4, o);
+    TEST_ASSERT_EQUAL_UINT16(0, o[0]);
+    knob_led_fill(0.75f, 2, o);                    /* the motor's half-range sides (#8) */
+    TEST_ASSERT_EQUAL_UINT16(1000, o[0]);
+    TEST_ASSERT_EQUAL_UINT16(500, o[1]);
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -467,5 +497,6 @@ int main(void)
     RUN_TEST(test_pilot_lines);
     RUN_TEST(test_wind_and_xte);
     RUN_TEST(test_adjust_steps);
+    RUN_TEST(test_led_fill);
     return UNITY_END();
 }

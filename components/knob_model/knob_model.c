@@ -93,6 +93,7 @@ typedef struct {
         int16_t vol;                             /* -1 never */
         uint32_t vol_ms;
         bool connected;
+        bool muted;
     } zone[MARINE_MAX_VOL_ZONES];
 } model_t;
 
@@ -185,6 +186,8 @@ static void jukebox_update(const char *p, const char *v, uint32_t now)
                 s_m.zone[z].vol_ms = now;
             } else if (!strcmp(key, "connected")) {
                 s_m.zone[z].connected = strncmp(v, "false", 5) != 0;
+            } else if (!strcmp(key, "muted")) {
+                s_m.zone[z].muted = strncmp(v, "true", 4) == 0;
             }
         }
         portEXIT_CRITICAL(&s_mux);
@@ -643,6 +646,7 @@ static void build_snapshot(marine_ui_snapshot_t *s, uint32_t now)
         t->name[zl] = '\0';
         t->pct = m.zone[i].vol >= 0 ? (uint8_t)m.zone[i].vol : 0;
         t->connected = m.zone[i].connected;
+        t->muted = m.zone[i].muted;
         t->updated_ms = m.zone[i].vol >= 0 ? m.zone[i].vol_ms : 0;
         t->timeout_ms = 10000;
     }

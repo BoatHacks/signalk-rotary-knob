@@ -342,8 +342,16 @@ turns every LED off, the alarm included.
 - Stale: slow amber pulse.
 - State colour: steady dim colour for autopilot engaged and anchor dropped, nothing in standby. Night mode turns every colour into
   dim red.
-- Dimmer level and turn feedback: the ring shows the dimmer level, or a short light on each encoder click. Turn feedback is off
-  in night mode (glare and power).
+- **Level patterns (#9, 2026-11-24)** in the lights and music modes, replacing the steady colour there:
+  - Four LEDs show the level, a quarter of the range each, filled clockwise from the bottom left: 8:30, 11, 1 o'clock, 3:30.
+    Each fades in over its quarter, so at 50 % the left two are full and the right two off. No pulsing.
+  - The 6 o'clock LED: music green while playing (off when paused or stopped), lights warm white while the channel is on.
+  - Lights: the selected channel, warm white. An on/off channel lights all five while on. Off: all dark.
+  - Music: the selected target (master or a zone), violet-blue. A muted zone at a quarter of the brightness.
+  - The level is what the server reports, not the value pending while turning, so it follows the hand with a short lag.
+  - Stale data (`ZONE OFFLINE`, a channel without a value): all dark.
+  - Brightness follows the brightness setting and the screen's idle dim, off with the screen. Night mode: all dark.
+  - The fill is `knob_led_fill` in knob_logic, the motor mode (#8) uses it for the throttle.
 
 ## 8. Visual language
 

@@ -28,15 +28,15 @@ The same fill shows the throttle in the motor mode (#8). Decided with the owner 
 - **Brightness:** scaled by the brightness setting and dimmed with the screen's idle dim, like the steering indicator.
 
 ## Approach
-- **knob_logic** (host tested): `knob_led_level(ratio, out[4])`, the four brightnesses for a level from 0 to 1 in data-line
-  order, used by music, lights and the motor's two sides (#8, two LEDs per side, half the range each).
+- **knob_logic** (host tested): `knob_led_fill(ratio, n, out)`, the brightness of n LEDs in fill order for a level from 0 to 1,
+  used by music and lights (n = 4) and the motor's two sides (#8, n = 2). knob_power maps fill order to the data line.
 - **knob_power:** a per-mode LED source next to the steering indicator: level and bottom LED from the snapshot, the colour per
   mode, scaled by the brightness setting, off at night and with the LEDs setting off. The LED task already sends only on a
   change (2026-11-24), so a turn updates the ring without flicker.
 - Brightness follows the selected light group in lights mode, the selected target (master or zone) in music mode.
 
 ## Test strategy
-- Host tests: `knob_led_level` at 0, 12.5, 25, 50, 62.5 and 100 %, clamping outside 0 to 1, the motor's half-range use.
+- Host tests: `knob_led_fill` at 0, 12.5, 25, 50, 62.5 and 100 %, clamping outside 0 to 1, the motor's two-LED use.
 - Hardware checklist: music level and play/pause, lights dimmer level and on/off, on/off channel all five, night mode off,
   LEDs setting off, alarm over a level, no flicker while turning.
 
@@ -44,9 +44,11 @@ The same fill shows the throttle in the motor mode (#8). Decided with the owner 
 None. The exact violet-blue and warm white values are picked on the panel during the hardware check.
 
 ## Steps
-- [ ] knob_logic: `knob_led_level`, host tests.
-- [ ] knob_power: music and lights LED sources, colours, night and LEDs setting.
-- [ ] Docs: ui-design 3.3, 3.6 and the LED rules; manual (music, lights); hardware checklist.
+- [x] knob_logic: `knob_led_fill` (the fill for any number of LEDs, so the motor reuses it), host tests.
+- [x] knob_power: music and lights level patterns, colours, night, LEDs setting, brightness and idle dim. The zone's `muted`
+      is parsed and in the snapshot, marine_ui reports the selected channel and target.
+- [x] Docs: ui-design section 7, manual (lights, music), hardware checklist.
+- [ ] Build, flash, the hardware checklist rows (colours picked on the panel).
 
 ## Files
 - `components/knob_logic/knob_logic.{c,h}`, `test/host/test_knob_logic.c`

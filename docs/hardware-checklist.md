@@ -100,6 +100,9 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 | A change from the jukebox web UI shows on the knob, track and artist | open | | | |
 | A touch in the centre or on the outer arc does nothing | open | | | |
 | No jukebox or stale volume: `NO VOLUME`, a disconnected zone: `ZONE OFFLINE`, turn ignored | open | | | |
+| LEDs: volume in violet-blue, at 50 % the left two full, above 50 % the 1 o'clock LED fades in (#9) | open | | | |
+| LEDs: 6 o'clock green while playing, off when paused; a muted zone's level dimmed; offline zone all dark | open | | | |
+| LEDs follow the reported volume after a turn, and a change from the jukebox web UI | open | | | |
 
 ## Release and OTA (docs/plans/release.md)
 
@@ -120,6 +123,8 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 | A change from another client shows on the knob | ok | 2026-11-23 | be65d7f | |
 | Long press toggles, single press steps to the next channel | open | | | only one channel configured |
 | Dimmer channel (level arc, first click wakes) | n/a | | | no dimmers on this boat |
+| LEDs: an on channel lights all five warm white, off all dark (#9) | open | | | |
+| LEDs: dark at night, dark with the LEDs setting off, dim with the screen's idle dim, an alarm takes over | open | | | music too |
 
 ## Autopilot (allow control on, owner at the helm)
 

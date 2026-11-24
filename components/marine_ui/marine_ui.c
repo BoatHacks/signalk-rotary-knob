@@ -3468,3 +3468,6 @@ void marine_ui_set_power(uint32_t dim_after_ms, uint8_t dim_pct, uint32_t off_af
     idle_dim_pct = dim_pct > 100 ? 100 : dim_pct;
     idle_off_ms = off_after_ms;
 }
+
+uint8_t marine_ui_get_selected_light(void) { return dimmer_selected_group; }
+uint8_t marine_ui_get_selected_vol_target(void) { return vol_sel; }

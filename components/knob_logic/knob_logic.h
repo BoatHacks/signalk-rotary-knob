@@ -165,6 +165,11 @@ typedef enum { KNOB_CONFIRM_WAITING = 0, KNOB_CONFIRM_DONE, KNOB_CONFIRM_CANCELL
 typedef enum { KNOB_CONFIRM_EV_TURN = 0, KNOB_CONFIRM_EV_PRESS, KNOB_CONFIRM_EV_TICK } knob_confirm_ev_t;
 knob_confirm_t knob_confirm_step(uint32_t started_ms, uint32_t now_ms, uint32_t window_ms, knob_confirm_ev_t ev, int turn);
 
+/* LED level fill (#9): n LEDs in fill order, each taking an equal share of the range and fading in over it. out[k] is the k-th
+ * LED's brightness in permille (0..1000). ratio is clamped to 0..1. With n = 4 and 0.5 the first two are full, the rest off;
+ * 0.625 adds the third at half. */
+void knob_led_fill(float ratio, int n, uint16_t *out_permille);
+
 #ifdef __cplusplus
 }
 #endif

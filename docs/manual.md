@@ -74,6 +74,8 @@ is on or off:
 - **Single press** picks the next channel, **long press** toggles the selected one.
 - A dimmer channel shows a level arc and changes in 5 % steps. A switched-off dimmer keeps its level: the first click only turns it
   back on at that level.
+- The LEDs around the base light warm white while the selected channel is on: all five for a switched channel, a level for a
+  dimmer (filling clockwise from the bottom left, the bottom LED on). They stay dark at night. **(not verified)**
 
 ### Anchor
 The watch circle is drawn as a plot: the ring is the radius you chose, the green dot is the boat, the anchor is in the centre, and
@@ -93,6 +95,9 @@ The boat's music through the jukebox on the SignalK server. Turn for the volume 
 to play or pause, hold to step from `MASTER` to each zone. The touch screen is a small player: previous on the left, next on
 the right, play or pause at the bottom, tap the name at the top for the next zone. A zone whose speaker is off shows
 `ZONE OFFLINE`. On a boat without the jukebox, switch *MUSIC mode* off on the settings page and the mode leaves the ring.
+
+The LEDs around the base show the volume in violet-blue, filling clockwise from the bottom left (half volume lights the left
+two), dimmer for a muted zone. The bottom LED is green while the music plays. They stay dark at night. **(not verified)**
 
 ### USB-HID
 Listed in the mode ring only while a computer has recognised the knob over USB. The dial then acts as an input device for that computer:
