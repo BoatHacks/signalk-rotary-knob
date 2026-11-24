@@ -169,12 +169,14 @@ typedef struct {
 } knob_setting_desc_t;
 
 const knob_setting_desc_t *knob_setting_desc(knob_setting_t s);
-/* Lists: the main list (group -1) or a sub-list (group = its page item, for example KNOB_SET_MOTOR_LIMITS). */
+/* Lists: the main list (group -1) or a sub-list (group = its page item, for example KNOB_SET_MOTOR_LIMITS). hidden has bit
+ * (1 << item) set for items left out of every list (the motor items while the MOTOR mode is off). */
+#define KNOB_SET_MOTOR_HIDDEN ((1u << KNOB_SET_MOTOR_STEPS) | (1u << KNOB_SET_MOTOR_LIMITS))
 int knob_setting_group(knob_setting_t s);                          /* -1 main list, else the page item it belongs to */
 bool knob_setting_has_sub(knob_setting_t s);                       /* a page item that opens a sub-list */
-int knob_setting_list_next(int index, int delta, int group);       /* the item delta steps on in that list, wrapping */
-int knob_setting_list_first(int group);
-void knob_setting_list_pos(int index, int group, int *pos, int *count); /* 1-based position and the list length */
+int knob_setting_list_next(int index, int delta, int group, uint32_t hidden); /* delta steps on in that list, wrapping */
+int knob_setting_list_first(int group, uint32_t hidden);
+void knob_setting_list_pos(int index, int group, uint32_t hidden, int *pos, int *count); /* 1-based position, list length */
 /* The list position after a turn, wrapping at both ends. */
 int knob_list_wrap(int index, int delta, int count);
 /* The value after a turn: the next step in the item's list, clamped at the ends. A value between two steps moves to the

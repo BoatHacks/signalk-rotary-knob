@@ -200,17 +200,22 @@ bool knob_setting_has_sub(knob_setting_t s)
     return false;
 }
 
-int knob_setting_list_first(int group)
+static bool in_list(int i, int group, uint32_t hidden)
 {
-    for (int i = 0; i < KNOB_SET_COUNT; i++) if (knob_setting_group((knob_setting_t)i) == group) return i;
+    return knob_setting_group((knob_setting_t)i) == group && !(hidden & (1u << i));
+}
+
+int knob_setting_list_first(int group, uint32_t hidden)
+{
+    for (int i = 0; i < KNOB_SET_COUNT; i++) if (in_list(i, group, hidden)) return i;
     return 0;
 }
 
-void knob_setting_list_pos(int index, int group, int *pos, int *count)
+void knob_setting_list_pos(int index, int group, uint32_t hidden, int *pos, int *count)
 {
     int n = 0, p = 0;
     for (int i = 0; i < KNOB_SET_COUNT; i++) {
-        if (knob_setting_group((knob_setting_t)i) != group) continue;
+        if (!in_list(i, group, hidden)) continue;
         n++;
         if (i == index) p = n;
     }
@@ -218,15 +223,17 @@ void knob_setting_list_pos(int index, int group, int *pos, int *count)
     if (count) *count = n;
 }
 
-int knob_setting_list_next(int index, int delta, int group)
+int knob_setting_list_next(int index, int delta, int group, uint32_t hidden)
 {
-    int members[KNOB_SET_COUNT], n = 0, at = 0;
+    int members[KNOB_SET_COUNT], n = 0, at = -1;
     for (int i = 0; i < KNOB_SET_COUNT; i++) {
-        if (knob_setting_group((knob_setting_t)i) != group) continue;
+        if (!in_list(i, group, hidden)) continue;
         if (i == index) at = n;
+        else if (at < 0 && i > index && delta > 0) at = n - 1;   /* index itself hidden: count from just before it */
         members[n++] = i;
     }
     if (n == 0) return index;
+    if (at < 0) at = delta > 0 ? n - 1 : 0;
     return members[knob_list_wrap(at, delta, n)];
 }
 

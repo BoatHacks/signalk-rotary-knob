@@ -177,7 +177,8 @@ Look:
 - **Sub-list** (owner, 2026-11-24): `MOTOR LIMITS` in the main list shows `50/50 % 60 s` and opens a list of its own with
   `LIMIT AHEAD`, `LIMIT ASTERN` and `MOTOR DISARM`, the same look with `MOTOR LIMITS 2/3` on the top line. A press edits as
   usual and comes back to the sub-list, a double press goes back to the main list on `MOTOR LIMITS`. Opening the settings
-  always starts in the main list.
+  always starts in the main list. `THROTTLE STEPS` and `MOTOR LIMITS` are only in the list while the MOTOR mode is on
+  (owner, 2026-11-24).
 - **MODES page** (built 2026-11-24, owner's request): six pills in two columns and three rows, `AUTO`, `LIGHTS`, `ANCHOR`,
   `MUSIC`, `MOTOR`, `USB`. A filled pill (primary colour, dark text) is a mode on the ring, an outlined one is off. Turn moves
   the focus (a thicker border), a press switches the focused mode, a double press goes back to the list. The last mode that

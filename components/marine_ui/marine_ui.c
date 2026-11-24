@@ -2402,6 +2402,9 @@ static lv_obj_t* build_settings_screen(void) {
     return scr;
 }
 
+// Settings left out of the lists: the motor's while the MOTOR mode is off (owner, 2026-11-24).
+static uint32_t set_hidden(void) { return snap.motor_mode ? 0 : KNOB_SET_MOTOR_HIDDEN; }
+
 // The MODES page's state from the snapshot: bit i for knob_modes_page[i].
 static uint8_t set_modes_mask(void) {
     bool on[KNOB_MODES_PAGE_COUNT] = { snap.ap_mode, snap.lights_mode, snap.anchor_mode, snap.music_mode, snap.motor_mode,
@@ -2433,6 +2436,11 @@ static void set_value_text(int item, char *out, size_t n) {
 
 static void settings_refresh(void) {
     if (!set_lbl_top) return;
+    // The MOTOR mode was switched off while its settings were shown: back to the main list, off the hidden item.
+    if (set_hidden()) {
+        if (set_group >= 0 && (set_hidden() & (1u << set_group))) { set_index = set_group; set_group = -1; set_view = SET_LIST; }
+        if (set_hidden() & (1u << set_index)) set_index = knob_setting_list_next(set_index, 1, set_group, set_hidden());
+    }
     char top[48], bot[48], b[160];
     const knob_setting_desc_t *d = knob_setting_desc((knob_setting_t)set_index);
     bool list = set_view == SET_LIST;
@@ -2450,13 +2458,13 @@ static void settings_refresh(void) {
     case SET_LIST:
     {
         int pos, cnt;
-        knob_setting_list_pos(set_index, set_group, &pos, &cnt);
+        knob_setting_list_pos(set_index, set_group, set_hidden(), &pos, &cnt);
         if (set_group < 0) snprintf(top, sizeof(top), "SETTINGS %d/%d", pos, cnt);
         else snprintf(top, sizeof(top), "%s %d/%d", knob_setting_desc((knob_setting_t)set_group)->name, pos, cnt);
     }
         snprintf(bot, sizeof(bot), "%s \xE2\x80\xA2 2x BACK", d->kind == KNOB_KIND_PAGE ? "PRESS OPEN" : "PRESS EDIT");
-        set_label(set_lbl_prev, knob_setting_desc((knob_setting_t)knob_setting_list_next(set_index, -1, set_group))->name, c_muted());
-        set_label(set_lbl_next, knob_setting_desc((knob_setting_t)knob_setting_list_next(set_index, 1, set_group))->name, c_muted());
+        set_label(set_lbl_prev, knob_setting_desc((knob_setting_t)knob_setting_list_next(set_index, -1, set_group, set_hidden()))->name, c_muted());
+        set_label(set_lbl_next, knob_setting_desc((knob_setting_t)knob_setting_list_next(set_index, 1, set_group, set_hidden()))->name, c_muted());
         lv_obj_set_style_bg_color(set_pill, snap.night_palette ? lv_color_hex(0x050000) : COL_CARD, 0);
         lv_obj_set_style_border_color(set_pill, c_primary(), 0);
         set_label(set_lbl_name, d->name, c_text());
@@ -2567,13 +2575,13 @@ static void settings_on_input(marine_semantic_input_t ev, int32_t val) {
     switch (set_view) {
     case SET_LIST:
         if (ev == MARINE_INPUT_TURN) {
-            set_index = knob_setting_list_next(set_index, val, set_group);
+            set_index = knob_setting_list_next(set_index, val, set_group, set_hidden());
         } else if (ev == MARINE_INPUT_DOUBLE_PRESS && set_group >= 0) {
             set_index = set_group;   // back to the main list, on the page item
             set_group = -1;
         } else if (ev == MARINE_INPUT_SINGLE_PRESS && knob_setting_has_sub((knob_setting_t)set_index)) {
             set_group = set_index;   // open the sub-list (MOTOR LIMITS)
-            set_index = knob_setting_list_first(set_group);
+            set_index = knob_setting_list_first(set_group, set_hidden());
         } else if (ev == MARINE_INPUT_SINGLE_PRESS) {
             if (set_index == KNOB_SET_ALLOW_CONTROL) {
                 if (snap.setting[KNOB_SET_ALLOW_CONTROL]) {

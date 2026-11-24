@@ -65,6 +65,7 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 | A mode switched off while on screen (web page) goes to the first one on, a boot into a switched-off mode too | open | | | |
 | List: turn moves and wraps, prev and next items above and below, `SETTINGS 3/14` | open | | | |
 | `MOTOR LIMITS` opens its own list (ahead, astern, disarm), edits come back to it, a double press goes back to the main list | open | | | |
+| With the MOTOR mode off, `THROTTLE STEPS` and `MOTOR LIMITS` are not in the list; switched off while shown, the list moves on | open | | | |
 | All text straight: settings top and bottom lines, alarm telemetry, setup screens' bottom line, nothing clipped | open | | | curved text removed 2026-11-23 |
 | Edit: amber arc, value, `was ...`, press stores, double press cancels | open | | | |
 | Each value stored, shown on the web page at once, still there after a reboot | open | | | brightness, dim after, dim level, off after, night, LEDs, heading, HID profile |

@@ -992,17 +992,24 @@ static void test_settings_sublist(void)
     TEST_ASSERT_TRUE(knob_setting_has_sub(KNOB_SET_MOTOR_LIMITS));
     TEST_ASSERT_FALSE(knob_setting_has_sub(KNOB_SET_MODES));
     /* the main list skips the three limits: from THROTTLE STEPS one on is MOTOR LIMITS, then MODES */
-    TEST_ASSERT_EQUAL_INT(KNOB_SET_MOTOR_LIMITS, knob_setting_list_next(KNOB_SET_MOTOR_STEPS, 1, -1));
-    TEST_ASSERT_EQUAL_INT(KNOB_SET_MODES, knob_setting_list_next(KNOB_SET_MOTOR_LIMITS, 1, -1));
-    knob_setting_list_pos(KNOB_SET_BRIGHTNESS, -1, &pos, &all);
+    TEST_ASSERT_EQUAL_INT(KNOB_SET_MOTOR_LIMITS, knob_setting_list_next(KNOB_SET_MOTOR_STEPS, 1, -1, 0));
+    TEST_ASSERT_EQUAL_INT(KNOB_SET_MODES, knob_setting_list_next(KNOB_SET_MOTOR_LIMITS, 1, -1, 0));
+    knob_setting_list_pos(KNOB_SET_BRIGHTNESS, -1, 0, &pos, &all);
     TEST_ASSERT_EQUAL_INT(1, pos);
     TEST_ASSERT_EQUAL_INT(KNOB_SET_COUNT - 3, all);
     /* the sub-list: ahead, astern, disarm, wrapping */
-    TEST_ASSERT_EQUAL_INT(KNOB_SET_MOTOR_AHEAD, knob_setting_list_first(KNOB_SET_MOTOR_LIMITS));
-    TEST_ASSERT_EQUAL_INT(KNOB_SET_MOTOR_IDLE, knob_setting_list_next(KNOB_SET_MOTOR_AHEAD, -1, KNOB_SET_MOTOR_LIMITS));
-    knob_setting_list_pos(KNOB_SET_MOTOR_ASTERN, KNOB_SET_MOTOR_LIMITS, &pos, &cnt);
+    TEST_ASSERT_EQUAL_INT(KNOB_SET_MOTOR_AHEAD, knob_setting_list_first(KNOB_SET_MOTOR_LIMITS, 0));
+    TEST_ASSERT_EQUAL_INT(KNOB_SET_MOTOR_IDLE, knob_setting_list_next(KNOB_SET_MOTOR_AHEAD, -1, KNOB_SET_MOTOR_LIMITS, 0));
+    knob_setting_list_pos(KNOB_SET_MOTOR_ASTERN, KNOB_SET_MOTOR_LIMITS, 0, &pos, &cnt);
     TEST_ASSERT_EQUAL_INT(2, pos);
     TEST_ASSERT_EQUAL_INT(3, cnt);
+    /* MOTOR mode off: THROTTLE STEPS and MOTOR LIMITS are left out, DEMO MODE is followed by MODES */
+    TEST_ASSERT_EQUAL_INT(KNOB_SET_MODES, knob_setting_list_next(KNOB_SET_DEMO, 1, -1, KNOB_SET_MOTOR_HIDDEN));
+    TEST_ASSERT_EQUAL_INT(KNOB_SET_DEMO, knob_setting_list_next(KNOB_SET_MODES, -1, -1, KNOB_SET_MOTOR_HIDDEN));
+    knob_setting_list_pos(KNOB_SET_BRIGHTNESS, -1, KNOB_SET_MOTOR_HIDDEN, &pos, &cnt);
+    TEST_ASSERT_EQUAL_INT(all - 2, cnt);
+    /* standing on a hidden item, one on is the next visible one */
+    TEST_ASSERT_EQUAL_INT(KNOB_SET_MODES, knob_setting_list_next(KNOB_SET_MOTOR_STEPS, 1, -1, KNOB_SET_MOTOR_HIDDEN));
 }
 
 int main(void)
