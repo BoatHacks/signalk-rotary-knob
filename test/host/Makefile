@@ -9,7 +9,7 @@ CC ?= gcc
 UNITY_DIR ?= $(IDF_PATH)/components/unity/unity/src
 LOGIC := ../../components/knob_logic
 
-test_knob_logic: test_knob_logic.c $(LOGIC)/knob_logic.c $(LOGIC)/knob_demo.c $(UNITY_DIR)/unity.c
+test_knob_logic: test_knob_logic.c $(LOGIC)/knob_logic.c $(LOGIC)/knob_demo.c $(LOGIC)/knob_motor.c $(UNITY_DIR)/unity.c
 	$(CC) -std=c11 -Wall -Wextra -I$(LOGIC) -I$(UNITY_DIR) $^ -lm -o $@
 
 .PHONY: test clean

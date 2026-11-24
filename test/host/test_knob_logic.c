@@ -4,6 +4,7 @@
 
 #include "knob_logic.h"
 #include "knob_demo.h"
+#include "knob_motor.h"
 #include "unity.h"
 
 void setUp(void) {}
@@ -466,6 +467,277 @@ static void test_led_fill(void)
     TEST_ASSERT_EQUAL_UINT16(500, o[1]);
 }
 
+/* ---- Motor mode (#8) ---- */
+
+static knob_motor_in_t motor_in(uint32_t now)
+{
+    knob_motor_in_t in = { .now_ms = now, .allow_control = true, .link_ok = true, .gear = KNOB_GEAR_NEUTRAL,
+                           .gear_ms = now, .max_ahead_pct = 50, .max_astern_pct = 50, .idle_s = 60,
+                           .curve = KNOB_MOTOR_CURVE_NORMAL };
+    return in;
+}
+
+/* Arms at t (long press, confirm click) and returns the time after the settle window. */
+static uint32_t motor_arm(knob_motor_t *m, uint32_t t)
+{
+    knob_motor_in_t in = motor_in(t);
+    TEST_ASSERT_TRUE(knob_motor_long_press(m, &in));
+    TEST_ASSERT_EQUAL_INT(KNOB_MOTOR_CONFIRM, m->state);
+    in.now_ms = t + 1000;
+    knob_motor_turn(m, &in, 1);
+    TEST_ASSERT_EQUAL_INT(KNOB_MOTOR_ARMED, m->state);
+    TEST_ASSERT_EQUAL_INT(0, m->set_pct);
+    return t + 1000 + KNOB_MOTOR_SETTLE_MS + 200;
+}
+
+/* n slow clicks (1 % each with every curve) in direction dir, 200 ms apart, gear following the throttle. */
+static uint32_t motor_clicks(knob_motor_t *m, uint32_t t, int dir, int n)
+{
+    for (int i = 0; i < n; i++) {
+        t += 200;
+        knob_motor_in_t in = motor_in(t);
+        knob_motor_turn(m, &in, dir);
+    }
+    return t;
+}
+
+static void test_motor_steps(void)
+{
+    TEST_ASSERT_EQUAL_INT(1, knob_motor_step(KNOB_MOTOR_CURVE_NORMAL, 151));
+    TEST_ASSERT_EQUAL_INT(2, knob_motor_step(KNOB_MOTOR_CURVE_NORMAL, 150));
+    TEST_ASSERT_EQUAL_INT(2, knob_motor_step(KNOB_MOTOR_CURVE_NORMAL, 50));
+    TEST_ASSERT_EQUAL_INT(5, knob_motor_step(KNOB_MOTOR_CURVE_NORMAL, 49));
+    TEST_ASSERT_EQUAL_INT(2, knob_motor_step(KNOB_MOTOR_CURVE_GENTLE, 10));
+    TEST_ASSERT_EQUAL_INT(10, knob_motor_step(KNOB_MOTOR_CURVE_QUICK, 10));
+    TEST_ASSERT_EQUAL_INT(3, knob_motor_step(KNOB_MOTOR_CURVE_QUICK, 100));
+    TEST_ASSERT_EQUAL_INT(5, knob_motor_step(99, 10));   /* unknown preset = normal */
+}
+
+static void test_motor_arming(void)
+{
+    knob_motor_t m;
+    knob_motor_init(&m);
+    int8_t v;
+    TEST_ASSERT_FALSE(knob_motor_take_send(&m, 5000, &v));   /* nothing after a reboot */
+
+    knob_motor_in_t in = motor_in(1000);
+    in.allow_control = false;
+    TEST_ASSERT_FALSE(knob_motor_long_press(&m, &in));
+    TEST_ASSERT_EQUAL_INT(KNOB_MOTOR_WHY_CONTROL_OFF, m.why);
+    in = motor_in(1000);
+    in.gear = KNOB_GEAR_FORWARD;
+    TEST_ASSERT_FALSE(knob_motor_long_press(&m, &in));
+    TEST_ASSERT_EQUAL_INT(KNOB_MOTOR_WHY_NOT_NEUTRAL, m.why);
+    in = motor_in(1000);
+    in.gear_ms = 0;                                          /* no gear published */
+    TEST_ASSERT_FALSE(knob_motor_long_press(&m, &in));
+    TEST_ASSERT_EQUAL_INT(KNOB_MOTOR_WHY_NO_DATA, m.why);
+    in = motor_in(10000);
+    in.gear_ms = 6000;                                       /* 4 s old */
+    TEST_ASSERT_FALSE(knob_motor_long_press(&m, &in));
+    TEST_ASSERT_EQUAL_INT(KNOB_MOTOR_WHY_NO_DATA, m.why);
+    in = motor_in(1000);
+    in.gear = KNOB_GEAR_FAULT;
+    TEST_ASSERT_FALSE(knob_motor_long_press(&m, &in));
+    TEST_ASSERT_EQUAL_INT(KNOB_MOTOR_WHY_FAULT, m.why);
+    TEST_ASSERT_EQUAL_INT(KNOB_MOTOR_DISARMED, m.state);
+
+    /* the confirm: a left click cancels, the timeout cancels */
+    in = motor_in(2000);
+    TEST_ASSERT_TRUE(knob_motor_long_press(&m, &in));
+    knob_motor_turn(&m, &in, -1);
+    TEST_ASSERT_EQUAL_INT(KNOB_MOTOR_DISARMED, m.state);
+    TEST_ASSERT_TRUE(knob_motor_long_press(&m, &in));
+    in.now_ms = 2000 + KNOB_MOTOR_CONFIRM_MS;
+    in.gear_ms = in.now_ms;
+    knob_motor_tick(&m, &in);
+    TEST_ASSERT_EQUAL_INT(KNOB_MOTOR_DISARMED, m.state);
+    TEST_ASSERT_EQUAL_INT(KNOB_MOTOR_WHY_CANCELLED, m.why);
+
+    /* armed: 0 goes out once, the confirm turn's follow-through does nothing */
+    uint32_t t = 20000;
+    in = motor_in(t);
+    knob_motor_long_press(&m, &in);
+    in.now_ms = t + 500;
+    knob_motor_turn(&m, &in, 1);
+    TEST_ASSERT_TRUE(knob_motor_take_send(&m, t + 500, &v));
+    TEST_ASSERT_EQUAL_INT(0, v);
+    for (int i = 1; i <= 5; i++) { in.now_ms = t + 500 + 20 * i; knob_motor_turn(&m, &in, 1); }
+    TEST_ASSERT_EQUAL_INT(0, m.set_pct);
+    TEST_ASSERT_FALSE(knob_motor_take_send(&m, t + 700, &v));
+}
+
+static void test_motor_neutral_stop(void)
+{
+    knob_motor_t m;
+    knob_motor_init(&m);
+    uint32_t t = motor_arm(&m, 1000);
+    t = motor_clicks(&m, t, 1, 10);
+    TEST_ASSERT_EQUAL_INT(10, m.set_pct);
+    /* a fast spin to the left stops at 0 and stays there */
+    for (int i = 0; i < 20; i++) { t += 20; knob_motor_in_t in = motor_in(t); knob_motor_turn(&m, &in, -1); }
+    TEST_ASSERT_EQUAL_INT(0, m.set_pct);
+    /* still spinning slowly but less than the pause apart: still held */
+    t = motor_clicks(&m, t, -1, 3);
+    TEST_ASSERT_EQUAL_INT(0, m.set_pct);
+    /* after the pause, astern */
+    t += KNOB_MOTOR_PAUSE_MS;
+    knob_motor_in_t in = motor_in(t);
+    knob_motor_turn(&m, &in, -1);
+    TEST_ASSERT_EQUAL_INT(-1, m.set_pct);
+    /* back to ahead through 0 also stops */
+    t = motor_clicks(&m, t, 1, 5);
+    TEST_ASSERT_EQUAL_INT(0, m.set_pct);
+    /* back to the side it came from needs no pause */
+    t = motor_clicks(&m, t, -1, 1);
+    TEST_ASSERT_EQUAL_INT(-1, m.set_pct);
+}
+
+static void test_motor_presses(void)
+{
+    knob_motor_t m;
+    knob_motor_init(&m);
+    uint32_t t = motor_arm(&m, 1000);
+    t = motor_clicks(&m, t, 1, 8);
+    knob_motor_in_t in = motor_in(t + 100);
+    in.gear = KNOB_GEAR_FORWARD;
+    TEST_ASSERT_FALSE(knob_motor_double_press(&m, &in));     /* no warning: the UI opens the ring */
+    TEST_ASSERT_TRUE(knob_motor_long_press(&m, &in));        /* out of neutral: 0, stays armed */
+    TEST_ASSERT_EQUAL_INT(0, m.set_pct);
+    TEST_ASSERT_EQUAL_INT(KNOB_MOTOR_ARMED, m.state);
+    int8_t v;
+    TEST_ASSERT_TRUE(knob_motor_take_send(&m, t + 100, &v));
+    TEST_ASSERT_EQUAL_INT(0, v);
+    /* after a long press either direction goes at once */
+    t = motor_clicks(&m, t + 100, -1, 1);
+    TEST_ASSERT_EQUAL_INT(-1, m.set_pct);
+    in = motor_in(t + 100);
+    knob_motor_long_press(&m, &in);
+    TEST_ASSERT_TRUE(knob_motor_long_press(&m, &in));        /* in neutral: disarm */
+    TEST_ASSERT_EQUAL_INT(KNOB_MOTOR_DISARMED, m.state);
+    TEST_ASSERT_EQUAL_INT(KNOB_MOTOR_WHY_USER, m.why);
+}
+
+static void test_motor_limits(void)
+{
+    knob_motor_t m;
+    knob_motor_init(&m);
+    uint32_t t = motor_arm(&m, 1000);
+    t = motor_clicks(&m, t, 1, 60);
+    TEST_ASSERT_EQUAL_INT(50, m.set_pct);                    /* held at the limit */
+    TEST_ASSERT_TRUE(m.limit_warning);
+    t = motor_clicks(&m, t, -1, 5);                          /* back below: the warning stays */
+    TEST_ASSERT_TRUE(m.limit_warning);
+    knob_motor_in_t in = motor_in(t);
+    TEST_ASSERT_TRUE(knob_motor_double_press(&m, &in));
+    TEST_ASSERT_FALSE(m.limit_warning);
+    TEST_ASSERT_EQUAL_INT(45, m.set_pct);                    /* the double press raises nothing */
+    t = motor_clicks(&m, t, 1, 60);
+    TEST_ASSERT_EQUAL_INT(100, m.set_pct);
+    /* astern is lifted too in this arm cycle */
+    in = motor_in(t);
+    knob_motor_long_press(&m, &in);
+    t += KNOB_MOTOR_PAUSE_MS;
+    t = motor_clicks(&m, t, -1, 60);
+    TEST_ASSERT_EQUAL_INT(-60, m.set_pct);
+    /* after a disarm the limits are back */
+    in = motor_in(t);
+    knob_motor_long_press(&m, &in);
+    knob_motor_long_press(&m, &in);
+    t = motor_arm(&m, t + 100);
+    t = motor_clicks(&m, t, -1, 60);
+    TEST_ASSERT_EQUAL_INT(-50, m.set_pct);
+}
+
+static void test_motor_disarm_reasons(void)
+{
+    knob_motor_t m;
+    int8_t v;
+    knob_motor_why_t whys[] = { KNOB_MOTOR_WHY_CONTROL_OFF, KNOB_MOTOR_WHY_NO_LINK, KNOB_MOTOR_WHY_NO_DATA, KNOB_MOTOR_WHY_FAULT };
+    for (int k = 0; k < 4; k++) {
+        knob_motor_init(&m);
+        uint32_t t = motor_arm(&m, 1000);
+        t = motor_clicks(&m, t, 1, 5);
+        knob_motor_take_send(&m, t, &v);
+        knob_motor_in_t in = motor_in(t + 100);
+        in.gear = KNOB_GEAR_FORWARD;
+        if (k == 0) in.allow_control = false;
+        if (k == 1) in.link_ok = false;
+        if (k == 2) in.gear_ms = t + 100 - 3500;
+        if (k == 3) in.gear = KNOB_GEAR_FAULT;
+        knob_motor_tick(&m, &in);
+        TEST_ASSERT_EQUAL_INT(KNOB_MOTOR_DISARMED, m.state);
+        TEST_ASSERT_EQUAL_INT(whys[k], m.why);
+        TEST_ASSERT_TRUE(knob_motor_take_send(&m, t + 100, &v));   /* 0 goes out once */
+        TEST_ASSERT_EQUAL_INT(0, v);
+        TEST_ASSERT_FALSE(knob_motor_take_send(&m, t + 5000, &v)); /* and then nothing, no keepalive */
+    }
+
+    /* a gear that does not follow the throttle for more than 3 s */
+    knob_motor_init(&m);
+    uint32_t t = motor_arm(&m, 1000);
+    t = motor_clicks(&m, t, 1, 5);
+    knob_motor_in_t in = motor_in(t);                        /* gear stays Neutral */
+    knob_motor_tick(&m, &in);
+    in = motor_in(t + 3000);
+    knob_motor_tick(&m, &in);
+    TEST_ASSERT_EQUAL_INT(KNOB_MOTOR_ARMED, m.state);
+    in = motor_in(t + 3100);
+    knob_motor_tick(&m, &in);
+    TEST_ASSERT_EQUAL_INT(KNOB_MOTOR_DISARMED, m.state);
+    TEST_ASSERT_EQUAL_INT(KNOB_MOTOR_WHY_FAULT, m.why);
+}
+
+static void test_motor_idle_and_keepalive(void)
+{
+    knob_motor_t m;
+    int8_t v;
+    knob_motor_init(&m);
+    uint32_t t = motor_arm(&m, 1000);
+    knob_motor_take_send(&m, t, &v);
+    t = motor_clicks(&m, t, 1, 3);
+    TEST_ASSERT_TRUE(knob_motor_take_send(&m, t, &v));
+    TEST_ASSERT_EQUAL_INT(3, v);
+    TEST_ASSERT_FALSE(knob_motor_take_send(&m, t + 900, &v));
+    TEST_ASSERT_TRUE(knob_motor_take_send(&m, t + 1000, &v));    /* keepalive */
+    TEST_ASSERT_EQUAL_INT(3, v);
+    /* out of neutral it never times out */
+    knob_motor_in_t in = motor_in(t + 120000);
+    in.gear = KNOB_GEAR_FORWARD;
+    knob_motor_tick(&m, &in);
+    TEST_ASSERT_EQUAL_INT(KNOB_MOTOR_ARMED, m.state);
+    /* in neutral it does, and no keepalive is due there */
+    in.now_ms = t + 120000;
+    knob_motor_long_press(&m, &in);
+    knob_motor_take_send(&m, t + 120000, &v);
+    TEST_ASSERT_FALSE(knob_motor_take_send(&m, t + 125000, &v));
+    in = motor_in(t + 120000 + 59000);
+    knob_motor_tick(&m, &in);
+    TEST_ASSERT_EQUAL_INT(KNOB_MOTOR_ARMED, m.state);
+    in = motor_in(t + 120000 + 60000);
+    knob_motor_tick(&m, &in);
+    TEST_ASSERT_EQUAL_INT(KNOB_MOTOR_DISARMED, m.state);
+    TEST_ASSERT_EQUAL_INT(KNOB_MOTOR_WHY_IDLE, m.why);
+    /* 0 = never */
+    knob_motor_init(&m);
+    t = motor_arm(&m, 1000);
+    in = motor_in(t + 3600000);
+    in.idle_s = 0;
+    knob_motor_tick(&m, &in);
+    TEST_ASSERT_EQUAL_INT(KNOB_MOTOR_ARMED, m.state);
+}
+
+static void test_gear_from_str(void)
+{
+    TEST_ASSERT_EQUAL_INT(KNOB_GEAR_FORWARD, knob_gear_from_str("\"Forward\""));
+    TEST_ASSERT_EQUAL_INT(KNOB_GEAR_NEUTRAL, knob_gear_from_str("neutral"));
+    TEST_ASSERT_EQUAL_INT(KNOB_GEAR_REVERSE, knob_gear_from_str("\"Reverse\""));
+    TEST_ASSERT_EQUAL_INT(KNOB_GEAR_FAULT, knob_gear_from_str("\"Fault\""));
+    TEST_ASSERT_EQUAL_INT(KNOB_GEAR_UNKNOWN, knob_gear_from_str("\"Forwards\""));
+    TEST_ASSERT_EQUAL_INT(KNOB_GEAR_UNKNOWN, knob_gear_from_str("null"));
+    TEST_ASSERT_EQUAL_INT(KNOB_GEAR_UNKNOWN, knob_gear_from_str(NULL));
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -498,5 +770,13 @@ int main(void)
     RUN_TEST(test_wind_and_xte);
     RUN_TEST(test_adjust_steps);
     RUN_TEST(test_led_fill);
+    RUN_TEST(test_motor_steps);
+    RUN_TEST(test_motor_arming);
+    RUN_TEST(test_motor_neutral_stop);
+    RUN_TEST(test_motor_presses);
+    RUN_TEST(test_motor_limits);
+    RUN_TEST(test_motor_disarm_reasons);
+    RUN_TEST(test_motor_idle_and_keepalive);
+    RUN_TEST(test_gear_from_str);
     return UNITY_END();
 }
