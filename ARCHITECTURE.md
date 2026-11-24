@@ -163,6 +163,21 @@ the zone names over REST on its poll while a zone has none (at most every 30 s).
 it sends it and shows it amber until the server's value matches, like the autopilot target. The mode number is appended
 (stored last mode), its ring position comes from the ring's own order.
 
+### 2.9e Motor (#8)
+The safety rules are one pure state machine, `knob_motor` in knob_logic (host tested): arming (only at neutral, with allow
+control, a fresh gear and no fault, then a confirm turn), the speed-dependent steps, the stop on neutral with its 1 s pause,
+long press for neutral and for disarm, the soft limits and their double-press override, and the fall back to neutral on control
+off, link loss, a gear older than 3 s, a fault, a gear that does not follow, or idle. It also decides what goes out: a change,
+one 0 on a disarm, and a 1 s keepalive, never anything after a reboot.
+
+knob_model owns the state machine under its spinlock. The UI sends each click and press as an action at once; knob_model feeds
+it on the input task, where the clicks are timed, and wakes the model task, which ticks it every loop (100 ms, or sooner) and
+sends the throttle with `espos_sk_put` over the stream. The throttle never waits in knob_actions' HTTP queue, so a neutral
+leaves within a few milliseconds. The motor's paths are built from `knob.motor_id` at subscribe time (a change needs a restart).
+The motor's inputs skip the UI's stale gate: knob_motor itself refuses or falls back to neutral, and a long press for neutral is
+never swallowed. In demo mode a simulated motor follows the knob and nothing is sent. knob_power draws the throttle on the rim
+and flashes amber for the limit warning. The mode number is appended (6), the ring puts it after AUTO.
+
 ### 2.9c Demo mode (#4)
 Chosen at boot from `knob.demo`; changing the key restarts the knob. In demo mode knob_model stops espOS's SignalK client right
 after `espos_start()` (before Wi-Fi is up), locks knob_actions (every action bound for SignalK is dropped, the autopilot poll
