@@ -769,11 +769,11 @@ typedef struct {
     bool cond_ok; int events[8]; int n_events;
 } fake_t;
 
-static const int ring_order[] = { 0, 1, 2, 5, 3, 4 };   /* autopilot, lights, anchor, music, USB, settings */
+static const int ring_order[] = { 0, 2, 1, 5, 3, 4 };   /* autopilot, anchor, lights, music, USB, settings (motor off) */
 
-static int ring_next(int m)
+static int ring_next(int m, int dir)
 {
-    for (int i = 0; i < 6; i++) if (ring_order[i] == m) return ring_order[(i + 1) % 6];
+    for (int i = 0; i < 6; i++) if (ring_order[i] == m) return ring_order[(i + 6 + dir) % 6];
     return 0;
 }
 
@@ -794,7 +794,7 @@ static void f_turn(void *c, int dir)
 {
     fake_t *f = c;
     if (dir > 0) f->turns_cw++; else f->turns_ccw++;
-    if (f->ring_open) f->ring_focus = ring_next(f->ring_focus);
+    if (f->ring_open) f->ring_focus = ring_next(f->ring_focus, dir);
     else if (f->mode == KNOB_MODE_SETTINGS) f->set_index += dir;
 }
 static void f_button(void *c, bool down)
@@ -915,6 +915,23 @@ static void test_autodemo_ring_and_settings(void)
     TEST_ASSERT_EQUAL_INT(KNOB_SET_DEMO, f.set_index);
 }
 
+/* RING_TO with b = -1 turns counter-clockwise: music back to the anchor in two clicks, past lights */
+static void test_autodemo_ring_back(void)
+{
+    static const knob_ad_step_t s[] = {
+        { KNOB_AD_RING_TO, KNOB_MODE_MUSIC, 0, 0, NULL }, { KNOB_AD_RING_TO, 2, -1, 0, NULL },
+        { KNOB_AD_WAIT, 0, 0, 60000, NULL }, { KNOB_AD_END, 0, 0, 0, NULL },
+    };
+    fake_t f = { .now = 0 };
+    knob_ad_ops_t o = fake_ops(&f);
+    knob_ad_t p;
+    knob_ad_init(&p, s);
+    knob_ad_start(&p, f.now);
+    run_ms(&p, &f, &o, 12000);
+    TEST_ASSERT_EQUAL_INT(2, f.mode);                /* the anchor */
+    TEST_ASSERT_EQUAL_INT(2, f.turns_ccw);
+}
+
 static void test_autodemo_pause_and_restart(void)
 {
     static const knob_ad_step_t s[] = {
@@ -966,6 +983,28 @@ static void test_modes_page(void)
     TEST_ASSERT_EQUAL_INT(KNOB_KIND_PAGE, knob_setting_desc(KNOB_SET_MODES)->kind);
 }
 
+/* ---- Settings sub-lists (MOTOR LIMITS) ---- */
+static void test_settings_sublist(void)
+{
+    int pos, cnt, all;
+    TEST_ASSERT_EQUAL_INT(-1, knob_setting_group(KNOB_SET_MOTOR_STEPS));
+    TEST_ASSERT_EQUAL_INT(KNOB_SET_MOTOR_LIMITS, knob_setting_group(KNOB_SET_MOTOR_AHEAD));
+    TEST_ASSERT_TRUE(knob_setting_has_sub(KNOB_SET_MOTOR_LIMITS));
+    TEST_ASSERT_FALSE(knob_setting_has_sub(KNOB_SET_MODES));
+    /* the main list skips the three limits: from THROTTLE STEPS one on is MOTOR LIMITS, then MODES */
+    TEST_ASSERT_EQUAL_INT(KNOB_SET_MOTOR_LIMITS, knob_setting_list_next(KNOB_SET_MOTOR_STEPS, 1, -1));
+    TEST_ASSERT_EQUAL_INT(KNOB_SET_MODES, knob_setting_list_next(KNOB_SET_MOTOR_LIMITS, 1, -1));
+    knob_setting_list_pos(KNOB_SET_BRIGHTNESS, -1, &pos, &all);
+    TEST_ASSERT_EQUAL_INT(1, pos);
+    TEST_ASSERT_EQUAL_INT(KNOB_SET_COUNT - 3, all);
+    /* the sub-list: ahead, astern, disarm, wrapping */
+    TEST_ASSERT_EQUAL_INT(KNOB_SET_MOTOR_AHEAD, knob_setting_list_first(KNOB_SET_MOTOR_LIMITS));
+    TEST_ASSERT_EQUAL_INT(KNOB_SET_MOTOR_IDLE, knob_setting_list_next(KNOB_SET_MOTOR_AHEAD, -1, KNOB_SET_MOTOR_LIMITS));
+    knob_setting_list_pos(KNOB_SET_MOTOR_ASTERN, KNOB_SET_MOTOR_LIMITS, &pos, &cnt);
+    TEST_ASSERT_EQUAL_INT(2, pos);
+    TEST_ASSERT_EQUAL_INT(3, cnt);
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -1009,8 +1048,10 @@ int main(void)
     RUN_TEST(test_autodemo_gestures);
     RUN_TEST(test_autodemo_until_and_countdown);
     RUN_TEST(test_autodemo_ring_and_settings);
+    RUN_TEST(test_autodemo_ring_back);
     RUN_TEST(test_autodemo_pause_and_restart);
     RUN_TEST(test_autodemo_script_loops);
     RUN_TEST(test_modes_page);
+    RUN_TEST(test_settings_sublist);
     return UNITY_END();
 }

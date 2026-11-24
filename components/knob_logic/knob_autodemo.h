@@ -33,7 +33,7 @@ typedef enum {
     KNOB_AD_TOUCH,       /* a: x, b: y (0..239) */
     KNOB_AD_WAIT,        /* ms */
     KNOB_AD_UNTIL,       /* a: condition id, ms: timeout. Moves on when the condition holds, or after the timeout */
-    KNOB_AD_RING_TO,     /* a: mode. Double press, turn until the ring's focus is on it, press */
+    KNOB_AD_RING_TO,     /* a: mode, b: -1 turns counter-clockwise. Double press, turn until the focus is on it, press */
     KNOB_AD_SET_TO,      /* a: settings item. Turn the settings list until it is focused */
     KNOB_AD_EVENT,       /* a: event id, for the simulation */
     KNOB_AD_CAPTION,     /* text, NULL or "" hides it */

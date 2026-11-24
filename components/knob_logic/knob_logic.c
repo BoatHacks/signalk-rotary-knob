@@ -177,15 +177,58 @@ static const knob_setting_desc_t s_settings[KNOB_SET_COUNT] = {
     [KNOB_SET_ALLOW_CONTROL] = { "ALLOW CONTROL", KNOB_KIND_CHOICE, NULL, NULL, 2, s_onoff_w },
     [KNOB_SET_DEMO] = { "DEMO MODE", KNOB_KIND_CHOICE, NULL, NULL, 4, s_demo_w },
     [KNOB_SET_MOTOR_STEPS] = { "THROTTLE STEPS", KNOB_KIND_CHOICE, NULL, NULL, 3, s_curve_w },
-    [KNOB_SET_MOTOR_AHEAD] = { "LIMIT AHEAD", KNOB_KIND_NUMBER, "%", s_motor_limit, N(s_motor_limit), NULL },
-    [KNOB_SET_MOTOR_ASTERN] = { "LIMIT ASTERN", KNOB_KIND_NUMBER, "%", s_motor_limit, N(s_motor_limit), NULL },
-    [KNOB_SET_MOTOR_IDLE] = { "MOTOR DISARM", KNOB_KIND_NUMBER, "s", s_motor_idle, N(s_motor_idle), NULL },
+    [KNOB_SET_MOTOR_LIMITS] = { "MOTOR LIMITS", KNOB_KIND_PAGE, NULL, NULL, 0, NULL, 0 },
+    [KNOB_SET_MOTOR_AHEAD] = { "LIMIT AHEAD", KNOB_KIND_NUMBER, "%", s_motor_limit, N(s_motor_limit), NULL, KNOB_SET_MOTOR_LIMITS + 1 },
+    [KNOB_SET_MOTOR_ASTERN] = { "LIMIT ASTERN", KNOB_KIND_NUMBER, "%", s_motor_limit, N(s_motor_limit), NULL, KNOB_SET_MOTOR_LIMITS + 1 },
+    [KNOB_SET_MOTOR_IDLE] = { "MOTOR DISARM", KNOB_KIND_NUMBER, "s", s_motor_idle, N(s_motor_idle), NULL, KNOB_SET_MOTOR_LIMITS + 1 },
     [KNOB_SET_MODES] = { "MODES", KNOB_KIND_PAGE, NULL, NULL, 0, NULL },
     [KNOB_SET_SETUP_AP] = { "SETUP ACCESS POINT", KNOB_KIND_ACTION, NULL, NULL, 0, NULL },
     [KNOB_SET_DEVICE_INFO] = { "DEVICE INFO", KNOB_KIND_PAGE, NULL, NULL, 0, NULL },
     [KNOB_SET_SIGNALK] = { "SIGNALK", KNOB_KIND_PAGE, NULL, NULL, 0, NULL },
     [KNOB_SET_RESET] = { "RESET SETUP", KNOB_KIND_ACTION, NULL, NULL, 0, NULL },
 };
+
+int knob_setting_group(knob_setting_t s)
+{
+    const knob_setting_desc_t *d = knob_setting_desc(s);
+    return d && d->sub_of ? d->sub_of - 1 : -1;
+}
+
+bool knob_setting_has_sub(knob_setting_t s)
+{
+    for (int i = 0; i < KNOB_SET_COUNT; i++) if (knob_setting_group((knob_setting_t)i) == (int)s) return true;
+    return false;
+}
+
+int knob_setting_list_first(int group)
+{
+    for (int i = 0; i < KNOB_SET_COUNT; i++) if (knob_setting_group((knob_setting_t)i) == group) return i;
+    return 0;
+}
+
+void knob_setting_list_pos(int index, int group, int *pos, int *count)
+{
+    int n = 0, p = 0;
+    for (int i = 0; i < KNOB_SET_COUNT; i++) {
+        if (knob_setting_group((knob_setting_t)i) != group) continue;
+        n++;
+        if (i == index) p = n;
+    }
+    if (pos) *pos = p;
+    if (count) *count = n;
+}
+
+int knob_setting_list_next(int index, int delta, int group)
+{
+    int members[KNOB_SET_COUNT], n = 0, at = 0;
+    for (int i = 0; i < KNOB_SET_COUNT; i++) {
+        if (knob_setting_group((knob_setting_t)i) != group) continue;
+        if (i == index) at = n;
+        members[n++] = i;
+    }
+    if (n == 0) return index;
+    return members[knob_list_wrap(at, delta, n)];
+}
 
 const knob_setting_desc_t *knob_setting_desc(knob_setting_t s)
 {

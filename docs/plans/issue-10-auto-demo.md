@@ -10,17 +10,17 @@ on the existing demo mode (#4): simulated boat, nothing sent anywhere.
 - ui-design section 2 (input vocabulary, mode ring), 3.1 to 3.6 (each mode's controls), 5 (alarm), 7 (LEDs).
 - ARCHITECTURE section 2 (UI contract: raw inputs in, actions out).
 
-## The script (owner, 2026-11-24)
+## The script (owner, 2026-11-24; anchor before lights since the ring order changed)
 Every step goes through the ring switcher and the mode's own controls, never a shortcut.
 
 1. **Autopilot.** Standby. Long press, confirm turn right: engaged. Target 23 degrees to port: press (step 10), two clicks left,
    press (step 1), three clicks left. Wait until the heading has settled on the new target.
-2. **Ring to Lights.** A light at 80 %: turn down to 20 % (12 clicks of 5 %), then long press: off.
-3. **Ring to Anchor.** Raised. Radius 35 to 20 m (3 clicks left), press to apply. Long press, `DROP HERE`, press: spinner,
+2. **Ring to Anchor.** Raised. Radius 35 to 20 m (3 clicks left), press to apply. Long press, `DROP HERE`, press: spinner,
    then dropped.
+3. **Ring to Lights.** A light at 80 %: turn down to 20 % (12 clicks of 5 %), then long press: off.
 4. **Ring to Music.** Playing `Robotti humppa` by `Eläkeläiset` at 0:53, the clock running. Volume 42 % to 100 % (29 clicks of 2 %).
 5. **The drag alarm fires** (the boat swings past 20 m): full-screen takeover. Press: acknowledged, back to Music with the red
-   ring. **Ring to Anchor.** Radius to 30 m (2 clicks right), press to apply: `SETTING RADIUS...`, then the alarm clears.
+   ring. **Ring back to Anchor** (counter-clockwise, past Lights). Radius to 30 m (2 clicks right), press to apply: `SETTING RADIUS...`, then the alarm clears.
 6. **Ring to USB.** Profile cursor keys to media: two long presses (the order is chartplotter, media, cursor keys).
 7. **Ring to Setup.** Scroll to `DEMO MODE`, press, turn to off, press to store.
 

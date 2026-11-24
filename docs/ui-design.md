@@ -174,6 +174,10 @@ Look:
   text above and below, `SETTINGS 3/14` on the top line, `PRESS EDIT · 2x BACK` on the bottom line (straight, 12 px).
 - **Editing:** the item name on the top line, the new value large in amber on a 270 degree amber arc, `was 80 %` under it,
   `PRESS STORE · 2x UNDO` on the bottom line. On/off and choice items show the word instead of the arc.
+- **Sub-list** (owner, 2026-11-24): `MOTOR LIMITS` in the main list shows `50/50 % 60 s` and opens a list of its own with
+  `LIMIT AHEAD`, `LIMIT ASTERN` and `MOTOR DISARM`, the same look with `MOTOR LIMITS 2/3` on the top line. A press edits as
+  usual and comes back to the sub-list, a double press goes back to the main list on `MOTOR LIMITS`. Opening the settings
+  always starts in the main list.
 - **MODES page** (built 2026-11-24, owner's request): six pills in two columns and three rows, `AUTO`, `LIGHTS`, `ANCHOR`,
   `MUSIC`, `MOTOR`, `USB`. A filled pill (primary colour, dark text) is a mode on the ring, an outlined one is off. Turn moves
   the focus (a thicker border), a press switches the focused mode, a double press goes back to the list. The last mode that

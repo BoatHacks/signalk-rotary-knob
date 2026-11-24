@@ -2313,6 +2313,7 @@ static lv_obj_t *set_lbl_big, *set_lbl_line1, *set_lbl_line2, *set_lbl_page;
 
 static set_view_t set_view = SET_LIST;
 static int set_index = 0;
+static int set_group = -1;   // the list shown: -1 the main list, else a page item with a sub-list (MOTOR LIMITS)
 static int set_edit_value = 0;
 static int set_edit_was = 0;
 static uint32_t set_confirm_ms = 0;
@@ -2415,6 +2416,10 @@ static void set_value_text(int item, char *out, size_t n) {
     if (item == KNOB_SET_SETUP_AP) {
         if (snap.setup_ap_open && snap.setup_ap_left_s) snprintf(out, n, "OPEN %u:%02u", snap.setup_ap_left_s / 60, snap.setup_ap_left_s % 60);
         else snprintf(out, n, "%s", snap.setup_ap_open ? "OPEN" : "CLOSED");
+    } else if (item == KNOB_SET_MOTOR_LIMITS) {
+        char idle[12];
+        knob_setting_format(KNOB_SET_MOTOR_IDLE, snap.setting[KNOB_SET_MOTOR_IDLE], idle, sizeof(idle));
+        snprintf(out, n, "%d/%d %% %s", snap.setting[KNOB_SET_MOTOR_AHEAD], snap.setting[KNOB_SET_MOTOR_ASTERN], idle);
     } else if (item == KNOB_SET_MODES) {
         snprintf(out, n, "%d OF %d ON", knob_modes_count(set_modes_mask()), KNOB_MODES_PAGE_COUNT);
     } else if (item == KNOB_SET_DEVICE_INFO || item == KNOB_SET_SIGNALK) {
@@ -2443,10 +2448,15 @@ static void settings_refresh(void) {
 
     switch (set_view) {
     case SET_LIST:
-        snprintf(top, sizeof(top), "SETTINGS %d/%d", set_index + 1, (int)KNOB_SET_COUNT);
+    {
+        int pos, cnt;
+        knob_setting_list_pos(set_index, set_group, &pos, &cnt);
+        if (set_group < 0) snprintf(top, sizeof(top), "SETTINGS %d/%d", pos, cnt);
+        else snprintf(top, sizeof(top), "%s %d/%d", knob_setting_desc((knob_setting_t)set_group)->name, pos, cnt);
+    }
         snprintf(bot, sizeof(bot), "%s \xE2\x80\xA2 2x BACK", d->kind == KNOB_KIND_PAGE ? "PRESS OPEN" : "PRESS EDIT");
-        set_label(set_lbl_prev, knob_setting_desc((knob_setting_t)knob_list_wrap(set_index, -1, KNOB_SET_COUNT))->name, c_muted());
-        set_label(set_lbl_next, knob_setting_desc((knob_setting_t)knob_list_wrap(set_index, 1, KNOB_SET_COUNT))->name, c_muted());
+        set_label(set_lbl_prev, knob_setting_desc((knob_setting_t)knob_setting_list_next(set_index, -1, set_group))->name, c_muted());
+        set_label(set_lbl_next, knob_setting_desc((knob_setting_t)knob_setting_list_next(set_index, 1, set_group))->name, c_muted());
         lv_obj_set_style_bg_color(set_pill, snap.night_palette ? lv_color_hex(0x050000) : COL_CARD, 0);
         lv_obj_set_style_border_color(set_pill, c_primary(), 0);
         set_label(set_lbl_name, d->name, c_text());
@@ -2542,13 +2552,14 @@ static void settings_refresh(void) {
 // Opening the settings always starts in the list, never in an edit left behind.
 static void settings_enter(void) {
     set_view = SET_LIST;
+    if (set_group >= 0) { set_index = set_group; set_group = -1; }   // always the main list
     set_reset_holding = false;
 }
 
 // The settings screen keeps a double press for itself while it edits, confirms or shows a page (cancel or back). In the
 // list a double press opens the mode ring like everywhere.
 static bool settings_takes_double(void) {
-    return active_mode == MARINE_MODE_SETTINGS && set_view != SET_LIST;
+    return active_mode == MARINE_MODE_SETTINGS && (set_view != SET_LIST || set_group >= 0);   // a sub-list: back
 }
 
 static void settings_on_input(marine_semantic_input_t ev, int32_t val) {
@@ -2556,7 +2567,13 @@ static void settings_on_input(marine_semantic_input_t ev, int32_t val) {
     switch (set_view) {
     case SET_LIST:
         if (ev == MARINE_INPUT_TURN) {
-            set_index = knob_list_wrap(set_index, val, KNOB_SET_COUNT);
+            set_index = knob_setting_list_next(set_index, val, set_group);
+        } else if (ev == MARINE_INPUT_DOUBLE_PRESS && set_group >= 0) {
+            set_index = set_group;   // back to the main list, on the page item
+            set_group = -1;
+        } else if (ev == MARINE_INPUT_SINGLE_PRESS && knob_setting_has_sub((knob_setting_t)set_index)) {
+            set_group = set_index;   // open the sub-list (MOTOR LIMITS)
+            set_index = knob_setting_list_first(set_group);
         } else if (ev == MARINE_INPUT_SINGLE_PRESS) {
             if (set_index == KNOB_SET_ALLOW_CONTROL) {
                 if (snap.setting[KNOB_SET_ALLOW_CONTROL]) {
@@ -3622,7 +3639,7 @@ marine_ui_mode_t marine_ui_ring_focus(void) {
 }
 
 int marine_ui_settings_index(void) {
-    if (active_mode != MARINE_MODE_SETTINGS || mode_ring_open || set_view != SET_LIST) return -1;
+    if (active_mode != MARINE_MODE_SETTINGS || mode_ring_open || set_view != SET_LIST || set_group >= 0) return -1;
     return set_index;
 }
 

@@ -21,13 +21,15 @@
 #define WAIT(ms)      S(KNOB_AD_WAIT, 0, 0, ms, NULL)
 #define UNTIL(c, ms)  S(KNOB_AD_UNTIL, c, 0, ms, NULL)
 #define RING_TO(m)    S(KNOB_AD_RING_TO, m, 0, 0, NULL)
+#define RING_BACK(m)  S(KNOB_AD_RING_TO, m, -1, 0, NULL)    /* turning counter-clockwise: the short way back */
 #define SET_TO(i)     S(KNOB_AD_SET_TO, i, 0, 0, NULL)
 #define EVENT(e)      S(KNOB_AD_EVENT, e, 0, 0, NULL)
 #define CAPTION(t)    S(KNOB_AD_CAPTION, 0, 0, 0, t)
 #define COUNTDOWN(n)  S(KNOB_AD_COUNTDOWN, n, 0, 0, NULL)
 #define END           S(KNOB_AD_END, 0, 0, 0, NULL)
 
-/* The owner's script (2026-11-24). About two and a half minutes. Every mode change goes through the ring. */
+/* The owner's script (2026-11-24), in the ring's order (MOTOR, AUTO, ANCHOR, LIGHTS, MUSIC, USB, SETUP). About two minutes.
+ * Every mode change goes through the ring. */
 const knob_ad_step_t knob_ad_script[] = {
     EVENT(KNOB_AD_EV_RESET), CAPTION(NULL),
     COUNTDOWN(3),
@@ -38,15 +40,15 @@ const knob_ad_step_t knob_ad_script[] = {
     CAPTION("23\xC2\xB0 TO PORT"), PRESS, WAIT(600), TURN(-2), WAIT(700), PRESS, WAIT(600), TURN(-3), WAIT(600),
     CAPTION("HOLDING COURSE"), UNTIL(KNOB_AD_COND_HEADING_SETTLED, 20000), WAIT(2000),
 
-    /* Lights: 80 to 20 % in 5 % clicks, then off */
-    CAPTION("LIGHTS"), RING_TO(M_LIGHTS), WAIT(1200),
-    CAPTION("DIM TO 20 %"), TURN(-12), WAIT(1500),
-    CAPTION("LIGHT OFF"), LONG, WAIT(2000),
-
     /* Anchor: radius 35 to 20 m in 5 m clicks, apply, drop */
     CAPTION("ANCHOR"), RING_TO(M_ANCHOR), WAIT(1200),
     CAPTION("RADIUS 20 M"), TURN(-3), WAIT(800), PRESS, WAIT(1500),
     CAPTION("DROP ANCHOR"), LONG, WAIT(1000), PRESS, UNTIL(KNOB_AD_COND_ANCHOR_DROPPED, 9000), WAIT(2500),
+
+    /* Lights: 80 to 20 % in 5 % clicks, then off */
+    CAPTION("LIGHTS"), RING_TO(M_LIGHTS), WAIT(1200),
+    CAPTION("DIM TO 20 %"), TURN(-12), WAIT(1500),
+    CAPTION("LIGHT OFF"), LONG, WAIT(2000),
 
     /* Music: volume 42 to 100 % in 2 % clicks, then the drag alarm */
     CAPTION("MUSIC"), RING_TO(M_MUSIC), WAIT(2000),
@@ -54,8 +56,8 @@ const knob_ad_step_t knob_ad_script[] = {
     CAPTION(NULL), EVENT(KNOB_AD_EV_DRAG), UNTIL(KNOB_AD_COND_ALARM, 20000), WAIT(2500),
     CAPTION("ACKNOWLEDGE"), PRESS, WAIT(2000),
 
-    /* Back to the anchor: radius 30 m clears the alarm */
-    CAPTION("ANCHOR"), RING_TO(M_ANCHOR), WAIT(1200),
+    /* Back to the anchor, counter-clockwise past LIGHTS: radius 30 m clears the alarm */
+    CAPTION("ANCHOR"), RING_BACK(M_ANCHOR), WAIT(1200),
     CAPTION("RADIUS 30 M"), TURN(2), WAIT(800), PRESS, UNTIL(KNOB_AD_COND_NO_ALARM, 12000), WAIT(2500),
 
     /* USB: cursor keys to media (the profile order is chartplotter, media, cursor keys) */
@@ -151,7 +153,7 @@ static bool do_touch(knob_ad_t *p, uint32_t now, const knob_ad_ops_t *o, int16_t
 
 /* Ring: open it with a double press, turn one click at a time until the focus is on the mode, press. At most a full turn
  * of the ring; a mode that is not on the ring is skipped after that. */
-static bool do_ring_to(knob_ad_t *p, uint32_t now, const knob_ad_ops_t *o, int mode)
+static bool do_ring_to(knob_ad_t *p, uint32_t now, const knob_ad_ops_t *o, int mode, int dir)
 {
     switch (p->sub) {
     case 0:
@@ -169,9 +171,9 @@ static bool do_ring_to(knob_ad_t *p, uint32_t now, const knob_ad_ops_t *o, int m
     case 10:
         if (!due(p, now)) return false;
         if (query(o, KNOB_AD_Q_RING_FOCUS) == mode || p->count >= 8) { p->sub = 11; p->next_ms = now + 600; return false; }
-        if (o->turn) o->turn(o->ctx, 1);
+        if (o->turn) o->turn(o->ctx, dir);
         p->count++;
-        fx(o, KNOB_AD_FX_TURN, 1, p->count);
+        fx(o, KNOB_AD_FX_TURN, dir, p->count);
         p->next_ms = now + 450;
         return false;
     case 11: case 12: case 13: {
@@ -220,7 +222,7 @@ static bool do_step(knob_ad_t *p, uint32_t now, const knob_ad_ops_t *o, const kn
     case KNOB_AD_TOUCH: return do_touch(p, now, o, s->a, s->b);
     case KNOB_AD_WAIT: return (now - p->t0) >= s->ms;
     case KNOB_AD_UNTIL: return (o->cond && o->cond(o->ctx, s->a)) || (now - p->t0) >= s->ms;
-    case KNOB_AD_RING_TO: return do_ring_to(p, now, o, s->a);
+    case KNOB_AD_RING_TO: return do_ring_to(p, now, o, s->a, s->b < 0 ? -1 : 1);
     case KNOB_AD_SET_TO: return do_set_to(p, now, o, s->a);
     case KNOB_AD_EVENT: if (o->event) o->event(o->ctx, s->a); return true;
     case KNOB_AD_CAPTION: if (o->caption) o->caption(o->ctx, s->text && s->text[0] ? s->text : NULL); return true;

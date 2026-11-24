@@ -135,6 +135,7 @@ typedef enum {
     KNOB_SET_DEMO,           /* 0 off, 1 on, 2 automatic (#10), 3 automatic without the input indicators: the knob restarts
                               * into or out of demo mode */
     KNOB_SET_MOTOR_STEPS,    /* motor (#8): 0 gentle, 1 normal, 2 quick */
+    KNOB_SET_MOTOR_LIMITS,   /* page: the three items below, which are not in the main list */
     KNOB_SET_MOTOR_AHEAD,    /* %, the soft limit ahead */
     KNOB_SET_MOTOR_ASTERN,   /* %, the soft limit astern */
     KNOB_SET_MOTOR_IDLE,     /* s, disarm armed in neutral without input, 0 = never */
@@ -164,9 +165,16 @@ typedef struct {
     const int *values;          /* NUMBER: the steps a turn moves through, ascending */
     int n_values;
     const char *const *words;   /* CHOICE: the word for each value 0..n_values-1 */
+    uint8_t sub_of;             /* 0: in the main list; else the page item + 1 whose sub-list it is in (MOTOR LIMITS) */
 } knob_setting_desc_t;
 
 const knob_setting_desc_t *knob_setting_desc(knob_setting_t s);
+/* Lists: the main list (group -1) or a sub-list (group = its page item, for example KNOB_SET_MOTOR_LIMITS). */
+int knob_setting_group(knob_setting_t s);                          /* -1 main list, else the page item it belongs to */
+bool knob_setting_has_sub(knob_setting_t s);                       /* a page item that opens a sub-list */
+int knob_setting_list_next(int index, int delta, int group);       /* the item delta steps on in that list, wrapping */
+int knob_setting_list_first(int group);
+void knob_setting_list_pos(int index, int group, int *pos, int *count); /* 1-based position and the list length */
 /* The list position after a turn, wrapping at both ends. */
 int knob_list_wrap(int index, int delta, int count);
 /* The value after a turn: the next step in the item's list, clamped at the ends. A value between two steps moves to the

@@ -64,6 +64,7 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 | MODES page: pills readable at day and night, a press switches the mode and the ring follows, the last one on refuses with `ONE MODE STAYS ON`, the web page shows the same | open | | | |
 | A mode switched off while on screen (web page) goes to the first one on, a boot into a switched-off mode too | open | | | |
 | List: turn moves and wraps, prev and next items above and below, `SETTINGS 3/14` | open | | | |
+| `MOTOR LIMITS` opens its own list (ahead, astern, disarm), edits come back to it, a double press goes back to the main list | open | | | |
 | All text straight: settings top and bottom lines, alarm telemetry, setup screens' bottom line, nothing clipped | open | | | curved text removed 2026-11-23 |
 | Edit: amber arc, value, `was ...`, press stores, double press cancels | open | | | |
 | Each value stored, shown on the web page at once, still there after a reboot | open | | | brightness, dim after, dim level, off after, night, LEDs, heading, HID profile |
@@ -111,7 +112,7 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 | Item | Status | Date | Commit | Notes |
 |---|---|---|---|---|
 | `DEMO MODE` `AUTO` from the knob and the web page, and serial `p`: countdown, splash with the boot phases, then the tour | open | | | |
-| Every step does what the script says: engage and 23° to port, dim 80 to 20 % and off, radius 20 m and drop, volume 42 to 100 %, drag alarm, acknowledge, radius 30 m clears it, USB to media, setup to demo off | open | | | |
+| Every step does what the script says: engage and 23° to port, radius 20 m and drop, dim 80 to 20 % and off, volume 42 to 100 %, drag alarm, acknowledge, radius 30 m clears it, USB to media, setup to demo off | open | | | |
 | Every turn, press, double press, long press and touch is drawn, caption readable, at day and at night | open | | | |
 | `QUIET`: the same tour with nothing drawn on top and no captions, only the countdown | open | | | |
 | `Eläkeläiset` shows with the umlauts, the position counts up from 0:53 | open | | | |

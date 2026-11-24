@@ -115,12 +115,12 @@ have one, *Motor power path*. The mode then sits just left of AUTO on the ring. 
 - **Through neutral:** coming from ahead the throttle stops at neutral, even on a fast spin. The next click goes on into
   astern straight away (and the same the other way).
 - **Neutral:** hold the knob. Hold it again in neutral to disarm. A single press does nothing.
-- **Limits:** the throttle stops at 50 % each way (*Throttle limit ahead / astern*) and warns. Turning back below the limit
-  clears the warning. A double press while it shows allows more until
-  the knob is disarmed.
+- **Limits:** the throttle stops at 50 % each way (*Throttle limit ahead / astern* on the settings page, `MOTOR LIMITS` in
+  the knob's settings) and warns. Turning back below the limit clears the warning. A double press while it shows allows
+  more until the knob is disarmed.
 - **The knob lets go by itself**, sending neutral first, when allow control is switched off, the link drops, the motor stops
   reporting its gear for 3 seconds, the gear reports a fault or does not follow the throttle, or after a minute in neutral
-  without input (*Motor disarm when idle*, 0 = never). Arm again to go on.
+  without input (*Motor disarm when idle*, 0 = never; on the knob `MOTOR DISARM` under `MOTOR LIMITS`). Arm again to go on.
 - While the motor runs, the knob repeats the throttle every second. The motor's controller has to go to neutral by itself
   when it hears nothing for about 3 seconds, so a knob that dies or loses Wi-Fi leaves the motor in neutral.
 - While the motor is out of neutral, every other screen shows `F 40 %` or `R 15 %` at the bottom and the screen stays on.
@@ -195,7 +195,7 @@ Nothing is sent to SignalK in demo mode, the knob does not even connect to the s
 so you can switch demo off from a phone. It stays on across restarts until you switch it off, a factory reset clears it.
 
 **Automatic demo.** Set *Demo mode* to `AUTO` and the knob shows itself off: after a 3, 2, 1 countdown and its start-up
-screen it goes through every mode on its own, engages the autopilot and turns it, dims a light, drops the anchor, turns the
+screen it goes through every mode on its own, engages the autopilot and turns it, drops the anchor, dims a light, turns the
 music up, raises and clears a drag alarm, changes the USB profile and ends in the settings. Every turn, press and touch it
 makes is drawn on the screen, with a short caption at the top. Touch or turn the knob and it stops and lets you take over;
 leave it alone for a minute and it starts again. Nothing is stored while it runs. To end it, set *Demo mode* to `OFF` or
