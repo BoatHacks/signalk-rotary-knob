@@ -37,6 +37,9 @@ anything is unclear so that the motor side falls back to neutral by itself. Deci
   throttle would pass a limit it stops there, nothing above the limit is sent, and a warning shows
   (`LIMIT 50 %`, `2x: ALLOW MORE`). A double press lifts both limits until the next disarm, the throttle stays where it is and
   only rises with the next turn. Turning back below the limit leaves the warning shown until acknowledged or disarmed.
+  While the warning shows, all five LEDs flash amber fast (4 Hz, on and off equally), on every screen. Unlike the throttle
+  pattern it also shows at night, at the night brightness, because it is a warning. The LEDs setting off turns it off, an
+  alarm takes over the LEDs as always.
 - **No ramp** in the knob, the motor controller does its own.
 - **Keepalive:** while armed and out of neutral, the current throttle is resent every 1 s. Requirement on the motor side
   (whichever plugin is used or written): fall back to neutral after about 3 s without a throttle.
@@ -81,7 +84,7 @@ SignalK has no standard path for a throttle command. Defaults, `<id>` is `knob.m
 - **knob_actions:** the throttle PUT, the keepalive timer, neutral on disarm. Allow control and the demo lock as for the pilot.
 - **marine_ui:** the motor screen, the arm confirm, `SET NEUTRAL FIRST`, `NO LINK`, `NO MOTOR DATA`, the tag on the other
   screens, the propeller icon, the ring with seven slots (check that seven labels fit at r86).
-- **knob_power:** the throttle LED pattern.
+- **knob_power:** the throttle LED pattern and the limit warning's amber flash.
 - **knob_config:** `motor_mode` (off), `motor_id` (`main`), `motor_power_path` (empty), `motor_curve` (normal),
   `motor_idle_s` (60, 0 never), `motor_max_ahead` and `motor_max_astern` (50 %). Settings screen items for the curve, the idle
   timeout and the two limits.
@@ -91,7 +94,7 @@ SignalK has no standard path for a throttle command. Defaults, `<id>` is `knob.m
 ## Test strategy
 - Host tests: steps per preset and click time, the neutral stop (a fast spin from +30 % stops at 0, a pause then goes astern),
   arming refused out of neutral, without allow control, without a gear or on `Fault`, long press out of and in neutral, single
-  press ignored, the limit stop and warning, double press lifting both limits without raising the throttle, limits back after a
+  press ignored, the limit stop and warning (with its flash flag), double press lifting both limits without raising the throttle, limits back after a
   disarm, stale gear and link loss disarm, mismatch for 3 s and fault disarm, allow control off, idle disarm only in neutral and
   never with 0, keepalive due every 1 s only out of neutral, nothing sent after a reboot.
 - Hardware checklist: a new motor section, first against a test plugin or the demo, then with the real motor at the boat.
