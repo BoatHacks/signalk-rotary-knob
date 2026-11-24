@@ -168,6 +168,7 @@ static void test_boot_mode(void)
     TEST_ASSERT_EQUAL_INT(0, knob_boot_mode(-1, 4, 3, 9)); /* nothing stored */
     TEST_ASSERT_EQUAL_INT(0, knob_boot_mode(4, 6, 3, 4));  /* settings is never restored */
     TEST_ASSERT_EQUAL_INT(5, knob_boot_mode(5, 6, 3, 4));  /* music, after settings in the numbering */
+    TEST_ASSERT_EQUAL_INT(6, knob_boot_mode(6, 7, 3, 4));  /* motor, restored disarmed */
 }
 
 static void test_boot_hid(void)
@@ -194,7 +195,9 @@ static void test_mode_names(void)
     TEST_ASSERT_EQUAL_STRING("settings", knob_mode_name(4));
     TEST_ASSERT_EQUAL_STRING("music", knob_mode_name(5));
     TEST_ASSERT_EQUAL_INT(5, knob_mode_from_name("music"));
-    TEST_ASSERT_EQUAL_STRING("unknown", knob_mode_name(6));
+    TEST_ASSERT_EQUAL_STRING("motor", knob_mode_name(6));
+    TEST_ASSERT_EQUAL_INT(6, knob_mode_from_name("motor"));
+    TEST_ASSERT_EQUAL_STRING("unknown", knob_mode_name(7));
     TEST_ASSERT_EQUAL_STRING("unknown", knob_mode_name(-1));
 }
 
@@ -274,6 +277,13 @@ static void test_setting_format(void)
     knob_setting_format(KNOB_SET_DEVICE_INFO, 0, b, sizeof(b));
     TEST_ASSERT_EQUAL_STRING("", b);
     TEST_ASSERT_NULL(knob_setting_desc(KNOB_SET_COUNT));
+    char mb[16];
+    knob_setting_format(KNOB_SET_MOTOR_IDLE, 0, mb, sizeof(mb));
+    TEST_ASSERT_EQUAL_STRING("NEVER", mb);
+    knob_setting_format(KNOB_SET_MOTOR_STEPS, 2, mb, sizeof(mb));
+    TEST_ASSERT_EQUAL_STRING("QUICK", mb);
+    TEST_ASSERT_EQUAL_INT(60, knob_setting_step(KNOB_SET_MOTOR_AHEAD, 50, 1));
+    TEST_ASSERT_EQUAL_INT(100, knob_setting_step(KNOB_SET_MOTOR_ASTERN, 100, 1));
 }
 
 static void test_confirm_turn(void)

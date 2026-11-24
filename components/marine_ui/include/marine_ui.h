@@ -19,6 +19,7 @@ typedef enum {
     MARINE_MODE_USB_HID,
     MARINE_MODE_SETTINGS,
     MARINE_MODE_MUSIC,          // appended: the numbers are stored as the last mode. On the ring it sits after ANCHOR.
+    MARINE_MODE_MOTOR,          // appended (#8). On the ring it sits after AUTO.
     MARINE_MODE_COUNT
 } marine_ui_mode_t;
 
@@ -84,7 +85,10 @@ typedef enum {
     MARINE_ACT_VOL_SET,             // value = volume 0..100 %, meta = target (0 master, 1.. zone)
     MARINE_ACT_VOL_CONTROL,         // value = marine_vol_control_t
     MARINE_ACT_AP_SET_STATE,        // value = knob_ap_state_t (1 compass, 2 wind, 3 route) from the pilot dialog
-    MARINE_ACT_AP_TACK              // value = -1 port, +1 starboard, after the confirm turn
+    MARINE_ACT_AP_TACK,             // value = -1 port, +1 starboard, after the confirm turn
+    MARINE_ACT_MOTOR_TURN,          // value = +1 or -1, one encoder click on the motor screen (sent at once, not batched)
+    MARINE_ACT_MOTOR_LONG,          // value = 1, long press on the motor screen: arm, neutral, or disarm (knob_motor decides)
+    MARINE_ACT_MOTOR_ACK            // value = 1, double press while the limit warning shows: lifts both limits
 } marine_ui_action_type_t;
 
 typedef struct {
@@ -229,7 +233,7 @@ typedef struct {
 
     // Settings screen (#5): the stored value of each knob_setting_t item, and the read-only pages. Filled while the settings
     // screen is open.
-    int16_t setting[16];
+    int16_t setting[24];
     bool setup_ap_open;
     uint16_t setup_ap_left_s;      // until the access point closes by itself
     char info_firmware[24];
@@ -265,6 +269,28 @@ typedef struct {
     uint8_t vol_target_count;
     marine_vol_target_t vol_targets[1 + MARINE_MAX_VOL_ZONES];
     uint8_t play_state;            // marine_play_state_t
+
+    // Motor (#8): the knob's throttle state (knob_motor in knob_logic) and what the motor reports.
+    bool motor_mode;               // the MOTOR slot is on the ring (knob.motor_mode)
+    uint8_t motor_state;           // knob_motor_state_t: 0 disarmed, 1 confirm prompt, 2 armed
+    int8_t motor_set_pct;          // the knob's throttle, -100 (astern) .. 100 (ahead)
+    bool motor_limit_warning;      // a limit was hit, a double press lifts both
+    bool motor_limit_lifted;
+    uint8_t motor_max_ahead_pct;
+    uint8_t motor_max_astern_pct;
+    uint8_t motor_why;             // knob_motor_why_t: the last refusal or disarm reason
+    uint32_t motor_why_ms;         // when it happened, 0 never
+    uint32_t motor_confirm_ms;     // when the confirm prompt opened
+    uint8_t motor_gear;            // knob_gear_t: 0 unknown, 1 forward, 2 neutral, 3 reverse, 4 fault
+    uint32_t motor_gear_ms;        // 0 never
+    float motor_rpm;               // revolutions per minute
+    uint32_t motor_rpm_ms;
+    float motor_torque_pct;        // engineTorque as a percentage
+    uint32_t motor_torque_ms;
+    float motor_power_w;           // from knob.motor_power_path
+    uint32_t motor_power_ms;
+    float motor_reported_pct;      // the throttle the motor reports, -100..100
+    uint32_t motor_reported_ms;
     char track[40];
     char artist[32];
 } marine_ui_snapshot_t;

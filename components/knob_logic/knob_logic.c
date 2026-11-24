@@ -102,7 +102,7 @@ bool knob_boot_hid(bool hid_last, bool host_present, uint32_t now_ms, uint32_t w
     return hid_last && host_present && now_ms < window_ms && !user_changed_mode;
 }
 
-static const char *const s_mode_names[KNOB_MODE_COUNT] = { "autopilot", "lights", "anchor", "hid", "settings", "music" };
+static const char *const s_mode_names[KNOB_MODE_COUNT] = { "autopilot", "lights", "anchor", "hid", "settings", "music", "motor" };
 
 int knob_mode_from_name(const char *name)
 {
@@ -142,6 +142,9 @@ static const char *const s_night_w[] = { "SERVER", "DAY", "NIGHT" };
 static const char *const s_onoff_w[] = { "OFF", "ON" };
 static const char *const s_heading_w[] = { "TRUE", "MAGNETIC" };
 static const char *const s_hid_w[] = { "CHARTPLOTTER", "MEDIA", "NAV KEYS" };
+static const char *const s_curve_w[] = { "GENTLE", "NORMAL", "QUICK" };
+static const int s_motor_limit[] = { 10, 20, 30, 40, 50, 60, 70, 80, 90, 100 };
+static const int s_motor_idle[] = { 0, 10, 20, 30, 60, 120, 180, 300 };
 
 #define N(a) ((int)(sizeof(a) / sizeof((a)[0])))
 static const knob_setting_desc_t s_settings[KNOB_SET_COUNT] = {
@@ -155,6 +158,10 @@ static const knob_setting_desc_t s_settings[KNOB_SET_COUNT] = {
     [KNOB_SET_HID_PROFILE] = { "HID PROFILE", KNOB_KIND_CHOICE, NULL, NULL, 3, s_hid_w },
     [KNOB_SET_ALLOW_CONTROL] = { "ALLOW CONTROL", KNOB_KIND_CHOICE, NULL, NULL, 2, s_onoff_w },
     [KNOB_SET_DEMO] = { "DEMO MODE", KNOB_KIND_CHOICE, NULL, NULL, 2, s_onoff_w },
+    [KNOB_SET_MOTOR_STEPS] = { "THROTTLE STEPS", KNOB_KIND_CHOICE, NULL, NULL, 3, s_curve_w },
+    [KNOB_SET_MOTOR_AHEAD] = { "LIMIT AHEAD", KNOB_KIND_NUMBER, "%", s_motor_limit, N(s_motor_limit), NULL },
+    [KNOB_SET_MOTOR_ASTERN] = { "LIMIT ASTERN", KNOB_KIND_NUMBER, "%", s_motor_limit, N(s_motor_limit), NULL },
+    [KNOB_SET_MOTOR_IDLE] = { "MOTOR DISARM", KNOB_KIND_NUMBER, "s", s_motor_idle, N(s_motor_idle), NULL },
     [KNOB_SET_SETUP_AP] = { "SETUP ACCESS POINT", KNOB_KIND_ACTION, NULL, NULL, 0, NULL },
     [KNOB_SET_DEVICE_INFO] = { "DEVICE INFO", KNOB_KIND_PAGE, NULL, NULL, 0, NULL },
     [KNOB_SET_SIGNALK] = { "SIGNALK", KNOB_KIND_PAGE, NULL, NULL, 0, NULL },
@@ -207,7 +214,7 @@ void knob_setting_format(knob_setting_t s, int value, char *out, size_t n)
     if (d->kind == KNOB_KIND_CHOICE) {
         snprintf(out, n, "%s", (value >= 0 && value < d->n_values) ? d->words[value] : "?");
     } else if (d->kind == KNOB_KIND_NUMBER) {
-        if (s == KNOB_SET_OFF_AFTER && value == 0) snprintf(out, n, "NEVER");
+        if ((s == KNOB_SET_OFF_AFTER || s == KNOB_SET_MOTOR_IDLE) && value == 0) snprintf(out, n, "NEVER");
         else snprintf(out, n, "%d %s", value, d->unit);
     }
 }

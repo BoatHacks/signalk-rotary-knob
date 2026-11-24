@@ -63,10 +63,11 @@ bool knob_boot_hid(bool hid_last, bool host_present, uint32_t now_ms, uint32_t w
 
 /* Mode numbers follow marine_ui_mode_t: 0 autopilot, 1 lights, 2 anchor, 3 hid, 4 settings, 5 music. The names are the
  * API's. The numbers are stored (last mode), so new modes are appended. */
-#define KNOB_MODE_COUNT 6
+#define KNOB_MODE_COUNT 7
 #define KNOB_MODE_HID 3
 #define KNOB_MODE_SETTINGS 4
 #define KNOB_MODE_MUSIC 5
+#define KNOB_MODE_MOTOR 6
 /* "autopilot", "lights", "anchor", "hid", "settings" or "music" to 0..5, -1 for anything else (case sensitive). */
 int knob_mode_from_name(const char *name);
 /* 0..3 to its API name, "unknown" otherwise. */
@@ -132,6 +133,10 @@ typedef enum {
     KNOB_SET_HID_PROFILE,    /* 0 chartplotter, 1 media, 2 navigation keys */
     KNOB_SET_ALLOW_CONTROL,  /* 0 off, 1 on (off to on needs the confirm turn) */
     KNOB_SET_DEMO,           /* 0 off, 1 on: the knob restarts into or out of demo mode */
+    KNOB_SET_MOTOR_STEPS,    /* motor (#8): 0 gentle, 1 normal, 2 quick */
+    KNOB_SET_MOTOR_AHEAD,    /* %, the soft limit ahead */
+    KNOB_SET_MOTOR_ASTERN,   /* %, the soft limit astern */
+    KNOB_SET_MOTOR_IDLE,     /* s, disarm armed in neutral without input, 0 = never */
     KNOB_SET_SETUP_AP,       /* action: open or close the setup access point */
     KNOB_SET_DEVICE_INFO,    /* read-only page */
     KNOB_SET_SIGNALK,        /* read-only page */

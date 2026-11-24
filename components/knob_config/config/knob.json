@@ -139,6 +139,78 @@
    "restart_required": false
   },
   {
+   "name": "motor_mode",
+   "type": "bool",
+   "default": false,
+   "title": "MOTOR mode",
+   "description": "Show the MOTOR mode on the mode ring: the throttle of a motor that takes a SignalK PUT. Off unless the boat has a motor controller made for it. Throttle commands also need allow control. Manual: motor section.",
+   "restart_required": false
+  },
+  {
+   "name": "motor_id",
+   "type": "string",
+   "default": "main",
+   "maxLength": 31,
+   "title": "Motor id",
+   "description": "The motor's id in propulsion.<id>: the throttle goes to propulsion.<id>.throttle (PUT, -1 to 1), the gear, revolutions and engineTorque are read from there. Applies after a restart.",
+   "restart_required": true
+  },
+  {
+   "name": "motor_power_path",
+   "type": "string",
+   "default": "",
+   "maxLength": 127,
+   "title": "Motor power path",
+   "description": "A SignalK path with the motor's power draw in watts, from the motor or a battery monitor. Empty: the screen shows no power. Applies after a restart.",
+   "restart_required": true
+  },
+  {
+   "name": "motor_curve",
+   "type": "string",
+   "default": "normal",
+   "enum": [
+    "gentle",
+    "normal",
+    "quick"
+   ],
+   "title": "Throttle steps",
+   "description": "Percent per click for slow, normal and fast turning: gentle 1/1/2, normal 1/2/5, quick 1/3/10.",
+   "restart_required": false
+  },
+  {
+   "name": "motor_max_ahead",
+   "type": "int",
+   "default": 50,
+   "min": 10,
+   "max": 100,
+   "unit": "%",
+   "title": "Throttle limit ahead",
+   "description": "The throttle stops here and warns. A double press lifts both limits until the knob is disarmed.",
+   "restart_required": false
+  },
+  {
+   "name": "motor_max_astern",
+   "type": "int",
+   "default": 50,
+   "min": 10,
+   "max": 100,
+   "unit": "%",
+   "title": "Throttle limit astern",
+   "description": "As the limit ahead, for astern.",
+   "restart_required": false
+  },
+  {
+   "name": "motor_idle_s",
+   "type": "int",
+   "default": 60,
+   "min": 0,
+   "max": 300,
+   "unit": "s",
+   "title": "Motor disarm when idle",
+   "description": "Armed in neutral without input, the knob gives up control after this long. 0 never, otherwise 10 to 300 s. Out of neutral it never does.",
+   "restart_required": false
+  },
+  {
    "name": "light1_name",
    "type": "string",
    "default": "RELAY 1",

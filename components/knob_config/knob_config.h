@@ -29,6 +29,13 @@ typedef struct {
     bool leds_on;            /* false: every LED dark, the alarm included */
     uint8_t hid_profile;     /* usb_hid_profile_t: 0 chartplotter, 1 media, 2 nav */
     bool music_mode;        /* the MUSIC mode is on the ring */
+    bool motor_mode;         /* the MOTOR mode is on the ring (#8), off by default */
+    char motor_id[32];       /* propulsion.<id> */
+    char motor_power_path[128]; /* watts, empty = none */
+    uint8_t motor_curve;     /* knob_motor_curve_t: 0 gentle, 1 normal, 2 quick */
+    uint8_t motor_max_ahead_pct;
+    uint8_t motor_max_astern_pct;
+    uint16_t motor_idle_s;   /* 0 never, else 10..300 */
     int n_lights;            /* channels with a non-empty path, compacted to the front of lights[] */
     knob_cfg_light_t lights[KNOB_CFG_MAX_LIGHTS];
 } knob_cfg_t;

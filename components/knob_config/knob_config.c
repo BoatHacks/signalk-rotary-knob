@@ -23,6 +23,11 @@ void knob_config_load(knob_cfg_t *c)
     c->brightness_pct = 100;
     c->leds_on = true;
     c->music_mode = true;
+    strcpy(c->motor_id, "main");
+    c->motor_curve = 1;
+    c->motor_max_ahead_pct = 50;
+    c->motor_max_astern_pct = 50;
+    c->motor_idle_s = 60;
 
     bool allow = false;
     if (espos_config_get_bool(NS, "allow_control", &allow) == ESP_OK) c->allow_control = allow;
@@ -47,6 +52,17 @@ void knob_config_load(knob_cfg_t *c)
     if (espos_config_get_bool(NS, "leds_on", &leds) == ESP_OK) c->leds_on = leds;
     bool vm = true;
     if (espos_config_get_bool(NS, "music_mode", &vm) == ESP_OK) c->music_mode = vm;
+    bool mm = false;
+    if (espos_config_get_bool(NS, "motor_mode", &mm) == ESP_OK) c->motor_mode = mm;
+    espos_config_get_str(NS, "motor_id", c->motor_id, sizeof(c->motor_id), NULL);
+    if (!c->motor_id[0]) strcpy(c->motor_id, "main");
+    espos_config_get_str(NS, "motor_power_path", c->motor_power_path, sizeof(c->motor_power_path), NULL);
+    char mc[8] = "normal";
+    espos_config_get_str(NS, "motor_curve", mc, sizeof(mc), NULL);
+    c->motor_curve = !strcmp(mc, "gentle") ? 0 : !strcmp(mc, "quick") ? 2 : 1;
+    if (espos_config_get_i32(NS, "motor_max_ahead", &v) == ESP_OK && v >= 10 && v <= 100) c->motor_max_ahead_pct = (uint8_t)v;
+    if (espos_config_get_i32(NS, "motor_max_astern", &v) == ESP_OK && v >= 10 && v <= 100) c->motor_max_astern_pct = (uint8_t)v;
+    if (espos_config_get_i32(NS, "motor_idle_s", &v) == ESP_OK && v >= 0 && v <= 300) c->motor_idle_s = (uint16_t)(v && v < 10 ? 10 : v);
     char hp[16] = "chartplotter";
     espos_config_get_str(NS, "hid_profile", hp, sizeof(hp), NULL);
     c->hid_profile = !strcmp(hp, "media") ? 1 : !strcmp(hp, "nav") ? 2 : 0;

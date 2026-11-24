@@ -25,6 +25,7 @@
 #include "esp_system.h"
 #include "knob_logic.h"
 #include "knob_demo.h"
+#include "knob_motor.h"
 #include "knob_net.h"
 #include "knob_power.h"
 #include "lv_port.h"
@@ -95,10 +96,28 @@ typedef struct {
         bool connected;
         bool muted;
     } zone[MARINE_MAX_VOL_ZONES];
+
+    /* motor (#8), propulsion.<knob.motor_id> */
+    uint8_t gear;                                /* knob_gear_t */
+    uint32_t gear_ms;
+    double rpm_hz;
+    uint32_t rpm_ms;
+    double torque;                               /* ratio */
+    uint32_t torque_ms;
+    double thr;                                  /* reported throttle, ratio -1..1 */
+    uint32_t thr_ms;
+    double power_w;
+    uint32_t power_ms;
 } model_t;
 
 static portMUX_TYPE s_mux = portMUX_INITIALIZER_UNLOCKED;
 static model_t s_m;
+
+/* Motor (#8). The paths are built at subscribe time from knob.motor_id (a change applies after a restart). The state machine
+ * is knob_motor in knob_logic, under s_mux: clicks and presses come from the input task, the tick from the model task. */
+static char s_mp_gear[64], s_mp_rpm[64], s_mp_torque[64], s_mp_thr[64], s_mp_power[128];
+static knob_motor_t s_motor;
+static TaskHandle_t s_model_task;
 
 static volatile bool s_heading_frozen;
 static volatile bool s_bypass_net;
@@ -302,6 +321,20 @@ static void on_update(const espos_sk_update_t *u, void *arg)
         strncpy(s_m.alarm_state, st, sizeof(s_m.alarm_state) - 1);
         s_m.alarm_state[sizeof(s_m.alarm_state) - 1] = '\0';
         portEXIT_CRITICAL(&s_mux);
+    } else if (s_mp_gear[0] && !strcmp(p, s_mp_gear)) {
+        knob_gear_t g = knob_gear_from_str(v);
+        portENTER_CRITICAL(&s_mux);
+        s_m.gear = (uint8_t)g;
+        s_m.gear_ms = g != KNOB_GEAR_UNKNOWN ? now : 0; /* an unknown word counts as no gear at all */
+        portEXIT_CRITICAL(&s_mux);
+    } else if (s_mp_rpm[0] && !strcmp(p, s_mp_rpm)) {
+        if (parse_num(v, &d)) { portENTER_CRITICAL(&s_mux); s_m.rpm_hz = d; s_m.rpm_ms = now; portEXIT_CRITICAL(&s_mux); }
+    } else if (s_mp_torque[0] && !strcmp(p, s_mp_torque)) {
+        if (parse_num(v, &d)) { portENTER_CRITICAL(&s_mux); s_m.torque = d; s_m.torque_ms = now; portEXIT_CRITICAL(&s_mux); }
+    } else if (s_mp_thr[0] && !strcmp(p, s_mp_thr)) {
+        if (parse_num(v, &d)) { portENTER_CRITICAL(&s_mux); s_m.thr = d; s_m.thr_ms = now; portEXIT_CRITICAL(&s_mux); }
+    } else if (s_mp_power[0] && !strcmp(p, s_mp_power)) {
+        if (parse_num(v, &d)) { portENTER_CRITICAL(&s_mux); s_m.power_w = d; s_m.power_ms = now; portEXIT_CRITICAL(&s_mux); }
     } else {
         for (int i = 0; i < N_LIGHTS; i++) {
             if (!strcmp(p, s_lights[i].path)) {
@@ -346,6 +379,95 @@ static void subscribe_all(void)
     for (int i = 0; i < N_LIGHTS; i++) {
         if (espos_sk_subscribe(s_lights[i].path, 0, on_update, NULL) <= 0) ESP_LOGW(TAG, "subscribe %s failed", s_lights[i].path);
     }
+    /* Motor (#8): always subscribed, so switching the mode on needs no restart; a boat without the paths just sends nothing. */
+    snprintf(s_mp_gear, sizeof(s_mp_gear), "propulsion.%s.transmission.gear", s_cfg.motor_id);
+    snprintf(s_mp_rpm, sizeof(s_mp_rpm), "propulsion.%s.revolutions", s_cfg.motor_id);
+    snprintf(s_mp_torque, sizeof(s_mp_torque), "propulsion.%s.engineTorque", s_cfg.motor_id);
+    snprintf(s_mp_thr, sizeof(s_mp_thr), "propulsion.%s.throttle", s_cfg.motor_id);
+    snprintf(s_mp_power, sizeof(s_mp_power), "%s", s_cfg.motor_power_path);
+    const struct { const char *p; uint32_t period; } mp[] = {
+        { s_mp_gear, 0 }, { s_mp_rpm, 500 }, { s_mp_torque, 500 }, { s_mp_thr, 0 }, { s_mp_power, 1000 },
+    };
+    for (size_t i = 0; i < sizeof(mp) / sizeof(mp[0]); i++) {
+        if (mp[i].p[0] && espos_sk_subscribe(mp[i].p, mp[i].period, on_update, NULL) <= 0) ESP_LOGW(TAG, "subscribe %s failed", mp[i].p);
+    }
+}
+
+/* ------------------------------------------------------------------------------------------------------------------
+ * Motor (#8)
+ * ---------------------------------------------------------------------------------------------------------------- */
+
+/* The state machine's inputs. allow and link are read before the critical section (knob_net takes a lock). */
+static void motor_in_locked(knob_motor_in_t *in, uint32_t now, bool allow, bool link)
+{
+    in->now_ms = now;
+    in->allow_control = allow;
+    in->link_ok = link;
+    in->gear = (knob_gear_t)s_m.gear;
+    in->gear_ms = s_m.gear_ms;
+    in->max_ahead_pct = s_cfg.motor_max_ahead_pct;
+    in->max_astern_pct = s_cfg.motor_max_astern_pct;
+    in->idle_s = s_cfg.motor_idle_s;
+    in->curve = s_cfg.motor_curve;
+}
+
+static bool motor_link(void)
+{
+    if (s_demo) return true;
+    knob_net_status_t ns;
+    knob_net_get(&ns);
+    return ns.phase == KNOB_NET_ONLINE && !s_force_down;
+}
+
+static bool motor_allowed(void) { return s_demo || knob_actions_is_live(); }
+
+/* A click or press on the motor screen, from the input task (the LVGL lock is held: nothing here blocks). The model task is
+ * woken so a new throttle, neutral above all, goes out at once instead of at the next 100 ms tick. */
+static void motor_event(marine_ui_action_type_t kind, int dir)
+{
+    uint32_t now = ms_now();
+    bool allow = motor_allowed(), link = motor_link();
+    portENTER_CRITICAL(&s_mux);
+    knob_motor_in_t in;
+    motor_in_locked(&in, now, allow, link);
+    if (kind == MARINE_ACT_MOTOR_TURN) knob_motor_turn(&s_motor, &in, dir);
+    else if (kind == MARINE_ACT_MOTOR_LONG) knob_motor_long_press(&s_motor, &in);
+    else knob_motor_double_press(&s_motor, &in);
+    portEXIT_CRITICAL(&s_mux);
+    if (s_model_task) xTaskNotifyGive(s_model_task);
+}
+
+static void motor_put_cb(const char *request_id, const char *state, int status_code, const char *message, void *arg)
+{
+    (void)request_id; (void)arg;
+    if (status_code < 200 || status_code >= 300)
+        ESP_LOGW(TAG, "throttle PUT: %s %d %s", state ? state : "?", status_code, message ? message : "");
+}
+
+/* The model task's part: the timers, then whatever the state machine wants sent, over the SignalK stream. */
+static void motor_tick_send(uint32_t now)
+{
+    bool allow = motor_allowed(), link = motor_link();
+    int8_t pct = 0;
+    portENTER_CRITICAL(&s_mux);
+    knob_motor_in_t in;
+    motor_in_locked(&in, now, allow, link);
+    knob_motor_state_t before = s_motor.state;
+    knob_motor_tick(&s_motor, &in);
+    knob_motor_why_t why = s_motor.why;
+    bool disarmed = before != KNOB_MOTOR_DISARMED && s_motor.state == KNOB_MOTOR_DISARMED;
+    bool send = knob_motor_take_send(&s_motor, now, &pct);
+    portEXIT_CRITICAL(&s_mux);
+    if (disarmed) ESP_LOGW(TAG, "motor disarmed, reason %d", (int)why);
+    if (!send || s_demo) return;   /* demo: the simulation follows s_motor, nothing leaves the knob */
+    char val[12];
+    snprintf(val, sizeof(val), "%.2f", pct / 100.0);
+    esp_err_t e = espos_sk_put(s_mp_thr, val, motor_put_cb, NULL);
+    static int8_t last_logged = 127;
+    if (e != ESP_OK || pct != last_logged) {   /* the keepalive repeats quietly */
+        ESP_LOGI(TAG, "throttle %s -> %s (%s)", s_mp_thr, val, esp_err_to_name(e));
+        last_logged = pct;
+    }
 }
 
 /* ------------------------------------------------------------------------------------------------------------------
@@ -373,6 +495,10 @@ static void settings_snapshot(marine_ui_snapshot_t *s, const knob_net_status_t *
     s->setting[KNOB_SET_HID_PROFILE] = c.hid_profile;
     s->setting[KNOB_SET_ALLOW_CONTROL] = c.allow_control ? 1 : 0;
     s->setting[KNOB_SET_DEMO] = c.demo ? 1 : 0;
+    s->setting[KNOB_SET_MOTOR_STEPS] = c.motor_curve;
+    s->setting[KNOB_SET_MOTOR_AHEAD] = c.motor_max_ahead_pct;
+    s->setting[KNOB_SET_MOTOR_ASTERN] = c.motor_max_astern_pct;
+    s->setting[KNOB_SET_MOTOR_IDLE] = (int16_t)c.motor_idle_s;
 
     espos_wifi_status_t w;
     if (espos_wifi_get_status(&w) == ESP_OK) {
@@ -442,6 +568,16 @@ static void demo_feed(uint32_t now)
         snprintf(s_m.artist, sizeof(s_m.artist), "Demo Crew");
     }
     s_m.vol_master_ms = now;
+    /* motor (#8): the gear follows the knob's throttle at once, RPM, torque and power follow its size */
+    int sp = s_motor.set_pct;
+    s_m.gear = (uint8_t)(sp > 0 ? KNOB_GEAR_FORWARD : sp < 0 ? KNOB_GEAR_REVERSE : KNOB_GEAR_NEUTRAL);
+    s_m.gear_ms = now;
+    double a = (sp < 0 ? -sp : sp) / 100.0;
+    s_m.rpm_hz = a * 3000.0 / 60.0;
+    s_m.torque = a * 0.8;
+    s_m.thr = sp / 100.0;
+    s_m.power_w = a * 4000.0;
+    s_m.rpm_ms = s_m.torque_ms = s_m.thr_ms = s_m.power_ms = now;
     s_m.last_rx_ms = now;
     portEXIT_CRITICAL(&s_mux);
 }
@@ -481,8 +617,10 @@ static void demo_action(const marine_ui_action_t *a)
 static void build_snapshot(marine_ui_snapshot_t *s, uint32_t now)
 {
     model_t m;
+    knob_motor_t mo;
     portENTER_CRITICAL(&s_mux);
     m = s_m;
+    mo = s_motor;
     portEXIT_CRITICAL(&s_mux);
 
     knob_net_status_t ns;
@@ -652,6 +790,28 @@ static void build_snapshot(marine_ui_snapshot_t *s, uint32_t now)
     }
     s->vol_target_count = (uint8_t)nt;
     s->play_state = m.play_state;
+
+    /* Motor (#8) */
+    s->motor_mode = s_cfg.motor_mode;
+    s->motor_state = (uint8_t)mo.state;
+    s->motor_set_pct = mo.set_pct;
+    s->motor_limit_warning = mo.limit_warning;
+    s->motor_limit_lifted = mo.limit_lifted;
+    s->motor_max_ahead_pct = s_cfg.motor_max_ahead_pct;
+    s->motor_max_astern_pct = s_cfg.motor_max_astern_pct;
+    s->motor_why = (uint8_t)mo.why;
+    s->motor_why_ms = mo.why_ms;
+    s->motor_confirm_ms = mo.confirm_ms;
+    s->motor_gear = m.gear;
+    s->motor_gear_ms = m.gear_ms;
+    s->motor_rpm = (float)(m.rpm_hz * 60.0);
+    s->motor_rpm_ms = m.rpm_ms;
+    s->motor_torque_pct = (float)(m.torque * 100.0);
+    s->motor_torque_ms = m.torque_ms;
+    s->motor_power_w = (float)m.power_w;
+    s->motor_power_ms = s_mp_power[0] ? m.power_ms : 0;
+    s->motor_reported_pct = (float)(m.thr * 100.0);
+    s->motor_reported_ms = m.thr_ms;
     memcpy(s->track, m.track, sizeof(s->track));
     memcpy(s->artist, m.artist, sizeof(s->artist));
 
@@ -680,6 +840,7 @@ static void model_task(void *arg)
     for (;;) {
         s_loop_ms = ms_now();
         s_phase = 1;
+        motor_tick_send(ms_now());
         if (s_demo) demo_feed(ms_now());
         build_snapshot(&snap, ms_now());
         marine_ui_mode_t mode = marine_ui_get_active_mode();
@@ -707,7 +868,7 @@ static void model_task(void *arg)
         lv_port_unlock();
         s_apply_done_ms = ms_now();
         s_phase = 4;
-        vTaskDelay(pdMS_TO_TICKS(100));
+        ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(100)); /* or sooner, when a motor click or press wants out (motor_event) */
     }
 }
 
@@ -822,6 +983,14 @@ static void setting_write_async(void *arg)
     case KNOB_SET_HID_PROFILE: if (v >= 0 && v < 3) knob_config_set_str("hid_profile", hid[v]); break;
     case KNOB_SET_ALLOW_CONTROL: knob_config_set_bool("allow_control", v != 0); break;
     case KNOB_SET_DEMO: knob_config_set_bool("demo", v != 0); break;
+    case KNOB_SET_MOTOR_STEPS: {
+        static const char *const curve[] = { "gentle", "normal", "quick" };
+        if (v >= 0 && v < 3) knob_config_set_str("motor_curve", curve[v]);
+        break;
+    }
+    case KNOB_SET_MOTOR_AHEAD: knob_config_set_int("motor_max_ahead", v); break;
+    case KNOB_SET_MOTOR_ASTERN: knob_config_set_int("motor_max_astern", v); break;
+    case KNOB_SET_MOTOR_IDLE: knob_config_set_int("motor_idle_s", v); break;
     default: break;
     }
     s_write_from_knob = false;
@@ -876,6 +1045,9 @@ void knob_model_action_cb(const marine_ui_action_t *act, void *ctx)
     case MARINE_ACT_HID_NEXT_PROFILE: /* stored, so it survives a restart. The change applies through the watcher. */
         queue_setting(KNOB_SET_HID_PROFILE, (knob_hid_profile() + 1) % HID_PROFILE_COUNT);
         return;
+    case MARINE_ACT_MOTOR_TURN: motor_event(MARINE_ACT_MOTOR_TURN, (int)act->value); return;
+    case MARINE_ACT_MOTOR_LONG:
+    case MARINE_ACT_MOTOR_ACK: motor_event(act->action, 0); return;
     case MARINE_ACT_ALARM_ACK: s_ack_latch = true; break; /* and the server call below */
     default: break;
     }
@@ -898,6 +1070,7 @@ void knob_model_set_mode(int mode)
 
 bool knob_model_mode_enabled(int mode)
 {
+    if (mode == MARINE_MODE_MOTOR) return s_cfg.motor_mode;
     return mode != MARINE_MODE_MUSIC || s_cfg.music_mode;
 }
 
@@ -967,7 +1140,11 @@ void knob_model_start(void)
     strcpy(s_cfg.autopilot_id, "raymarineST"); /* defaults until knob_model_subscribe() loads the settings */
     s_cfg.heading_true = true;
     s_cfg.anchor_radius_m = 35;
-    xTaskCreateWithCaps(model_task, "model", 6144, NULL, 2, NULL, MALLOC_CAP_SPIRAM); /* stack in PSRAM: internal RAM is the scarce resource */
+    knob_motor_init(&s_motor);
+    s_cfg.motor_curve = 1;
+    s_cfg.motor_max_ahead_pct = s_cfg.motor_max_astern_pct = 50;
+    s_cfg.motor_idle_s = 60;
+    xTaskCreateWithCaps(model_task, "model", 6144, NULL, 2, &s_model_task, MALLOC_CAP_SPIRAM); /* stack in PSRAM: internal RAM is the scarce resource */
     knob_actions_start(&s_cfg, &s_hooks);
     ESP_LOGI(TAG, "model started, allow control off until the settings are loaded");
 }
@@ -1025,6 +1202,11 @@ static void on_config_key(const char *key)
     s_cfg.hid_profile = cfg.hid_profile;
     s_cfg.demo = cfg.demo;
     s_cfg.music_mode = cfg.music_mode;
+    s_cfg.motor_mode = cfg.motor_mode;
+    s_cfg.motor_curve = cfg.motor_curve;
+    s_cfg.motor_max_ahead_pct = cfg.motor_max_ahead_pct;
+    s_cfg.motor_max_astern_pct = cfg.motor_max_astern_pct;
+    s_cfg.motor_idle_s = cfg.motor_idle_s;
     portEXIT_CRITICAL(&s_mux);
     xSemaphoreGive(lock);
     bool from_knob = s_write_from_knob;
@@ -1048,6 +1230,8 @@ static void on_config_key(const char *key)
         }
     } else if (!strncmp(key, "light", 5)) {
         ESP_LOGW(TAG, "light channel settings apply after a restart");
+    } else if (!strcmp(key, "motor_id") || !strcmp(key, "motor_power_path")) {
+        ESP_LOGW(TAG, "motor paths apply after a restart");
     } else {
         apply_device_settings(&now);
     }
