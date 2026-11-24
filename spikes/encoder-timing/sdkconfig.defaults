@@ -1,0 +1,12 @@
+# Same partition table, flash size and app signing as the knob firmware, so this spike flashes over the knob without
+# touching its NVS (settings, Wi-Fi, SignalK token) and the knob firmware flashes back over it the same way.
+CONFIG_IDF_TARGET="esp32s3"
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="../../partitions.csv"
+CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT=y
+CONFIG_SECURE_SIGNED_ON_BOOT_NO_SECURE_BOOT=y
+CONFIG_SECURE_BOOT_SIGNING_KEY="../../secure_boot_signing_key.pem"
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+# 1 ms ticks, so the poll loop below samples the encoder every millisecond (the knob firmware runs at 10 ms).
+CONFIG_FREERTOS_HZ=1000
