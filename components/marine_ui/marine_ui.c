@@ -49,16 +49,19 @@ typedef struct {
     void (*refresh)(void);
 } marine_mode_desc_t;
 
-// Mode ring slots in ring order. The visible ones are spaced evenly, clockwise from the top (ui-design section 2).
+// Mode ring slots in ring order, clockwise (owner, 2026-11-24): motor, autopilot, anchor, lights, music, USB, setup. The
+// visible ones are spaced evenly with AUTO at 12 o'clock, so MOTOR sits just left of it. A switched-off mode is left out and
+// the order of the others stays (ui-design section 2).
 static const marine_ui_mode_t ring_slot_modes[MARINE_MODE_COUNT] = {
-    MARINE_MODE_AUTOPILOT,
-    MARINE_MODE_MOTOR,           // #8, after AUTO: the helm functions together
-    MARINE_MODE_DIMMER,
+    MARINE_MODE_MOTOR,
+    MARINE_MODE_AUTOPILOT,       // RING_TOP_SLOT
     MARINE_MODE_ANCHOR_WATCH,
+    MARINE_MODE_DIMMER,
     MARINE_MODE_MUSIC,
     MARINE_MODE_USB_HID,
     MARINE_MODE_SETTINGS
 };
+#define RING_TOP_SLOT 1   // drawn at 12 o'clock; when hidden, the next visible slot after it is
 
 static const char *rgbw_preset_names[MARINE_RGBW_PRESET_COUNT] = {
     "NIGHT RED", "WARM WHITE", "COOL WHITE", "AMBER DECK", "OCEAN CYAN", "DEEP BLUE", "EMERALD"
@@ -743,13 +746,21 @@ static void refresh_mode_ring(void) {
     refresh_mode_ring_center_preview();
     int n = 0;
     for (int s = 0; s < MARINE_MODE_COUNT; s++) if (ring_slot_visible(s)) n++;
+    // The position of the top slot among the visible ones: AUTO, or the first visible slot after it.
+    int top = 0;
+    for (int i = 0; i < MARINE_MODE_COUNT; i++) {
+        int s = (RING_TOP_SLOT + i) % MARINE_MODE_COUNT;
+        if (!ring_slot_visible(s)) continue;
+        for (int j = 0; j < s; j++) if (ring_slot_visible(j)) top++;
+        break;
+    }
     int k = 0;
     for (int s = 0; s < MARINE_MODE_COUNT; s++) {
         if (!ring_slot_visible(s)) {
             lv_obj_add_flag(ring_slot_boxes[s], LV_OBJ_FLAG_HIDDEN);
             continue;
         }
-        float a = (float)(-M_PI / 2.0) + (float)k * 2.0f * (float)M_PI / (float)n;
+        float a = (float)(-M_PI / 2.0) + (float)(k - top) * 2.0f * (float)M_PI / (float)n;
         k++;
         lv_obj_align(ring_slot_boxes[s], LV_ALIGN_CENTER, (int)lroundf(86.0f * cosf(a)), (int)lroundf(86.0f * sinf(a)));
         lv_obj_remove_flag(ring_slot_boxes[s], LV_OBJ_FLAG_HIDDEN);
@@ -762,7 +773,7 @@ static void refresh_mode_ring(void) {
         lv_obj_set_style_shadow_width(ring_slot_boxes[s], (sel && snap.fx_glow_enabled) ? 16 : 0, 0);
         lv_obj_set_style_shadow_color(ring_slot_boxes[s], c_primary(), 0);
         lv_obj_set_style_text_color(ring_slot_labels[s], sel ? c_primary() : c_text(), 0);
-        static const icon_id_t slot_icons[MARINE_MODE_COUNT] = { ICON_AUTO, ICON_PROP, ICON_LIGHT, ICON_ANCHOR, ICON_MUSIC, ICON_USB, ICON_GEAR };
+        static const icon_id_t slot_icons[MARINE_MODE_COUNT] = { ICON_PROP, ICON_AUTO, ICON_ANCHOR, ICON_LIGHT, ICON_MUSIC, ICON_USB, ICON_GEAR };
         icon_recolor(ring_slot_icons[s], slot_icons[s], 28, sel ? c_primary() : c_text(), &ring_icon_col[s]);
     }
 }

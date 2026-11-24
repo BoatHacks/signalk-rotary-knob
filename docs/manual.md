@@ -106,16 +106,17 @@ two), dimmer for a muted zone. The bottom LED is green while the music plays. Th
 ### Motor
 **(not verified, no motor has been driven by the knob yet)** For a motor whose controller takes a throttle over SignalK. Off
 by default: switch *MOTOR mode* on in the settings page, and set *Motor id* (the `<id>` in `propulsion.<id>`) and, if you
-have one, *Motor power path*. The mode then sits after AUTO on the ring. Throttle commands need **allow control** (section 6).
+have one, *Motor power path*. The mode then sits just left of AUTO on the ring. Throttle commands need **allow control** (section 6).
 
 - **Arm:** with the motor in neutral, hold the knob, then turn one click right within 5 seconds. The knob never takes over a
   running motor: out of neutral it says `SET NEUTRAL FIRST`.
 - **Throttle:** turn right for more ahead, left for more astern. Slow clicks are 1 %, faster turning takes bigger steps (the
   *Throttle steps* setting: gentle, normal or quick). Neutral is at 12 o'clock, ahead in green clockwise, astern in amber.
-- **Through neutral:** coming from ahead the throttle stops at neutral. Keep the knob still for a second, then turn on into
-  astern (and the same the other way).
+- **Through neutral:** coming from ahead the throttle stops at neutral, even on a fast spin. The next click goes on into
+  astern straight away (and the same the other way).
 - **Neutral:** hold the knob. Hold it again in neutral to disarm. A single press does nothing.
-- **Limits:** the throttle stops at 50 % each way (*Throttle limit ahead / astern*) and warns. A double press allows more until
+- **Limits:** the throttle stops at 50 % each way (*Throttle limit ahead / astern*) and warns. Turning back below the limit
+  clears the warning. A double press while it shows allows more until
   the knob is disarmed.
 - **The knob lets go by itself**, sending neutral first, when allow control is switched off, the link drops, the motor stops
   reporting its gear for 3 seconds, the gear reports a fault or does not follow the throttle, or after a minute in neutral
@@ -193,11 +194,12 @@ the boat swings on the anchor, the lights switch. Set the anchor radius smaller 
 Nothing is sent to SignalK in demo mode, the knob does not even connect to the server, but Wi-Fi and the settings page stay up,
 so you can switch demo off from a phone. It stays on across restarts until you switch it off, a factory reset clears it.
 
-**Automatic demo.** Set *Demo mode* to AUTO and the knob shows itself off: after a 3, 2, 1 countdown and its start-up
+**Automatic demo.** Set *Demo mode* to `AUTO` and the knob shows itself off: after a 3, 2, 1 countdown and its start-up
 screen it goes through every mode on its own, engages the autopilot and turns it, dims a light, drops the anchor, turns the
 music up, raises and clears a drag alarm, changes the USB profile and ends in the settings. Every turn, press and touch it
 makes is drawn on the screen, with a short caption at the top. Touch or turn the knob and it stops and lets you take over;
-leave it alone for a minute and it starts again. Nothing is stored while it runs. To end it, set *Demo mode* to OFF or ON.
+leave it alone for a minute and it starts again. Nothing is stored while it runs. To end it, set *Demo mode* to `OFF` or
+`ON`. *Demo mode* `QUIET` runs the same tour without the drawn inputs and captions, for filming the screen.
 
 ## 7. Updating the firmware
 

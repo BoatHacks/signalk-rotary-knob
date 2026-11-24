@@ -585,23 +585,25 @@ static void test_motor_neutral_stop(void)
     uint32_t t = motor_arm(&m, 1000);
     t = motor_clicks(&m, t, 1, 10);
     TEST_ASSERT_EQUAL_INT(10, m.set_pct);
-    /* a fast spin to the left stops at 0 and stays there */
-    for (int i = 0; i < 20; i++) { t += 20; knob_motor_in_t in = motor_in(t); knob_motor_turn(&m, &in, -1); }
-    TEST_ASSERT_EQUAL_INT(0, m.set_pct);
-    /* still spinning slowly but less than the pause apart: still held */
-    t = motor_clicks(&m, t, -1, 3);
-    TEST_ASSERT_EQUAL_INT(0, m.set_pct);
-    /* after the pause, astern */
-    t += KNOB_MOTOR_PAUSE_MS;
+    /* down to 1, then a fast click (a big step) lands on 0, not past it */
+    t = motor_clicks(&m, t, -1, 9);
+    TEST_ASSERT_EQUAL_INT(1, m.set_pct);
+    t += 20;
     knob_motor_in_t in = motor_in(t);
     knob_motor_turn(&m, &in, -1);
-    TEST_ASSERT_EQUAL_INT(-1, m.set_pct);
-    /* back to ahead through 0 also stops */
-    t = motor_clicks(&m, t, 1, 5);
     TEST_ASSERT_EQUAL_INT(0, m.set_pct);
-    /* back to the side it came from needs no pause */
-    t = motor_clicks(&m, t, -1, 1);
-    TEST_ASSERT_EQUAL_INT(-1, m.set_pct);
+    /* the next click goes astern at once: no wait at neutral (owner, 2026-11-24) */
+    t += 20;
+    in = motor_in(t);
+    knob_motor_turn(&m, &in, -1);
+    TEST_ASSERT_TRUE(m.set_pct < 0);
+    /* back to ahead through 0 also stops on 0 first */
+    t = motor_clicks(&m, t, 1, 1);
+    int8_t before = m.set_pct;
+    t = motor_clicks(&m, t, 1, -before);
+    TEST_ASSERT_EQUAL_INT(0, m.set_pct);
+    t = motor_clicks(&m, t, 1, 1);
+    TEST_ASSERT_EQUAL_INT(1, m.set_pct);
 }
 
 static void test_motor_presses(void)
@@ -637,18 +639,22 @@ static void test_motor_limits(void)
     t = motor_clicks(&m, t, 1, 60);
     TEST_ASSERT_EQUAL_INT(50, m.set_pct);                    /* held at the limit */
     TEST_ASSERT_TRUE(m.limit_warning);
-    t = motor_clicks(&m, t, -1, 5);                          /* back below: the warning stays */
-    TEST_ASSERT_TRUE(m.limit_warning);
+    t = motor_clicks(&m, t, -1, 5);                          /* back below: the warning clears (owner, 2026-11-24) */
+    TEST_ASSERT_FALSE(m.limit_warning);
+    TEST_ASSERT_EQUAL_INT(45, m.set_pct);
     knob_motor_in_t in = motor_in(t);
+    TEST_ASSERT_FALSE(knob_motor_double_press(&m, &in));    /* nothing to lift */
+    t = motor_clicks(&m, t, 1, 10);                          /* at the limit again */
+    TEST_ASSERT_TRUE(m.limit_warning);
+    in = motor_in(t);
     TEST_ASSERT_TRUE(knob_motor_double_press(&m, &in));
     TEST_ASSERT_FALSE(m.limit_warning);
-    TEST_ASSERT_EQUAL_INT(45, m.set_pct);                    /* the double press raises nothing */
+    TEST_ASSERT_EQUAL_INT(50, m.set_pct);                    /* the double press raises nothing */
     t = motor_clicks(&m, t, 1, 60);
     TEST_ASSERT_EQUAL_INT(100, m.set_pct);
     /* astern is lifted too in this arm cycle */
     in = motor_in(t);
     knob_motor_long_press(&m, &in);
-    t += KNOB_MOTOR_PAUSE_MS;
     t = motor_clicks(&m, t, -1, 60);
     TEST_ASSERT_EQUAL_INT(-60, m.set_pct);
     /* after a disarm the limits are back */

@@ -505,7 +505,7 @@ static void settings_snapshot(marine_ui_snapshot_t *s, const knob_net_status_t *
     s->setting[KNOB_SET_HEADING] = c.heading_true ? 0 : 1;
     s->setting[KNOB_SET_HID_PROFILE] = c.hid_profile;
     s->setting[KNOB_SET_ALLOW_CONTROL] = c.allow_control ? 1 : 0;
-    s->setting[KNOB_SET_DEMO] = s_ad_shown_off ? 0 : c.demo ? (c.demo_auto ? 2 : 1) : 0;
+    s->setting[KNOB_SET_DEMO] = s_ad_shown_off ? 0 : c.demo ? (c.demo_auto ? (c.demo_quiet ? 3 : 2) : 1) : 0;
     s->setting[KNOB_SET_MOTOR_STEPS] = c.motor_curve;
     s->setting[KNOB_SET_MOTOR_AHEAD] = c.motor_max_ahead_pct;
     s->setting[KNOB_SET_MOTOR_ASTERN] = c.motor_max_astern_pct;
@@ -1052,7 +1052,8 @@ static void setting_write_async(void *arg)
             ESP_LOGI(TAG, "automatic demo: demo mode off shown, not applied");
             break;
         }
-        knob_config_set_bool("demo_auto", v == 2);
+        knob_config_set_bool("demo_quiet", v == 3);
+        knob_config_set_bool("demo_auto", v >= 2);
         knob_config_set_bool("demo", v != 0);
         break;
     case KNOB_SET_MOTOR_STEPS: {
@@ -1215,8 +1216,14 @@ void knob_model_restore_mode(void)
 static void ad_turn(void *c, int dir) { (void)c; marine_ui_feed_encoder_step((int8_t)dir); }
 static void ad_button(void *c, bool down) { (void)c; marine_ui_feed_button_edge(down); }
 static void ad_touch(void *c, int16_t x, int16_t y, bool down) { (void)c; marine_ui_feed_touch(x, y, down); }
-static void ad_show(void *c, knob_ad_fx_t fx, int a, int b) { (void)c; marine_ui_demo_fx((marine_demo_fx_t)fx, a, b); }
-static void ad_caption(void *c, const char *text) { (void)c; marine_ui_demo_caption(text); }
+/* QUIET (knob.demo_quiet): no drawn inputs and no captions, for filming. The countdown stays as the start cue. */
+static void ad_show(void *c, knob_ad_fx_t fx, int a, int b)
+{
+    (void)c;
+    if (s_cfg.demo_quiet && fx != KNOB_AD_FX_COUNT && fx != KNOB_AD_FX_CLEAR) return;
+    marine_ui_demo_fx((marine_demo_fx_t)fx, a, b);
+}
+static void ad_caption(void *c, const char *text) { (void)c; marine_ui_demo_caption(s_cfg.demo_quiet ? NULL : text); }
 
 static bool ad_cond(void *c, int id)
 {
@@ -1441,6 +1448,7 @@ static void on_config_key(const char *key)
     s_cfg.hid_profile = cfg.hid_profile;
     s_cfg.demo = cfg.demo;
     s_cfg.demo_auto = cfg.demo_auto;
+    s_cfg.demo_quiet = cfg.demo_quiet;
     s_cfg.music_mode = cfg.music_mode;
     s_cfg.ap_mode = cfg.ap_mode;
     s_cfg.lights_mode = cfg.lights_mode;

@@ -12,7 +12,7 @@ anything is unclear so that the motor side falls back to neutral by itself. Deci
 - docs/ui-design.md sections 2 (mode ring, input vocabulary), 4 (stale rules, allow control), 6 (wake).
 
 ## Decisions (2026-11-24)
-- **Mode ring:** MOTOR after AUTO: AUTO, MOTOR, LIGHTS, ANCHOR, MUSIC, USB, SETUP. Propeller icon, label `MOTOR`. Hidden by
+- **Mode ring:** MOTOR just before AUTO: MOTOR, AUTO, ANCHOR, LIGHTS, MUSIC, USB, SETUP (changed 2026-11-24 by the owner). Propeller icon, label `MOTOR`. Hidden by
   default (`knob.motor_mode` off), since most boats have no motor the knob may drive. The mode number is appended (6, the
   numbers are stored as the last mode), the ring order is its own table.
 - **Gating:** needs allow control, like the autopilot and the anchor. Without it the screen is view only and arming shows
@@ -36,7 +36,7 @@ anything is unclear so that the motor side falls back to neutral by itself. Deci
 - **Limits:** two settings, max ahead and max astern (10 to 100 %), both 50 % by default. The first time in an arm cycle the
   throttle would pass a limit it stops there, nothing above the limit is sent, and a warning shows
   (`LIMIT 50 %`, `2x: ALLOW MORE`). A double press lifts both limits until the next disarm, the throttle stays where it is and
-  only rises with the next turn. Turning back below the limit leaves the warning shown until acknowledged or disarmed.
+  only rises with the next turn. Turning back below the limit clears the warning (changed 2026-11-24 by the owner, it used to stay until acknowledged).
   While the warning shows, all five LEDs flash amber fast (4 Hz, on and off equally), on every screen. Unlike the throttle
   pattern it also shows at night, at the night brightness, because it is a warning. The LEDs setting off turns it off, an
   alarm takes over the LEDs as always.
@@ -77,7 +77,7 @@ SignalK has no standard path for a throttle command. Defaults, `<id>` is `knob.m
 
 ## Approach
 - **knob_logic** (host tested): the arming and throttle state machine as pure code: `knob_motor_t` with arm, confirm, turn
-  (click time in, step out by preset), the neutral stop with its 1 s pause, long press, double press, the limits and their
+  (click time in, step out by preset), the neutral stop (the 1 s pause dropped 2026-11-24 by the owner), long press, double press, the limits and their
   warning, stale gear, fault and mismatch, allow control off, idle and keepalive due times. The firmware feeds it events and the clock, and sends what it returns. Safety rules live here so they are tested.
 - **knob_model:** subscriptions for the gear, RPM, torque, reported throttle and the power path, a motor stale reason, the
   snapshot fields, the motor state for the tag.

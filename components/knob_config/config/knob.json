@@ -28,6 +28,13 @@
    "description": "With demo mode on: the knob runs a scripted tour of every mode by itself and shows each turn, press and touch on the screen. Any real input pauses it, it starts again after a minute without input."
   },
   {
+   "name": "demo_quiet",
+   "type": "bool",
+   "default": false,
+   "title": "Automatic demo without indicators",
+   "description": "With the automatic demo: hide the drawn turns, presses, touches and the captions, so the screen can be filmed as it is. The 3, 2, 1 countdown stays."
+  },
+  {
    "name": "autopilot_id",
    "type": "string",
    "default": "raymarineST",

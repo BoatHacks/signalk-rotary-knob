@@ -64,7 +64,8 @@ const knob_ad_step_t knob_ad_script[] = {
 
     /* Setup: demo mode off. In the automatic demo the store is shown, not applied, and the script starts again. */
     CAPTION("SETUP"), RING_TO(M_SETTINGS), WAIT(1200),
-    CAPTION("DEMO MODE OFF"), SET_TO(KNOB_SET_DEMO), WAIT(900), PRESS, WAIT(900), TURN(-2), WAIT(900), PRESS, WAIT(3000),
+    CAPTION("DEMO MODE OFF"), SET_TO(KNOB_SET_DEMO), WAIT(900), PRESS, WAIT(900), TURN(-3), WAIT(900), PRESS, WAIT(3000),
+    /* three clicks: OFF from AUTO or QUIET (a choice stops at its first value) */
     CAPTION(NULL), WAIT(2000),
     END,
 };

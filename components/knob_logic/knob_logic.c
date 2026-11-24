@@ -140,7 +140,7 @@ static const int s_dim_level[] = { 1, 2, 5, 10, 15, 20, 30, 40, 50, 60, 80, 100 
 static const int s_off_after[] = { 0, 1, 2, 5, 10, 15, 30, 60, 120, 240 };
 static const char *const s_night_w[] = { "SERVER", "DAY", "NIGHT" };
 static const char *const s_onoff_w[] = { "OFF", "ON" };
-static const char *const s_demo_w[] = { "OFF", "ON", "AUTO" };
+static const char *const s_demo_w[] = { "OFF", "ON", "AUTO", "QUIET" };
 
 const int knob_modes_page[KNOB_MODES_PAGE_COUNT] = { 0, 1, 2, KNOB_MODE_MUSIC, KNOB_MODE_MOTOR, KNOB_MODE_HID };
 const char *const knob_modes_page_name[KNOB_MODES_PAGE_COUNT] = { "AUTO", "LIGHTS", "ANCHOR", "MUSIC", "MOTOR", "USB" };
@@ -175,7 +175,7 @@ static const knob_setting_desc_t s_settings[KNOB_SET_COUNT] = {
     [KNOB_SET_HEADING] = { "HEADING", KNOB_KIND_CHOICE, NULL, NULL, 2, s_heading_w },
     [KNOB_SET_HID_PROFILE] = { "HID PROFILE", KNOB_KIND_CHOICE, NULL, NULL, 3, s_hid_w },
     [KNOB_SET_ALLOW_CONTROL] = { "ALLOW CONTROL", KNOB_KIND_CHOICE, NULL, NULL, 2, s_onoff_w },
-    [KNOB_SET_DEMO] = { "DEMO MODE", KNOB_KIND_CHOICE, NULL, NULL, 3, s_demo_w },
+    [KNOB_SET_DEMO] = { "DEMO MODE", KNOB_KIND_CHOICE, NULL, NULL, 4, s_demo_w },
     [KNOB_SET_MOTOR_STEPS] = { "THROTTLE STEPS", KNOB_KIND_CHOICE, NULL, NULL, 3, s_curve_w },
     [KNOB_SET_MOTOR_AHEAD] = { "LIMIT AHEAD", KNOB_KIND_NUMBER, "%", s_motor_limit, N(s_motor_limit), NULL },
     [KNOB_SET_MOTOR_ASTERN] = { "LIMIT ASTERN", KNOB_KIND_NUMBER, "%", s_motor_limit, N(s_motor_limit), NULL },

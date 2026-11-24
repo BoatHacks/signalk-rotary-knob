@@ -35,9 +35,10 @@ switcher, scaled to the number of visible modes (and the position text, for exam
 
 The HID mode is listed only while a USB host has enumerated the knob (section 3.4). Without a host it is hidden from the ring.
 
-MOTOR sits after AUTO when `knob.motor_mode` is on (section 3.7, off by default). MUSIC sits after ANCHOR when
-`knob.music_mode` is on (section 3.6). The full order: AUTO, MOTOR, LIGHTS, ANCHOR, MUSIC, USB, SETUP. The last slot is **Settings** (gear icon, label `SETUP` because `SETTINGS` does not fit the 54 px slot, section 3.5), hidden
-while an alarm is active. Agreed 2026-11-23 from a mockup: the visible slots are spaced evenly at r 86, clockwise from the top
+The order, clockwise (owner, 2026-11-24): MOTOR, AUTO, ANCHOR, LIGHTS, MUSIC, USB, SETUP, with AUTO at 12 o'clock and MOTOR just
+left of it. A mode switched off (MODES page, section 3.5) is left out and the others keep their order; with AUTO off, the next
+visible mode after it takes 12 o'clock. MOTOR is off by default (section 3.7). The last slot is **Settings** (gear icon, label `SETUP` because `SETTINGS` does not fit the 54 px slot, section 3.5), hidden
+while an alarm is active. Agreed 2026-11-23 from a mockup: the visible slots are spaced evenly at r 86
 (5 with a USB host, 4 without). The centre shows the mode you are in.
 
 ## 3. Modes
@@ -173,11 +174,11 @@ Look:
   text above and below, `SETTINGS 3/14` on the top line, `PRESS EDIT · 2x BACK` on the bottom line (straight, 12 px).
 - **Editing:** the item name on the top line, the new value large in amber on a 270 degree amber arc, `was 80 %` under it,
   `PRESS STORE · 2x UNDO` on the bottom line. On/off and choice items show the word instead of the arc.
-- **MODES page** (built 2026-11-24, owner's request): six pills in two columns and three rows, AUTO, LIGHTS, ANCHOR,
-  MUSIC, MOTOR, USB. A filled pill (primary colour, dark text) is a mode on the ring, an outlined one is off. Turn moves
+- **MODES page** (built 2026-11-24, owner's request): six pills in two columns and three rows, `AUTO`, `LIGHTS`, `ANCHOR`,
+  `MUSIC`, `MOTOR`, `USB`. A filled pill (primary colour, dark text) is a mode on the ring, an outlined one is off. Turn moves
   the focus (a thicker border), a press switches the focused mode, a double press goes back to the list. The last mode that
-  is on stays on: the bottom line says ONE MODE STAYS ON for 2 s. Settings is always on the ring. The list shows
-  5 OF 6 ON. Stored as knob.ap_mode, lights_mode, nchor_mode, music_mode, motor_mode and usb_mode (also on the
+  is on stays on: the bottom line says `ONE MODE STAYS ON` for 2 s. Settings is always on the ring. The list shows
+  `5 OF 6 ON`. Stored as `knob.ap_mode`, `lights_mode`, `anchor_mode`, `music_mode`, `motor_mode` and `usb_mode` (also on the
   web settings page). A mode switched off while it is on screen hands over to the first one that is on, and so does a boot
   into it. USB still needs a USB host on the cable to show.
 - **Confirm turn** (allow control, off to on): cyan countdown arc, `Autopilot and anchor`, `TURN RIGHT`, `to allow`,
@@ -232,7 +233,7 @@ previous and next as round buttons left and right, play or pause as a round butt
 amber until the server confirms it. Paused greys the arc. A zone that is not connected shows `ZONE OFFLINE`. A stale volume
 shows the stale overlay (`NO VOLUME`).
 
-On the mode ring MUSIC (music notes icon) sits after ANCHOR: AUTO, LIGHTS, ANCHOR, MUSIC, USB, SETUP. The setting
+On the mode ring MUSIC (music notes icon) sits after LIGHTS (section 2). The setting
 `knob.music_mode` (on by default) takes it off the ring on a boat without the jukebox. Up to four zones, named from the
 plugin's REST API (the id until the name arrives). The master volume never received counts as `NO VOLUME`, like a stale one.
 
@@ -244,7 +245,7 @@ shows its state. Needs allow control. Not verified on a real motor yet.
 | Input | Disarmed | Armed |
 |---|---|---|
 | Long press | Arm: then one click right within 5 s (countdown arc). Refused out of neutral, without allow control, without a fresh gear, on a fault | Out of neutral: throttle 0 at once (at 750 ms, while still holding), stays armed. In neutral: disarm |
-| Turn | Nothing | Right more ahead, left more astern. 1 % per slow click (over 150 ms apart), more when faster (gentle 1/1/2, normal 1/2/5, quick 1/3/10 %). Stops at neutral from either side; still for 1 s, then on into the other direction. Clicks in the first 500 ms after arming are ignored |
+| Turn | Nothing | Right more ahead, left more astern. 1 % per slow click (over 150 ms apart), more when faster (gentle 1/1/2, normal 1/2/5, quick 1/3/10 %). Stops at neutral from either side, the next click goes on into the other direction (no wait, owner 2026-11-24). Clicks in the first 500 ms after arming are ignored |
 | Single press | Nothing | Nothing (it only counts after the 300 ms double-press wait, too slow for neutral) |
 | Double press | Mode ring | Limit warning showing: lift both limits until the next disarm, the throttle stays. Otherwise the mode ring (the throttle keeps its value) |
 
@@ -257,7 +258,7 @@ stays until the next arm. Bottom line: `HOLD: ARM`, `TURN RIGHT TO ARM`, `HOLD: 
 `LIMIT 50 % · 2x: ALLOW MORE` in amber.
 
 - Limits: max ahead and max astern, 50 % by default. The first time in an arm cycle the throttle stops there and the warning
-  shows, nothing above the limit is sent.
+  shows, nothing above the limit is sent. Turning back below the limit clears the warning (owner, 2026-11-24).
 - The knob falls back to neutral (sends 0, disarms) on allow control off, link loss, a gear older than 3 s, a `Fault`, a gear
   that does not match the throttle's sign for 3 s, or 60 s in neutral without input (0 = never). A reboot starts disarmed and
   sends nothing.
@@ -290,7 +291,8 @@ looks and works as on the boat, alarms included: setting the anchor radius below
 
 ### Automatic demo (#10, built 2026-11-24)
 
-`DEMO MODE` has three values: `OFF`, `ON` (the manual demo above) and `AUTO`. In `AUTO` the knob drives itself through every
+`DEMO MODE` has four values: `OFF`, `ON` (the manual demo above), `AUTO` and `QUIET` (`AUTO` without the drawn inputs
+and the captions, for filming the screen; the countdown stays as the start cue, owner 2026-11-24). In `AUTO` the knob drives itself through every
 mode the way a person would, always through the mode ring, and runs one typical action in each (the script is
 `knob_ad_script` in `components/knob_logic/knob_autodemo.c`, docs/plans/issue-10-auto-demo.md). It starts with a 3, 2, 1
 countdown, then the splash with the boot phases (`WI-FI`, `SIGNALK`, `TOKEN`), then the tour, about two and a half minutes,

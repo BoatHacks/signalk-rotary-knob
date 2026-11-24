@@ -19,6 +19,7 @@ typedef struct {
     bool allow_control;      /* autopilot and anchor commands may leave the knob (SPEC section 2), off by default */
     bool demo;               /* demo mode (#4): simulated data, the SignalK client stopped, chosen at boot */
     bool demo_auto;          /* automatic demo (#10): with demo on, the scripted tour runs by itself */
+    bool demo_quiet;         /* the automatic demo without the input indicators and captions (DEMO MODE QUIET), for filming */
     char autopilot_id[32];
     bool heading_true;       /* true: navigation.headingTrue, false: navigation.headingMagnetic */
     uint16_t anchor_radius_m;

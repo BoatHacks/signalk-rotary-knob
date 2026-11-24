@@ -113,6 +113,7 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 | `DEMO MODE` `AUTO` from the knob and the web page, and serial `p`: countdown, splash with the boot phases, then the tour | open | | | |
 | Every step does what the script says: engage and 23° to port, dim 80 to 20 % and off, radius 20 m and drop, volume 42 to 100 %, drag alarm, acknowledge, radius 30 m clears it, USB to media, setup to demo off | open | | | |
 | Every turn, press, double press, long press and touch is drawn, caption readable, at day and at night | open | | | |
+| `QUIET`: the same tour with nothing drawn on top and no captions, only the countdown | open | | | |
 | `Eläkeläiset` shows with the umlauts, the position counts up from 0:53 | open | | | |
 | Three runs in a row without a stuck step | open | | | |
 | Real input pauses it, 60 s later it starts again from the top | open | | | |
@@ -135,7 +136,8 @@ First in demo mode (a simulated motor), then against a test plugin, then with th
 
 | Item | Status | Date | Commit | Notes |
 |---|---|---|---|---|
-| MOTOR on the ring after AUTO only with `knob.motor_mode` on | open | | | |
+| MOTOR on the ring just left of AUTO only with `knob.motor_mode` on | open | | | |
+| Ring order MOTOR, AUTO (12 o'clock), ANCHOR, LIGHTS, MUSIC, USB, SETUP; a switched-off mode leaves a gap-free ring in the same order | open | | | |
 | Arm: long press, one click right within 5 s, countdown arc; left click or timeout cancels | open | | | |
 | Arming refused with `SET NEUTRAL FIRST`, `CONTROL IS OFF`, `NO MOTOR DATA` | open | | | |
 | A spin that confirms does not raise the throttle (first 500 ms ignored) | open | | | |

@@ -13,7 +13,6 @@ extern "C" {
 
 #define KNOB_MOTOR_CONFIRM_MS   5000 /* the confirm turn after the arming long press */
 #define KNOB_MOTOR_SETTLE_MS    500  /* clicks this soon after arming are the confirm turn's follow-through, ignored */
-#define KNOB_MOTOR_PAUSE_MS     1000 /* still this long at neutral before the other direction */
 #define KNOB_MOTOR_KEEPALIVE_MS 1000 /* resend the throttle while out of neutral */
 #define KNOB_MOTOR_STALE_MS     3000 /* gear older than this = no motor data */
 #define KNOB_MOTOR_MISMATCH_MS  3000 /* gear not matching the throttle's sign this long = fault */
@@ -56,8 +55,8 @@ typedef struct {
     uint32_t confirm_ms;     /* when the confirm prompt opened, then when it armed */
     uint32_t last_click_ms;  /* last encoder click while armed (ignored ones too) */
     uint32_t last_input_ms;  /* last input of any kind while armed, for the idle timeout */
-    int8_t hold_side;        /* at neutral, coming from +1 (ahead) or -1 (astern): that side waits for the pause */
-    bool limit_warning;      /* a limit was hit and not acknowledged */
+    int8_t hold_side;        /* the click that crossed neutral came from +1 (ahead) or -1 (astern); no wait at neutral */
+    bool limit_warning;      /* at a limit: cleared by turning back below it, or lifted with a double press */
     bool limit_lifted;       /* acknowledged with a double press, until the next disarm */
     uint32_t mismatch_ms;    /* since when the gear disagrees with the throttle, 0 = it agrees */
     bool send_due;           /* a new value is waiting to go out */

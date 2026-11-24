@@ -137,11 +137,9 @@ void knob_motor_turn(knob_motor_t *m, const knob_motor_in_t *in, int dir)
     m->last_input_ms = now;
     int cur = m->set_pct;
 
-    /* The stop on neutral: coming from one side, the other side only after the knob was still for the pause. */
-    if (cur == 0 && m->hold_side != 0) {
-        if (dir == -m->hold_side && since < KNOB_MOTOR_PAUSE_MS) return;
-        m->hold_side = 0;
-    }
+    /* The stop on neutral: a click that would cross 0 lands on 0, the next one goes on to the other side. No wait at
+     * neutral (owner, 2026-11-24). */
+    if (cur == 0) m->hold_side = 0;
 
     int nv = cur + dir * knob_motor_step(in->curve, since);
     if (cur > 0 && nv <= 0) { nv = 0; m->hold_side = 1; }
@@ -151,7 +149,8 @@ void knob_motor_turn(knob_motor_t *m, const knob_motor_in_t *in, int dir)
         int ahead = in->max_ahead_pct > 100 ? 100 : in->max_ahead_pct;
         int astern = in->max_astern_pct > 100 ? 100 : in->max_astern_pct;
         if (nv > ahead) { nv = ahead; m->limit_warning = true; }
-        if (nv < -astern) { nv = -astern; m->limit_warning = true; }
+        else if (nv < -astern) { nv = -astern; m->limit_warning = true; }
+        else if (nv < ahead && nv > -astern) m->limit_warning = false;   /* turned back below the limit (owner, 2026-11-24) */
     }
     if (nv > 100) nv = 100;
     if (nv < -100) nv = -100;
