@@ -75,6 +75,9 @@ CONFIG_LV_FONT_MONTSERRAT_14=y
 CONFIG_LV_FONT_MONTSERRAT_20=y
 CONFIG_LV_FONT_MONTSERRAT_28=y
 CONFIG_LV_FONT_MONTSERRAT_44=y
+# The knob's own fonts (components/marine_ui/fonts, tools/gen_fonts.sh) are in LVGL's compressed format. Without this LVGL
+# finds no glyph images in them and draws through a null pointer (a crash at the first letter, seen 2026-11-24).
+CONFIG_LV_USE_FONT_COMPRESSED=y
 
 # PSRAM: with LVGL in internal RAM only, espos_sk_start() fails with ESP_ERR_NO_MEM and the board boot-loops.
 # The CrowPanel has 8 MB octal PSRAM. Allocations over 4 KB go there, small ones stay in internal RAM.

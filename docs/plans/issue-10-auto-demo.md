@@ -103,7 +103,11 @@ Added by the owner on 2026-11-24: the tour opens with a 3, 2, 1 countdown, then 
 - [x] Input overlay in marine_ui (turn arc and count, press rings, long press fill, touch dot, caption, countdown).
 - [x] Wired up: `DEMO MODE` `OFF`/`ON`/`AUTO` (`knob.demo` plus `knob.demo_auto`), the player in the input task's hook,
       pause on real input and restart after 60 s, serial command `p`, no USB device, no flash writes, the simulated boot.
-- [ ] Bench run through the hardware checklist section "Automatic demo", video for the README.
+- [x] First run on the knob 2026-11-24: crashed at the first caption, because the knob's fonts are compressed and
+      `CONFIG_LV_USE_FONT_COMPRESSED` was off (fixed). Then one serial-started run over 3.5 minutes: no crash, the last step
+      reached after about 108 s, the tour looped. Internal RAM dipped once to 22.4 KB around the engage step (normal low
+      39.8 KB, espOS restarts below 12 KB): find what allocates there (the countdown's scaled label, the overlay) and bring it back.
+- [ ] Bench run through the hardware checklist section "Automatic demo" by eye, video for the README.
 - [x] Docs: ui-design section 4 "Automatic demo", manual section 6a, hardware checklist.
 
 ## Files

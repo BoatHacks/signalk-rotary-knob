@@ -10,7 +10,8 @@
 #   Montserrat Medium: ASCII, Latin-1, Latin Extended-A, Cyrillic (221 of 256), typographic punctuation, euro, bullet
 #   DejaVu Sans:       Greek (Montserrat has none)
 #   Font Awesome:      the same symbol set as LVGL's built-in fonts (LV_SYMBOL_*)
-# 4 bits per pixel, LVGL's compressed format. Flash cost: 14 px 43.5 KB, 20 px 61.2 KB, 32 px 107.4 KB. No RAM.
+# 4 bits per pixel, LVGL's compressed format: needs CONFIG_LV_USE_FONT_COMPRESSED=y (sdkconfig.defaults), else LVGL crashes at
+# the first letter. Flash cost: 14 px 43.5 KB, 20 px 61.2 KB, 32 px 107.4 KB. No RAM.
 set -eu
 
 conv="${LV_FONT_CONV:-npx --yes lv_font_conv@1.5.3}"
