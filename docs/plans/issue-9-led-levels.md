@@ -3,7 +3,7 @@
 ## Overview
 The five WS2812s on the rim of the base become a level display in the music and lights modes: the volume or the light's
 brightness fills the ring clockwise from the bottom left, and the bottom LED shows play or pause (music) or on or off (lights).
-The same fill shows the throttle in the motor mode (#8). Decided with the owner on 2026-11-24.
+The same fill shows the throttle in the motor mode (#8). Decided with the owner on 2026-11-24, defaults reviewed the same day.
 
 ## Relevant SPEC / ARCHITECTURE sections
 - SPEC sections 7 (UI), 9 (configuration, the LEDs and night settings), 12.
@@ -22,6 +22,10 @@ The same fill shows the throttle in the motor mode (#8). Decided with the owner 
 - **The LEDs setting** off turns these patterns off too.
 - **Alarms** take over the LEDs as today, on every screen.
 - **Stale data** (`ZONE OFFLINE`, a light without a value): all off, never a guessed level.
+- **Value shown:** the level the server reports, not the value pending while turning, so the ring never shows a change that
+  did not happen (it follows the hand with a short lag).
+- **Muted zone:** the level at a quarter of its brightness, the 6 o'clock LED still shows play or pause.
+- **Brightness:** scaled by the brightness setting and dimmed with the screen's idle dim, like the steering indicator.
 
 ## Approach
 - **knob_logic** (host tested): `knob_led_level(ratio, out[4])`, the four brightnesses for a level from 0 to 1 in data-line
