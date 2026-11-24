@@ -1,0 +1,99 @@
+# Plan: #8 motor throttle control
+
+## Overview
+A MOTOR mode for the boat's motor from the helm: arm it like engaging the autopilot, then turn right for more ahead and left for
+more astern, with neutral at 12 o'clock and a stop on neutral between forward and reverse. The centre shows RPM, torque, power
+and the gear. Safety comes first: the knob only ever sends a throttle, never takes over a running motor, and stops talking when
+anything is unclear so that the motor side falls back to neutral by itself. Decided with the owner on 2026-11-24.
+
+## Relevant SPEC / ARCHITECTURE sections
+- SPEC sections 2 (domain rules, allow control), 6.2a (REST API), 6.3 (SignalK interfaces), 7 (UI), 9 (configuration), 12.
+- ARCHITECTURE.md sections 2.5 (knob_model), 2.6 (adapters), 2.7 (knob_logic), 2.9 (modes).
+- docs/ui-design.md sections 2 (mode ring, input vocabulary), 4 (stale rules, allow control), 6 (wake).
+
+## Decisions (2026-11-24)
+- **Mode ring:** MOTOR after AUTO: AUTO, MOTOR, LIGHTS, ANCHOR, MUSIC, USB, SETUP. Propeller icon, label `MOTOR`. Hidden by
+  default (`knob.motor_mode` off), since most boats have no motor the knob may drive. The mode number is appended (6, the
+  numbers are stored as the last mode), the ring order is its own table.
+- **Gating:** needs allow control, like the autopilot and the anchor. Without it the screen is view only and arming shows
+  `CONTROL IS OFF`. The REST API can switch to the mode but can never arm or set a throttle.
+- **Arming:** long press, then a confirm turn to the right within 5 s, with the countdown arc, like the autopilot's engage. The
+  knob arms only while the motor reports neutral, otherwise `SET NEUTRAL FIRST`. It never takes over a running motor.
+- **Command:** the knob sends only a throttle, a signed ratio from -1.0 (full astern) to +1.0 (full ahead), 0 is neutral. The
+  motor controller reports F, N or R on its own path. The knob never sends a gear.
+- **Turn:** right raises, left lowers. Steps depend on the turning speed, with three presets as a setting: Gentle 1/1/2 %,
+  Normal 1/2/5 % (default), Quick 1/3/10 % (slow, normal and fast clicks). The click-time thresholds come from the spike.
+- **Neutral stop:** from ahead to astern or back the throttle stops at 0, further clicks are ignored. Once the knob has been
+  still for about 1 s, the next turn goes on into the other direction. A fast spin never crosses neutral.
+- **Press:** a single press goes to neutral at once and stays armed. A long press goes to neutral and disarms.
+- **No ramp** in the knob, the motor controller does its own.
+- **Keepalive:** while armed and out of neutral, the current throttle is resent every 1 s. Requirement on the motor side
+  (whichever plugin is used or written): fall back to neutral after about 3 s without a throttle.
+- **Link loss or stale motor data** (no gear or RPM updates) while armed: send neutral if the link still allows it, disarm,
+  show `NO LINK` or `NO MOTOR DATA`. Control only comes back with a new arm.
+- **Idle:** armed in neutral with no input, disarm after 60 s. The timeout is a setting (10 to 300 s). Out of neutral it never
+  disarms by itself.
+- **Leaving the mode:** the ring stays usable and the throttle keeps its value. While the motor is out of neutral every screen
+  except the alarm screen shows a small tag at the bottom, like the DEMO tag: `F 40 %` in green or `R 15 %` in amber. Hidden
+  in neutral.
+- **Reboot:** the knob starts disarmed and sends nothing, so the keepalive stops and the motor side goes to neutral. The motor
+  screen is restored like any other mode, disarmed.
+- **Screen:** RPM, torque, power and the gear (F, N, R) in the centre. An arc on the rim from 12 o'clock: clockwise in green
+  for ahead, counter-clockwise in amber for astern. A thick arc for the set throttle, a thin marker for what the motor reports.
+  Values the boat does not publish are left out, not shown as zero.
+- **LEDs:** ahead fills clockwise 1 o'clock then 3:30 (0 to 50 %, 50 to 100 %, fading in), astern counter-clockwise 11 then
+  8:30. The 6 o'clock LED shows the gear: green F, amber R, off in N. Off at night and with the LEDs setting off. Alarms win.
+  Fill and fade as in [issue-9-led-levels.md](issue-9-led-levels.md).
+
+## SignalK paths (defaults, all settings)
+SignalK has no standard path for a throttle command. Defaults, `<id>` is `knob.motor_id` (default `main`):
+- Throttle command: `PUT propulsion.<id>.throttle` with `{"value": <ratio>}`. Reported throttle on the same path.
+- Gear: `propulsion.<id>.transmission.gear` (`Forward`, `Neutral`, `Reverse`, per the SignalK spec).
+- RPM: `propulsion.<id>.revolutions` (Hz, shown as rpm).
+- Torque: `propulsion.<id>.engineTorque` (spec: ratio, shown as %).
+- Power: `knob.motor_power_path`, empty by default, the value is hidden while it is empty (the draw may come from the motor or
+  a battery monitor). Watts.
+
+## Approach
+- **knob_logic** (host tested): the arming and throttle state machine as pure code: `knob_motor_t` with arm, confirm, turn
+  (click time in, step out by preset), the neutral stop with its 1 s pause, press, long press, stale, idle and keepalive due
+  times. The firmware feeds it events and the clock, and sends what it returns. Safety rules live here so they are tested.
+- **knob_model:** subscriptions for the gear, RPM, torque, reported throttle and the power path, a motor stale reason, the
+  snapshot fields, the motor state for the tag.
+- **knob_actions:** the throttle PUT, the keepalive timer, neutral on disarm. Allow control and the demo lock as for the pilot.
+- **marine_ui:** the motor screen, the arm confirm, `SET NEUTRAL FIRST`, `NO LINK`, `NO MOTOR DATA`, the tag on the other
+  screens, the propeller icon, the ring with seven slots (check that seven labels fit at r86).
+- **knob_power:** the throttle LED pattern.
+- **knob_config:** `motor_mode` (off), `motor_id` (`main`), `motor_power_path` (empty), `motor_curve` (normal),
+  `motor_idle_s` (60). Settings screen items for the curve and the idle timeout.
+- **Demo mode:** a simulated motor (RPM and torque following the throttle, the gear following the sign) so the screen can be
+  photographed without a motor.
+
+## Test strategy
+- Host tests: steps per preset and click time, the neutral stop (a fast spin from +30 % stops at 0, a pause then goes astern),
+  arming refused out of neutral or without allow control, press and long press, stale and link loss disarm, idle disarm only
+  in neutral, keepalive due every 1 s only out of neutral, nothing sent after a reboot.
+- Hardware checklist: a new motor section, first against a test plugin or the demo, then with the real motor at the boat.
+- At the boat, before the motor is connected: check that the motor side falls back to neutral without the keepalive.
+
+## Open questions
+- Which motor and which plugin take the throttle. The knob's defaults are a guess until then **(verify)**.
+- Click-time thresholds and detents per turn: from the spike.
+
+## Steps
+- [ ] **Spike `spikes/encoder-timing`:** log the raw PCNT count per detent and the time between clicks; the owner turns slowly,
+      normally and fast and one full turn. Gives the detents per turn and the thresholds for the three presets.
+- [ ] knob_logic: motor state machine and step presets, host tests.
+- [ ] knob_config keys and settings items.
+- [ ] knob_model subscriptions, stale reason, snapshot fields. knob_actions: throttle PUT, keepalive, neutral on disarm.
+- [ ] marine_ui: motor screen, arming, refusals, tag, ring slot. knob_power: LED pattern. Demo motor.
+- [ ] Docs: SPEC 2, 6.3, 9, 12; ARCHITECTURE; ui-design (ring, new section for motor); manual; hardware checklist.
+
+## Files
+- `spikes/encoder-timing/` (new)
+- `components/knob_logic/knob_logic.{c,h}`, `test/host/test_knob_logic.c`
+- `components/knob_config/` (`knob_config.{c,h}`, `config/knob.json`)
+- `components/knob_model/knob_model.{c,h}`, `components/knob_actions/knob_actions.{c,h}`, `components/knob_logic/knob_demo.c`
+- `components/marine_ui/marine_ui.c`, `components/marine_ui/include/marine_ui.h`
+- `components/knob_power/knob_power.c`
+- SPEC.md, ARCHITECTURE.md, docs/ui-design.md, docs/manual.md, docs/hardware-checklist.md
