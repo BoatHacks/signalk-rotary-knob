@@ -88,11 +88,11 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 | Lights switch, USB-HID still works | open | | | |
 | Demo off from the web page restarts into normal mode | open | | | |
 
-## Volume (#6)
+## Music (#6)
 
 | Item | Status | Date | Commit | Notes |
 |---|---|---|---|---|
-| VOLUME on the ring after ANCHOR, off the ring with `knob.volume_mode` off, the API answers 409 then | open | | | |
+| MUSIC on the ring after ANCHOR, off the ring with `knob.music_mode` off, the API answers 409 then | open | | | |
 | Turn changes the master volume on the server, 2 % a click, amber until confirmed | open | | | |
 | Long press and a tap on the name step through MASTER and the zones, zone names from the plugin | open | | | |
 | A zone's volume follows the turn | open | | | |
@@ -156,7 +156,7 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 | Item | Status | Date | Commit | Notes |
 |---|---|---|---|---|
 | Idle dim after 30 s, off after 10 min, input wakes | open | | | |
-| No LED flicker with all LEDs dark (LIGHTS, VOLUME) or in a steady colour | open | | | one LED flickered: the RMT frame was refilled mid-frame (64 symbols for 121), now 144 and sent only on a change, plus every 5 s |
+| No LED flicker with all LEDs dark (LIGHTS, MUSIC) or in a steady colour | open | | | one LED flickered: the RMT frame was refilled mid-frame (64 symbols for 121), now 144 and sent only on a change, plus every 5 s |
 | Screen off: a touch anywhere (centre included) wakes it and does nothing else | ok | 2026-11-23 | 8bf8ce4 | centre and edge, on the anchor screen |
 | Screen off: a knob push only wakes, no click and no long press | ok | 2026-11-23 | 8bf8ce4 | the push touches the glass first |
 | Screen dimmed: a touch wakes, in LIGHTS outside the centre it also steps the channel | ok | 2026-11-23 | 1350c7c | wakes on the anchor screen. Failed on 8bf8ce4, where only LIGHTS woke from dim. The channel step is not visible with one channel |

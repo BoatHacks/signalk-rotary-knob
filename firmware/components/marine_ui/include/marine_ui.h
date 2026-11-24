@@ -18,7 +18,7 @@ typedef enum {
     MARINE_MODE_ANCHOR_WATCH,
     MARINE_MODE_USB_HID,
     MARINE_MODE_SETTINGS,
-    MARINE_MODE_VOLUME,          // appended: the numbers are stored as the last mode. On the ring it sits after ANCHOR.
+    MARINE_MODE_MUSIC,          // appended: the numbers are stored as the last mode. On the ring it sits after ANCHOR.
     MARINE_MODE_COUNT
 } marine_ui_mode_t;
 
@@ -259,8 +259,8 @@ typedef struct {
     uint32_t route_updated_ms;
     uint32_t route_timeout_ms;
 
-    // Volume (#6, signalk-jukebox): target 0 is MASTER, then the zones.
-    bool volume_mode;              // the VOLUME slot is on the ring (knob.volume_mode)
+    // Music (#6, signalk-jukebox): target 0 is MASTER, then the zones.
+    bool music_mode;              // the MUSIC slot is on the ring (knob.music_mode)
     uint8_t vol_target_count;
     marine_vol_target_t vol_targets[1 + MARINE_MAX_VOL_ZONES];
     uint8_t play_state;            // marine_play_state_t

@@ -1,7 +1,7 @@
 # Rotary knob user manual
 
 > DRAFT 2, 2026-11-23: written from the implemented behaviour and docs/ui-design.md, updated with the settings screen, demo
-> mode, the volume mode and the autopilot's wind and route modes. Items marked **(not verified)** have not been tried on the
+> mode, the music mode and the autopilot's wind and route modes. Items marked **(not verified)** have not been tried on the
 > real hardware yet. The autopilot and anchor sections get their final words after the trials at the boat. Photos and
 > screenshots will be added once the UI has been checked on the panel (demo mode is meant for them).
 
@@ -87,12 +87,12 @@ With the **hoekens-anchor-alarm** plugin installed:
   off, no link, no position fix, the server refused) and that nothing was changed.
 Anchor and autopilot commands are only sent when **allow control** is on (see section 6).
 
-### Volume
+### Music
 
 The boat's music through the jukebox on the SignalK server. Turn for the volume (2 % a click, sent when you stop turning), press
 to play or pause, hold to step from `MASTER` to each zone. The touch screen is a small player: previous on the left, next on
 the right, play or pause at the bottom, tap the name at the top for the next zone. A zone whose speaker is off shows
-`ZONE OFFLINE`. On a boat without the jukebox, switch *VOLUME mode* off on the settings page and the mode leaves the ring.
+`ZONE OFFLINE`. On a boat without the jukebox, switch *MUSIC mode* off on the settings page and the mode leaves the ring.
 
 ### USB-HID
 Listed in the mode ring only while a computer has recognised the knob over USB. The dial then acts as an input device for that computer:

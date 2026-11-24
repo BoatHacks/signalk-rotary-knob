@@ -28,7 +28,7 @@ typedef struct {
 } knob_model_status_t;
 void knob_model_get_status(knob_model_status_t *out);
 
-/* Whether a mode is on the mode ring by the settings (knob.volume_mode for VOLUME). The REST API refuses a hidden one. */
+/* Whether a mode is on the mode ring by the settings (knob.music_mode for MUSIC). The REST API refuses a hidden one. */
 bool knob_model_mode_enabled(int mode);
 
 /* Opens the mode stored at the last mode ring change (USB-HID excepted). Call after espos_start(), not under the LVGL lock. */

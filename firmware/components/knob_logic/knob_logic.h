@@ -61,13 +61,13 @@ bool knob_boot_hid(bool hid_last, bool host_present, uint32_t now_ms, uint32_t w
 
 /* --- Mode API and allow control (#3) --- */
 
-/* Mode numbers follow marine_ui_mode_t: 0 autopilot, 1 lights, 2 anchor, 3 hid, 4 settings, 5 volume. The names are the
+/* Mode numbers follow marine_ui_mode_t: 0 autopilot, 1 lights, 2 anchor, 3 hid, 4 settings, 5 music. The names are the
  * API's. The numbers are stored (last mode), so new modes are appended. */
 #define KNOB_MODE_COUNT 6
 #define KNOB_MODE_HID 3
 #define KNOB_MODE_SETTINGS 4
-#define KNOB_MODE_VOLUME 5
-/* "autopilot", "lights", "anchor", "hid", "settings" or "volume" to 0..5, -1 for anything else (case sensitive). */
+#define KNOB_MODE_MUSIC 5
+/* "autopilot", "lights", "anchor", "hid", "settings" or "music" to 0..5, -1 for anything else (case sensitive). */
 int knob_mode_from_name(const char *name);
 /* 0..3 to its API name, "unknown" otherwise. */
 const char *knob_mode_name(int mode);
@@ -103,7 +103,7 @@ int knob_wind_abs(float awa_deg, char *side);
  * 0 within on_track_m. */
 int knob_xte_steer(float xte_m, float on_track_m);
 
-/* --- Volume mode (#6, signalk-jukebox) --- */
+/* --- Music mode (#6, signalk-jukebox) --- */
 
 #define KNOB_VOL_STEP 2   /* percent per click */
 /* The volume after a turn: KNOB_VOL_STEP percent per click, clamped to 0..100. */

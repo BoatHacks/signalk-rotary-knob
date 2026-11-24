@@ -22,7 +22,7 @@ void knob_config_load(knob_cfg_t *c)
     c->off_after_ms = 600000;
     c->brightness_pct = 100;
     c->leds_on = true;
-    c->volume_mode = true;
+    c->music_mode = true;
 
     bool allow = false;
     if (espos_config_get_bool(NS, "allow_control", &allow) == ESP_OK) c->allow_control = allow;
@@ -46,7 +46,7 @@ void knob_config_load(knob_cfg_t *c)
     bool leds = true;
     if (espos_config_get_bool(NS, "leds_on", &leds) == ESP_OK) c->leds_on = leds;
     bool vm = true;
-    if (espos_config_get_bool(NS, "volume_mode", &vm) == ESP_OK) c->volume_mode = vm;
+    if (espos_config_get_bool(NS, "music_mode", &vm) == ESP_OK) c->music_mode = vm;
     char hp[16] = "chartplotter";
     espos_config_get_str(NS, "hid_profile", hp, sizeof(hp), NULL);
     c->hid_profile = !strcmp(hp, "media") ? 1 : !strcmp(hp, "nav") ? 2 : 0;

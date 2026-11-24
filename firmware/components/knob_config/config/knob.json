@@ -131,11 +131,11 @@
    "restart_required": false
   },
   {
-   "name": "volume_mode",
+   "name": "music_mode",
    "type": "bool",
    "default": true,
-   "title": "VOLUME mode",
-   "description": "Show the VOLUME mode on the mode ring: the boat's music through the signalk-jukebox plugin.",
+   "title": "MUSIC mode",
+   "description": "Show the MUSIC mode on the mode ring: the boat's music through the signalk-jukebox plugin.",
    "restart_required": false
   },
   {

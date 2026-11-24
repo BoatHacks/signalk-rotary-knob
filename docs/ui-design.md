@@ -35,7 +35,7 @@ switcher, scaled to the number of visible modes (and the position text, for exam
 
 The HID mode is listed only while a USB host has enumerated the knob (section 3.4). Without a host it is hidden from the ring.
 
-VOLUME sits after ANCHOR when `knob.volume_mode` is on (section 3.6). The last slot is **Settings** (gear icon, label `SETUP` because `SETTINGS` does not fit the 54 px slot, section 3.5), hidden
+MUSIC sits after ANCHOR when `knob.music_mode` is on (section 3.6). The last slot is **Settings** (gear icon, label `SETUP` because `SETTINGS` does not fit the 54 px slot, section 3.5), hidden
 while an alarm is active. Agreed 2026-11-23 from a mockup: the visible slots are spaced evenly at r 86, clockwise from the top
 (5 with a USB host, 4 without). The centre shows the mode you are in.
 
@@ -206,7 +206,7 @@ min. Values from the web page that sit between two steps move to the nearer step
   reachable.
 - Nothing here changes autopilot or anchor state or acknowledges an alarm. An alarm takes over the screen as everywhere.
 
-### 3.6 Volume
+### 3.6 Music (volume)
 
 Agreed 2026-11-23 from a mockup (#6, docs/plans/issue-6-volume-mode.md). Drives the `signalk-jukebox` plugin. Allow control is
 not needed.
@@ -224,8 +224,8 @@ previous and next as round buttons left and right, play or pause as a round butt
 amber until the server confirms it. Paused greys the arc. A zone that is not connected shows `ZONE OFFLINE`. A stale volume
 shows the stale overlay (`NO VOLUME`).
 
-On the mode ring VOLUME (speaker icon) sits after ANCHOR: AUTO, LIGHTS, ANCHOR, VOLUME, USB, SETUP. The setting
-`knob.volume_mode` (on by default) takes it off the ring on a boat without the jukebox. Up to four zones, named from the
+On the mode ring MUSIC (music notes icon) sits after ANCHOR: AUTO, LIGHTS, ANCHOR, MUSIC, USB, SETUP. The setting
+`knob.music_mode` (on by default) takes it off the ring on a boat without the jukebox. Up to four zones, named from the
 plugin's REST API (the id until the name arrives). The master volume never received counts as `NO VOLUME`, like a stale one.
 
 ## 4. Link state and stale handling

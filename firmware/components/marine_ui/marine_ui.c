@@ -51,7 +51,7 @@ static const marine_ui_mode_t ring_slot_modes[MARINE_MODE_COUNT] = {
     MARINE_MODE_AUTOPILOT,
     MARINE_MODE_DIMMER,
     MARINE_MODE_ANCHOR_WATCH,
-    MARINE_MODE_VOLUME,
+    MARINE_MODE_MUSIC,
     MARINE_MODE_USB_HID,
     MARINE_MODE_SETTINGS
 };
@@ -239,7 +239,7 @@ static lv_obj_t *ap_confirm_arc;
 static lv_obj_t *ap_confirm_lbl_sec;
 static lv_obj_t *ap_confirm_lbl_title;
 static lv_obj_t *ovl_pilot, *pilot_title, *pilot_pill, *pilot_hint, *pilot_items[7];
-static lv_obj_t *ap_lbl_hdr;      // HEADING, WIND · AWA, ROUTE · TO ...
+static lv_obj_t *ap_lbl_hdr;      // HEADING, WIND - AWA, ROUTE - TO ...
 static lv_obj_t *ap_wind_line;    // apparent wind from the centre (wind mode)
 static lv_point_precise_t ap_wind_pts[2];
 static lv_obj_t *anc_menu_items[3];
@@ -313,11 +313,11 @@ static void hid_refresh(void);
 static lv_obj_t* build_settings_screen(void);
 static void settings_on_input(marine_semantic_input_t ev, int32_t val);
 static void settings_refresh(void);
-static lv_obj_t* build_volume_screen(void);
-static void volume_on_input(marine_semantic_input_t ev, int32_t val);
-static void volume_refresh(void);
-static void volume_tick(void);
-static void volume_touch(int16_t x, int16_t y);
+static lv_obj_t* build_music_screen(void);
+static void music_on_input(marine_semantic_input_t ev, int32_t val);
+static void music_refresh(void);
+static void music_tick(void);
+static void music_touch(int16_t x, int16_t y);
 static bool settings_takes_double(void);
 static void settings_tick(void);
 static void settings_enter(void);
@@ -328,7 +328,7 @@ static const marine_mode_desc_t mode_registry[MARINE_MODE_COUNT] = {
     [MARINE_MODE_ANCHOR_WATCH] = { MARINE_MODE_ANCHOR_WATCH, "ANCHOR", build_anchor_screen, anchor_on_input, anchor_refresh },
     [MARINE_MODE_USB_HID]      = { MARINE_MODE_USB_HID,      "USB",    build_hid_screen,    hid_on_input,    hid_refresh },
     [MARINE_MODE_SETTINGS]     = { MARINE_MODE_SETTINGS,     "SETUP",  build_settings_screen, settings_on_input, settings_refresh },
-    [MARINE_MODE_VOLUME]       = { MARINE_MODE_VOLUME,       "VOLUME", build_volume_screen, volume_on_input, volume_refresh }
+    [MARINE_MODE_MUSIC]       = { MARINE_MODE_MUSIC,       "MUSIC", build_music_screen, music_on_input, music_refresh }
 };
 
 static void emit_action(marine_ui_mode_t mode, marine_ui_action_type_t act, int32_t val, int32_t meta) {
@@ -382,7 +382,7 @@ static uint8_t vol_sel_peek(void);
 
 static const char *essential_stale_reason(void) {
     switch (active_mode) {
-    case MARINE_MODE_VOLUME: {
+    case MARINE_MODE_MUSIC: {
         // The selected target's volume. Never received counts as missing, also for the event-driven master volume.
         uint8_t i = vol_sel_peek();
         const marine_vol_target_t *t = &snap.vol_targets[i];
@@ -495,7 +495,7 @@ static void ap_tick_ring_maybe_update(void) {
 
 // --- Drawn vector icons (no font glyphs needed): AUTO gauge, LIGHT bulb, ANCHOR, USB, WARNING triangle ---
 typedef enum { ICON_AUTO = 0, ICON_LIGHT, ICON_ANCHOR, ICON_USB, ICON_GEAR, ICON_WARN, ICON_CROSS,
-               ICON_VOLUME, ICON_PREV, ICON_NEXT, ICON_PLAY, ICON_PAUSE } icon_id_t;
+               ICON_MUSIC, ICON_PREV, ICON_NEXT, ICON_PLAY, ICON_PAUSE } icon_id_t;
 
 static lv_obj_t* icon_canvas_create(lv_obj_t *parent, int size, uint8_t **out_buf) {
     size_t bytes = (size_t)size * (size_t)size * 4U;
@@ -600,15 +600,13 @@ static void icon_draw(lv_obj_t *cv, icon_id_t id, int size, lv_color_t col) {
                       w + 1, col);
         }
         break;
-    case ICON_VOLUME:   // speaker with two waves
-        icon_line(&layer, IP(4), IP(12), IP(9), IP(12), w, col);
-        icon_line(&layer, IP(4), IP(20), IP(9), IP(20), w, col);
-        icon_line(&layer, IP(4), IP(12), IP(4), IP(20), w, col);
-        icon_line(&layer, IP(9), IP(12), IP(16), IP(6), w, col);
-        icon_line(&layer, IP(9), IP(20), IP(16), IP(26), w, col);
-        icon_line(&layer, IP(16), IP(6), IP(16), IP(26), w, col);
-        icon_arc(&layer, II(17), II(16), II(6), 300, 60, w, col);
-        icon_arc(&layer, II(17), II(16), II(11), 300, 60, w, col);
+    case ICON_MUSIC:    // two beamed eighth notes
+        icon_circle(&layer, II(9.5f), II(24), II(3.5f), 0, true, col);
+        icon_circle(&layer, II(22.5f), II(21), II(3.5f), 0, true, col);
+        icon_line(&layer, IP(12.5f), IP(24), IP(12.5f), IP(8), w, col);
+        icon_line(&layer, IP(25.5f), IP(21), IP(25.5f), IP(5), w, col);
+        icon_line(&layer, IP(12.5f), IP(8), IP(25.5f), IP(5), w + 2, col);
+        icon_line(&layer, IP(12.5f), IP(12.5f), IP(25.5f), IP(9.5f), w + 1, col);
         break;
     case ICON_PREV:     // bar and triangle to the left
         icon_line(&layer, IP(8), IP(8), IP(8), IP(24), w, col);
@@ -689,7 +687,7 @@ static void refresh_mode_ring_center_preview(void) {
         if (g->on && g->level_pct > 0) snprintf(mid_b, sizeof(mid_b), "%u%%", (unsigned)g->level_pct);
         else snprintf(mid_b, sizeof(mid_b), "OFF");
         snprintf(bot_b, sizeof(bot_b), "GRP %u/%u", (unsigned)(idx + 1), (unsigned)(snap.dimmer_group_count ? snap.dimmer_group_count : 1));
-    } else if (active_mode == MARINE_MODE_VOLUME) {
+    } else if (active_mode == MARINE_MODE_MUSIC) {
         const marine_vol_target_t *t = &snap.vol_targets[0];
         snprintf(top_b, sizeof(top_b), "%s", t->name);
         snprintf(mid_b, sizeof(mid_b), "%u%%", (unsigned)t->pct);
@@ -716,7 +714,7 @@ static bool ring_slot_visible(int s) {
     marine_ui_mode_t m = ring_slot_modes[s];
     if (m == MARINE_MODE_USB_HID) return snap.usb_host_enumerated;
     if (m == MARINE_MODE_SETTINGS) return snap.active_alarm == MARINE_ALARM_NONE;
-    if (m == MARINE_MODE_VOLUME) return snap.volume_mode;
+    if (m == MARINE_MODE_MUSIC) return snap.music_mode;
     return true;
 }
 
@@ -743,7 +741,7 @@ static void refresh_mode_ring(void) {
         lv_obj_set_style_shadow_width(ring_slot_boxes[s], (sel && snap.fx_glow_enabled) ? 16 : 0, 0);
         lv_obj_set_style_shadow_color(ring_slot_boxes[s], c_primary(), 0);
         lv_obj_set_style_text_color(ring_slot_labels[s], sel ? c_primary() : c_text(), 0);
-        static const icon_id_t slot_icons[MARINE_MODE_COUNT] = { ICON_AUTO, ICON_LIGHT, ICON_ANCHOR, ICON_VOLUME, ICON_USB, ICON_GEAR };
+        static const icon_id_t slot_icons[MARINE_MODE_COUNT] = { ICON_AUTO, ICON_LIGHT, ICON_ANCHOR, ICON_MUSIC, ICON_USB, ICON_GEAR };
         icon_recolor(ring_slot_icons[s], slot_icons[s], 28, sel ? c_primary() : c_text(), &ring_icon_col[s]);
     }
 }
@@ -914,7 +912,7 @@ static void ap_place_bug(float rel_deg, lv_color_t col) {
 static void ap_refresh_wind(void) {
     char buf[48], side, tside;
     int awa = knob_wind_abs(snap.wind_awa_deg, &side);
-    lv_label_set_text(ap_lbl_hdr, "WIND \xC2\xB7 AWA");
+    lv_label_set_text(ap_lbl_hdr, "WIND \xE2\x80\xA2 AWA");
     snprintf(buf, sizeof(buf), "%d° %c", awa, side);
     lv_label_set_text(ap_lbl_hdg, buf);
     lv_obj_set_style_text_color(ap_lbl_hdg, c_text(), 0);
@@ -926,7 +924,7 @@ static void ap_refresh_wind(void) {
         snprintf(buf, sizeof(buf), "TGT %d° %c", tgt, tside);
         lv_label_set_text(ap_lbl_cts, buf);
         int off = (int)roundf(fabsf(knob_course_error(snap.wind_awa_deg, snap.wind_target_deg)));
-        snprintf(buf, sizeof(buf), "%d° OFF \xC2\xB7 HDG %03d°", off, (int)roundf(wrap_deg(snap.heading_deg)));
+        snprintf(buf, sizeof(buf), "%d° OFF \xE2\x80\xA2 HDG %03d°", off, (int)roundf(wrap_deg(snap.heading_deg)));
         ap_place_bug(snap.wind_target_deg, c_amber());
         lv_obj_remove_flag(ap_cts_bug, LV_OBJ_FLAG_HIDDEN);
     } else {
@@ -944,7 +942,7 @@ static void ap_refresh_wind(void) {
     lv_obj_set_style_line_color(ap_wind_line, c_primary(), 0);
     lv_obj_remove_flag(ap_wind_line, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(ap_rudder_fill, LV_OBJ_FLAG_HIDDEN);
-    if (snap.wind_adjust_supported) snprintf(buf, sizeof(buf), "STEP %d° \xC2\xB7 HOLD: PILOT", ap_step_deg);
+    if (snap.wind_adjust_supported) snprintf(buf, sizeof(buf), "STEP %d° \xE2\x80\xA2 HOLD: PILOT", ap_step_deg);
     else snprintf(buf, sizeof(buf), "ADJUST ON PILOT");
     lv_label_set_text(ap_lbl_telem, buf);
     lv_obj_set_style_text_color(ap_lbl_telem, c_muted(), 0);
@@ -956,7 +954,7 @@ static void ap_refresh_route(void) {
     char buf[48];
     lv_obj_add_flag(ap_wind_line, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(ap_cts_bug, LV_OBJ_FLAG_HIDDEN);
-    snprintf(buf, sizeof(buf), "ROUTE \xC2\xB7 TO %s", snap.route_wpt[0] ? snap.route_wpt : "---");
+    snprintf(buf, sizeof(buf), "ROUTE \xE2\x80\xA2 TO %s", snap.route_wpt[0] ? snap.route_wpt : "---");
     lv_label_set_text(ap_lbl_hdr, buf);
     float xte_nm = fabsf(snap.route_xte_m) / 1852.0f;
     snprintf(buf, sizeof(buf), xte_nm < 10.0f ? "%.2fnm" : "%.0fnm", xte_nm);
@@ -982,7 +980,7 @@ static void ap_refresh_route(void) {
         lv_obj_align(ap_rudder_fill, LV_ALIGN_CENTER, steer > 0 ? (bw / 2) : -(bw / 2), 0);
         lv_obj_set_style_bg_color(ap_rudder_fill, snap.night_palette ? COL_NIGHT_RED : (steer > 0 ? COL_GREEN : COL_RED), 0);
     }
-    snprintf(buf, sizeof(buf), "HDG %03d° \xC2\xB7 HOLD: PILOT", (int)roundf(wrap_deg(snap.heading_deg)));
+    snprintf(buf, sizeof(buf), "HDG %03d° \xE2\x80\xA2 HOLD: PILOT", (int)roundf(wrap_deg(snap.heading_deg)));
     lv_label_set_text(ap_lbl_telem, buf);
     lv_obj_set_style_text_color(ap_lbl_telem, c_muted(), 0);
 }
@@ -2212,7 +2210,7 @@ static void pilot_open_dialog(bool stale_only) {
     pilot_idx = 0;
     pilot_opened_ms = snap.now_ms;
     char b[32];
-    snprintf(b, sizeof(b), "PILOT \xC2\xB7 %s", names[st]);
+    snprintf(b, sizeof(b), "PILOT \xE2\x80\xA2 %s", names[st]);
     lv_label_set_text(pilot_title, b);
     lv_obj_set_style_text_color(pilot_title, c_amber(), 0);
     lv_label_set_text(pilot_hint, "TURN \xE2\x80\xA2 PRESS");
@@ -2382,7 +2380,7 @@ static void settings_refresh(void) {
     switch (set_view) {
     case SET_LIST:
         snprintf(top, sizeof(top), "SETTINGS %d/%d", set_index + 1, (int)KNOB_SET_COUNT);
-        snprintf(bot, sizeof(bot), "%s · 2x BACK", d->kind == KNOB_KIND_PAGE ? "PRESS OPEN" : "PRESS EDIT");
+        snprintf(bot, sizeof(bot), "%s \xE2\x80\xA2 2x BACK", d->kind == KNOB_KIND_PAGE ? "PRESS OPEN" : "PRESS EDIT");
         set_label(set_lbl_prev, knob_setting_desc((knob_setting_t)knob_list_wrap(set_index, -1, KNOB_SET_COUNT))->name, c_muted());
         set_label(set_lbl_next, knob_setting_desc((knob_setting_t)knob_list_wrap(set_index, 1, KNOB_SET_COUNT))->name, c_muted());
         lv_obj_set_style_bg_color(set_pill, snap.night_palette ? lv_color_hex(0x050000) : COL_CARD, 0);
@@ -2393,7 +2391,7 @@ static void settings_refresh(void) {
         break;
     case SET_EDIT: {
         snprintf(top, sizeof(top), "%s", d->name);
-        snprintf(bot, sizeof(bot), "PRESS STORE · 2x UNDO");
+        snprintf(bot, sizeof(bot), "PRESS STORE \xE2\x80\xA2 2x UNDO");
         knob_setting_format((knob_setting_t)set_index, set_edit_value, b, sizeof(b));
         set_label(set_lbl_big, b, c_amber());
         knob_setting_format((knob_setting_t)set_index, set_edit_was, b, sizeof(b));
@@ -2554,7 +2552,7 @@ static void settings_tick(void) {
     }
 }
 
-// --- Volume (#6, ui-design section 3.6): signalk-jukebox from the helm. Turn changes the selected target's volume by 2 %, sent
+// --- Music (#6, ui-design section 3.6): signalk-jukebox from the helm. Turn changes the selected target's volume by 2 %, sent
 // after a 0.4 s pause; press plays or pauses; long press steps to the next target. Touch: previous left, next right, play or
 // pause at the bottom, the target name at the top for the next target. The outer arc only shows the volume. ---
 #define VOL_COMMIT_MS 400
@@ -2589,7 +2587,7 @@ static lv_obj_t *vol_make_button(lv_obj_t *scr, int dx, int dy, int size, lv_obj
     return b;
 }
 
-static lv_obj_t* build_volume_screen(void) {
+static lv_obj_t* build_music_screen(void) {
     lv_obj_t *scr = lv_obj_create(NULL);
     lv_obj_set_size(scr, 240, 240);
     lv_obj_set_style_bg_color(scr, COL_BG, 0);
@@ -2626,7 +2624,7 @@ static lv_obj_t* build_volume_screen(void) {
     return scr;
 }
 
-static void volume_refresh(void) {
+static void music_refresh(void) {
     if (!vol_arc) return;
     const marine_vol_target_t *t = vol_target();
     bool stale = current_stale() != STALE_NONE;
@@ -2663,17 +2661,17 @@ static void volume_refresh(void) {
     icon_recolor(vol_ic_play, (icon_id_t)want, 28, c_primary(), &vol_ic_play_col);
 }
 
-static void volume_play_pause(void) {
-    emit_action(MARINE_MODE_VOLUME, MARINE_ACT_VOL_CONTROL,
+static void music_play_pause(void) {
+    emit_action(MARINE_MODE_MUSIC, MARINE_ACT_VOL_CONTROL,
                 snap.play_state == MARINE_PLAY_PLAYING ? MARINE_VOL_PAUSE : MARINE_VOL_PLAY, 0);
 }
 
-static void volume_next_target(void) {
+static void music_next_target(void) {
     vol_pending_active = false;
     vol_sel = (uint8_t)knob_list_wrap(vol_sel, 1, snap.vol_target_count ? snap.vol_target_count : 1);
 }
 
-static void volume_on_input(marine_semantic_input_t ev, int32_t val) {
+static void music_on_input(marine_semantic_input_t ev, int32_t val) {
     const marine_vol_target_t *t = vol_target();
     if (ev == MARINE_INPUT_TURN) {
         if (!t->connected) return;                    // ZONE OFFLINE ignores the turn
@@ -2683,37 +2681,37 @@ static void volume_on_input(marine_semantic_input_t ev, int32_t val) {
         vol_pending_sent = false;
         vol_pending_deadline_ms = snap.now_ms + VOL_COMMIT_MS;
     } else if (ev == MARINE_INPUT_SINGLE_PRESS) {
-        volume_play_pause();
+        music_play_pause();
     } else if (ev == MARINE_INPUT_LONG_PRESS) {
-        volume_next_target();
+        music_next_target();
     }
-    volume_refresh();
+    music_refresh();
 }
 
 // The 0.4 s pause commit, and the pending value held until the server's value matches. Called from marine_ui_tick().
-static void volume_tick(void) {
+static void music_tick(void) {
     if (!vol_pending_active) return;
     if (!vol_pending_sent && snap.now_ms >= vol_pending_deadline_ms) {
         vol_pending_sent = true;
-        emit_action(MARINE_MODE_VOLUME, MARINE_ACT_VOL_SET, vol_pending_pct, vol_sel);
+        emit_action(MARINE_MODE_MUSIC, MARINE_ACT_VOL_SET, vol_pending_pct, vol_sel);
     }
     if (vol_pending_sent && (vol_target()->pct == vol_pending_pct ||
                              snap.now_ms >= vol_pending_deadline_ms + MARINE_PENDING_CONFIRM_TIMEOUT)) {
         vol_pending_active = false;
         vol_pending_sent = false;
     }
-    if (active_mode == MARINE_MODE_VOLUME) volume_refresh();
+    if (active_mode == MARINE_MODE_MUSIC) music_refresh();
 }
 
-// Touch on the volume screen (the centre dead zone is handled by the caller): only the player buttons and the target name.
-static void volume_touch(int16_t x, int16_t y) {
+// Touch on the music screen (the centre dead zone is handled by the caller): only the player buttons and the target name.
+static void music_touch(int16_t x, int16_t y) {
     int dx = x - 120, dy = y - 120;
     if (dx * dx + dy * dy > 100 * 100) return;   // the outer arc only shows the volume
-    if (dy < -50 && dx > -60 && dx < 60) volume_next_target();
-    else if (dx < -55 && dy > -30 && dy < 40) emit_action(MARINE_MODE_VOLUME, MARINE_ACT_VOL_CONTROL, MARINE_VOL_PREVIOUS, 0);
-    else if (dx > 55 && dy > -30 && dy < 40) emit_action(MARINE_MODE_VOLUME, MARINE_ACT_VOL_CONTROL, MARINE_VOL_NEXT, 0);
-    else if (dy > 45 && dx > -35 && dx < 35) volume_play_pause();
-    volume_refresh();
+    if (dy < -50 && dx > -60 && dx < 60) music_next_target();
+    else if (dx < -55 && dy > -30 && dy < 40) emit_action(MARINE_MODE_MUSIC, MARINE_ACT_VOL_CONTROL, MARINE_VOL_PREVIOUS, 0);
+    else if (dx > 55 && dy > -30 && dy < 40) emit_action(MARINE_MODE_MUSIC, MARINE_ACT_VOL_CONTROL, MARINE_VOL_NEXT, 0);
+    else if (dy > 45 && dx > -35 && dx < 35) music_play_pause();
+    music_refresh();
 }
 
 static uint8_t vol_sel_peek(void) { return vol_sel < snap.vol_target_count ? vol_sel : 0; }
@@ -3151,10 +3149,10 @@ void marine_ui_feed_touch(int16_t x, int16_t y, bool pressed) {
     // touch may also act.
     note_user_activity(false);
 
-    // The volume screen is a small music player (ui-design section 3.6): harmless, so touch may drive it.
+    // The music screen is a small music player (ui-design section 3.6): harmless, so touch may drive it.
     if (snap.system_screen == MARINE_SCREEN_OPERATIONAL && !is_full_alarm_blocking() && !mode_ring_open &&
-        active_mode == MARINE_MODE_VOLUME && current_stale() == STALE_NONE) {
-        volume_touch(x, y);
+        active_mode == MARINE_MODE_MUSIC && current_stale() == STALE_NONE) {
+        music_touch(x, y);
         return;
     }
 
@@ -3335,7 +3333,7 @@ void marine_ui_apply_snapshot(const marine_ui_snapshot_t *snapshot) {
 void marine_ui_tick(uint32_t now_ms) {
     snap.now_ms = now_ms;
     settings_tick();
-    volume_tick();
+    music_tick();
     if (pilot_open && (now_ms - pilot_opened_ms >= 5000 || !snap.ap_engaged || active_mode != MARINE_MODE_AUTOPILOT ||
                        is_full_alarm_blocking())) {
         pilot_close();   // 5 s without input, or the pilot went to standby by itself, leaves the dialog

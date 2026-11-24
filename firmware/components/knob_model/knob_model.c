@@ -624,7 +624,7 @@ static void build_snapshot(marine_ui_snapshot_t *s, uint32_t now)
     s->dimmer_timeout_ms = 0;
 
     /* Volume: target 0 is the master volume (event driven, never stale by age), then the zones (republished every 2 s). */
-    s->volume_mode = s_cfg.volume_mode;
+    s->music_mode = s_cfg.music_mode;
     marine_vol_target_t *t = &s->vol_targets[0];
     memset(t, 0, sizeof(*t));
     strcpy(t->name, "MASTER");
@@ -894,7 +894,7 @@ void knob_model_set_mode(int mode)
 
 bool knob_model_mode_enabled(int mode)
 {
-    return mode != MARINE_MODE_VOLUME || s_cfg.volume_mode;
+    return mode != MARINE_MODE_MUSIC || s_cfg.music_mode;
 }
 
 void knob_model_get_status(knob_model_status_t *out)
@@ -1020,7 +1020,7 @@ static void on_config_key(const char *key)
     s_cfg.leds_on = cfg.leds_on;
     s_cfg.hid_profile = cfg.hid_profile;
     s_cfg.demo = cfg.demo;
-    s_cfg.volume_mode = cfg.volume_mode;
+    s_cfg.music_mode = cfg.music_mode;
     portEXIT_CRITICAL(&s_mux);
     xSemaphoreGive(lock);
     bool from_knob = s_write_from_knob;

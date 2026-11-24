@@ -102,7 +102,7 @@ bool knob_boot_hid(bool hid_last, bool host_present, uint32_t now_ms, uint32_t w
     return hid_last && host_present && now_ms < window_ms && !user_changed_mode;
 }
 
-static const char *const s_mode_names[KNOB_MODE_COUNT] = { "autopilot", "lights", "anchor", "hid", "settings", "volume" };
+static const char *const s_mode_names[KNOB_MODE_COUNT] = { "autopilot", "lights", "anchor", "hid", "settings", "music" };
 
 int knob_mode_from_name(const char *name)
 {

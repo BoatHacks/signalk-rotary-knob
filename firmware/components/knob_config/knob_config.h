@@ -28,7 +28,7 @@ typedef struct {
     uint8_t night_mode;      /* 0 follow environment.mode, 1 day, 2 night */
     bool leds_on;            /* false: every LED dark, the alarm included */
     uint8_t hid_profile;     /* usb_hid_profile_t: 0 chartplotter, 1 media, 2 nav */
-    bool volume_mode;        /* the VOLUME mode is on the ring */
+    bool music_mode;        /* the MUSIC mode is on the ring */
     int n_lights;            /* channels with a non-empty path, compacted to the front of lights[] */
     knob_cfg_light_t lights[KNOB_CFG_MAX_LIGHTS];
 } knob_cfg_t;

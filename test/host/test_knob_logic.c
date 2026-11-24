@@ -166,7 +166,7 @@ static void test_boot_mode(void)
     TEST_ASSERT_EQUAL_INT(0, knob_boot_mode(4, 4, 3, 9));  /* out of range, for example from an older firmware */
     TEST_ASSERT_EQUAL_INT(0, knob_boot_mode(-1, 4, 3, 9)); /* nothing stored */
     TEST_ASSERT_EQUAL_INT(0, knob_boot_mode(4, 6, 3, 4));  /* settings is never restored */
-    TEST_ASSERT_EQUAL_INT(5, knob_boot_mode(5, 6, 3, 4));  /* volume, after settings in the numbering */
+    TEST_ASSERT_EQUAL_INT(5, knob_boot_mode(5, 6, 3, 4));  /* music, after settings in the numbering */
 }
 
 static void test_boot_hid(void)
@@ -191,8 +191,8 @@ static void test_mode_names(void)
     TEST_ASSERT_EQUAL_INT(-1, knob_mode_from_name(NULL));
     TEST_ASSERT_EQUAL_STRING("lights", knob_mode_name(1));
     TEST_ASSERT_EQUAL_STRING("settings", knob_mode_name(4));
-    TEST_ASSERT_EQUAL_STRING("volume", knob_mode_name(5));
-    TEST_ASSERT_EQUAL_INT(5, knob_mode_from_name("volume"));
+    TEST_ASSERT_EQUAL_STRING("music", knob_mode_name(5));
+    TEST_ASSERT_EQUAL_INT(5, knob_mode_from_name("music"));
     TEST_ASSERT_EQUAL_STRING("unknown", knob_mode_name(6));
     TEST_ASSERT_EQUAL_STRING("unknown", knob_mode_name(-1));
 }
@@ -336,9 +336,9 @@ static void test_demo_anchor(void)
     TEST_ASSERT_TRUE(d.depth_m > 5.9f && d.depth_m < 6.9f);
 }
 
-/* ---- Volume mode ---- */
+/* ---- Music mode ---- */
 
-static void test_volume(void)
+static void test_music(void)
 {
     TEST_ASSERT_EQUAL_INT(42, knob_vol_step(40, 1));
     TEST_ASSERT_EQUAL_INT(34, knob_vol_step(40, -3));
@@ -462,7 +462,7 @@ int main(void)
     RUN_TEST(test_confirm_turn);
     RUN_TEST(test_demo_autopilot);
     RUN_TEST(test_demo_anchor);
-    RUN_TEST(test_volume);
+    RUN_TEST(test_music);
     RUN_TEST(test_ap_states);
     RUN_TEST(test_pilot_lines);
     RUN_TEST(test_wind_and_xte);
