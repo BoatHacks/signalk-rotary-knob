@@ -21,6 +21,7 @@ static const char *TAG = "knob_power";
 static volatile knob_led_alarm_t s_alarm;
 static volatile uint8_t s_px[BOARD_LED_COUNT][3]; /* the steady frame, per LED (one colour on all five, or a level) */
 static volatile bool s_level;                      /* s_px is a level pattern (#9): off at night */
+static volatile bool s_motor_flash;                /* the motor's limit warning (#8): all five amber, fast, every screen */
 static volatile bool s_night;
 
 /* Steering indicator kind, set by knob_power_apply_snapshot. At night only these are shown (steady colours are off). */
@@ -81,7 +82,12 @@ static void led_task(void *arg)
             break;
         }
         default:
-            if (!s_night) {
+            if (s_motor_flash) {
+                /* 4 Hz, on and off equally. Also at night (at night brightness): it is a warning. */
+                bool on = ((t / 125) & 1) != 0;
+                r = on ? (s_night ? 32 : LED_MAX) : 0;
+                g = on ? (s_night ? 18 : 36) : 0;
+            } else if (!s_night) {
                 per_led = true;
             } else if (s_level) {
                 /* night: the level patterns are off (#9) */
@@ -162,6 +168,33 @@ static void px_set(uint8_t f[][3], int i, const uint8_t col[3], uint32_t permill
     for (int c = 0; c < 3; c++) f[i][c] = (uint8_t)((col[c] * k + 50000) / 100000);
 }
 
+/* Motor (#8): the knob's throttle on two LEDs per side, ahead clockwise from 12 o'clock (1 o'clock, then 3:30) in green,
+ * astern counter-clockwise (11, then 8:30) in amber; the bottom LED the gear the motor reports. Off at night. */
+static const uint8_t COL_AHEAD[3]  = { 0, 64, 0 };
+static const uint8_t COL_ASTERN[3] = { 64, 36, 0 };
+
+static void motor_pattern(const marine_ui_snapshot_t *s)
+{
+    uint8_t f[BOARD_LED_COUNT][3];
+    memset(f, 0, sizeof(f));
+    int set = s->motor_set_pct;
+    uint16_t lv[2];
+    if (set > 0) {
+        knob_led_fill(set / 100.0f, 2, lv);
+        px_set(f, 1, COL_AHEAD, lv[0]);
+        px_set(f, 0, COL_AHEAD, lv[1]);
+    } else if (set < 0) {
+        knob_led_fill(-set / 100.0f, 2, lv);
+        px_set(f, 2, COL_ASTERN, lv[0]);
+        px_set(f, 3, COL_ASTERN, lv[1]);
+    }
+    bool gear_fresh = s->motor_gear_ms != 0 && s->now_ms - s->motor_gear_ms <= 5000;
+    if (gear_fresh && s->motor_gear == 1) px_set(f, LED_BOTTOM, COL_AHEAD, 1000);       /* forward */
+    else if (gear_fresh && s->motor_gear == 3) px_set(f, LED_BOTTOM, COL_ASTERN, 1000); /* reverse */
+    for (int i = 0; i < BOARD_LED_COUNT; i++) { s_px[i][0] = f[i][0]; s_px[i][1] = f[i][1]; s_px[i][2] = f[i][2]; }
+    s_level = true;
+}
+
 /* Music and lights (#9): the reported level on four LEDs, the bottom LED for play or on. Stale data: all off. */
 static void level_pattern(const marine_ui_snapshot_t *s, marine_ui_mode_t mode)
 {
@@ -200,6 +233,7 @@ static void level_pattern(const marine_ui_snapshot_t *s, marine_ui_mode_t mode)
 void knob_power_apply_snapshot(const marine_ui_snapshot_t *s, marine_ui_mode_t active_mode)
 {
     static bool on_course;
+    s_motor_flash = s->motor_state == 2 && s->motor_limit_warning;   /* every screen, the alarm wins in the LED task */
     uint8_t r = 0, g = 0, b = 0;
     uint8_t steer = STEER_NONE;
 
@@ -230,6 +264,11 @@ void knob_power_apply_snapshot(const marine_ui_snapshot_t *s, marine_ui_mode_t a
         }
     } else {
         on_course = false;
+        if (active_mode == MARINE_MODE_MOTOR && s->active_alarm == MARINE_ALARM_NONE) {
+            s_steer = STEER_NONE;
+            motor_pattern(s);
+            return;
+        }
         if ((active_mode == MARINE_MODE_DIMMER || active_mode == MARINE_MODE_MUSIC) && s->active_alarm == MARINE_ALARM_NONE) {
             s_steer = STEER_NONE;
             level_pattern(s, active_mode);

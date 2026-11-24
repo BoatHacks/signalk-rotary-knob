@@ -111,8 +111,8 @@ SignalK has no standard path for a throttle command. Defaults, `<id>` is `knob.m
 - [x] knob_model: subscriptions, the state machine wired to inputs and the tick, the throttle as a PUT over the stream (no
       worker queue, a click wakes the model task so neutral goes out at once), demo motor (62294f1).
 - [x] marine_ui: motor screen, arming, refusals, limit warning, tag, ring slot, keep-awake (ef12138).
-- [ ] knob_power: the throttle LED pattern and the limit warning's amber flash (waits: another session is editing
-      knob_power.c).
+- [x] knob_power: the throttle LED pattern (two LEDs per side with `knob_led_fill`, the bottom LED the reported gear, off at
+      night) and the limit warning's amber 4 Hz flash on every screen, also at night.
 - [x] Docs: SPEC 6.3, manual. [ ] ui-design (ring order, a motor section), hardware checklist, ARCHITECTURE (wait for the
       other session's edits to those files to be committed).
 - [ ] Host test run, bench check in demo mode, then the motor side at the boat.
