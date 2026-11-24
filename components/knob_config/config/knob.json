@@ -138,6 +138,38 @@
    "restart_required": false
   },
   {
+   "name": "ap_mode",
+   "type": "bool",
+   "default": true,
+   "title": "AUTOPILOT mode",
+   "description": "Show the AUTOPILOT mode on the mode ring. Also on the knob: settings, MODES.",
+   "restart_required": false
+  },
+  {
+   "name": "lights_mode",
+   "type": "bool",
+   "default": true,
+   "title": "LIGHTS mode",
+   "description": "Show the LIGHTS mode on the mode ring.",
+   "restart_required": false
+  },
+  {
+   "name": "anchor_mode",
+   "type": "bool",
+   "default": true,
+   "title": "ANCHOR mode",
+   "description": "Show the ANCHOR mode on the mode ring. The drag alarm still takes over the screen when it is off.",
+   "restart_required": false
+  },
+  {
+   "name": "usb_mode",
+   "type": "bool",
+   "default": true,
+   "title": "USB-HID mode",
+   "description": "Show the USB-HID mode on the mode ring while a USB host is on the cable.",
+   "restart_required": false
+  },
+  {
    "name": "music_mode",
    "type": "bool",
    "default": true,

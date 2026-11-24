@@ -61,6 +61,8 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 | Item | Status | Date | Commit | Notes |
 |---|---|---|---|---|
 | Mode ring: slots evenly spaced, gear `SETUP` last, 5 with a USB host, 4 without, hidden during an alarm | open | | | |
+| MODES page: pills readable at day and night, a press switches the mode and the ring follows, the last one on refuses with `ONE MODE STAYS ON`, the web page shows the same | open | | | |
+| A mode switched off while on screen (web page) goes to the first one on, a boot into a switched-off mode too | open | | | |
 | List: turn moves and wraps, prev and next items above and below, `SETTINGS 3/14` | open | | | |
 | All text straight: settings top and bottom lines, alarm telemetry, setup screens' bottom line, nothing clipped | open | | | curved text removed 2026-11-23 |
 | Edit: amber arc, value, `was ...`, press stores, double press cancels | open | | | |

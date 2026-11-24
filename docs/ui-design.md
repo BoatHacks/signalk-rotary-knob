@@ -172,6 +172,13 @@ Look:
   text above and below, `SETTINGS 3/14` on the top line, `PRESS EDIT · 2x BACK` on the bottom line (straight, 12 px).
 - **Editing:** the item name on the top line, the new value large in amber on a 270 degree amber arc, `was 80 %` under it,
   `PRESS STORE · 2x UNDO` on the bottom line. On/off and choice items show the word instead of the arc.
+- **MODES page** (built 2026-11-24, owner's request): six pills in two columns and three rows, AUTO, LIGHTS, ANCHOR,
+  MUSIC, MOTOR, USB. A filled pill (primary colour, dark text) is a mode on the ring, an outlined one is off. Turn moves
+  the focus (a thicker border), a press switches the focused mode, a double press goes back to the list. The last mode that
+  is on stays on: the bottom line says ONE MODE STAYS ON for 2 s. Settings is always on the ring. The list shows
+  5 OF 6 ON. Stored as knob.ap_mode, lights_mode, nchor_mode, music_mode, motor_mode and usb_mode (also on the
+  web settings page). A mode switched off while it is on screen hands over to the first one that is on, and so does a boot
+  into it. USB still needs a USB host on the cable to show.
 - **Confirm turn** (allow control, off to on): cyan countdown arc, `Autopilot and anchor`, `TURN RIGHT`, `to allow`,
   `5 s · ANY PRESS CANCELS`.
 - Night: the same layout in the red palette.

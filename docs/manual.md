@@ -96,6 +96,10 @@ to play or pause, hold to step from `MASTER` to each zone. The touch screen is a
 the right, play or pause at the bottom, tap the name at the top for the next zone. A zone whose speaker is off shows
 `ZONE OFFLINE`. On a boat without the jukebox, switch *MUSIC mode* off on the settings page and the mode leaves the ring.
 
+**Choosing the modes.** On the knob, open the settings and choose *MODES*: one pill per mode (autopilot, lights, anchor, music,
+motor, USB). A filled pill is on the ring. Turn to a pill and press to switch it; press twice to go back. One mode always stays
+on. The same switches are on the settings page (*AUTOPILOT mode*, *LIGHTS mode* and so on).
+
 The LEDs around the base show the volume in violet-blue, filling clockwise from the bottom left (half volume lights the left
 two), dimmer for a muted zone. The bottom LED is green while the music plays. They stay dark at night. **(not verified)**
 

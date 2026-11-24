@@ -150,6 +150,7 @@ static volatile uint8_t s_ad_hid = HID_PROFILE_NAV_KEYS; /* the HID profile whil
 static volatile uint32_t s_ad_boot_ms;    /* the simulated boot started, 0 = none */
 static int32_t s_demo_pos_ms = -1;        /* demo playback position */
 static bool ad_active(void) { return knob_ad_active(&s_ad); }
+static marine_ui_mode_t first_enabled_mode(void);   /* MODES page: below */
 static void hook_action_result(uint8_t code);
 static volatile int s_alarm_inject;     /* 0 none, else marine_alarm_type_t */
 static volatile bool s_ack_latch;
@@ -782,6 +783,10 @@ static void build_snapshot(marine_ui_snapshot_t *s, uint32_t now)
 
     /* Volume: target 0 is the master volume (event driven, never stale by age), then the zones (republished every 2 s). */
     s->music_mode = s_cfg.music_mode;
+    s->ap_mode = s_cfg.ap_mode;
+    s->lights_mode = s_cfg.lights_mode;
+    s->anchor_mode = s_cfg.anchor_mode;
+    s->usb_mode = s_cfg.usb_mode;
     marine_vol_target_t *t = &s->vol_targets[0];
     memset(t, 0, sizeof(*t));
     strcpy(t->name, "MASTER");
@@ -865,6 +870,7 @@ static void build_snapshot(marine_ui_snapshot_t *s, uint32_t now)
             s->dimmer_updated_ms = now;
             s->usb_host_enumerated = true;
             s->hid_profile = (usb_hid_profile_t)s_ad_hid;
+            s->ap_mode = s->lights_mode = s->anchor_mode = s->music_mode = s->usb_mode = true; /* the tour visits them all */
             uint32_t b = s_ad_boot_ms;
             if (b) {
                 /* The simulated boot: the splash with the phases a real knob goes through, then the mode screen. */
@@ -908,6 +914,13 @@ static void model_task(void *arg)
             }
         }
         if (s_ap_until_ms && (int32_t)(ms_now() - s_ap_until_ms) >= 0) setup_ap(false);
+        if (!knob_model_mode_enabled(mode) && !ad_active()) {
+            /* the mode on screen was switched off (web page or API): go to the first one that is on */
+            mode = first_enabled_mode();
+            lv_port_lock();
+            marine_ui_set_mode(mode);
+            lv_port_unlock();
+        }
         knob_power_apply_snapshot(&snap, mode);
         /* a HID device only while the USB-HID mode is on screen, never in the automatic demo */
         usb_dev_set_hid(mode == MARINE_MODE_USB_HID && !ad_active());
@@ -1050,6 +1063,14 @@ static void setting_write_async(void *arg)
     case KNOB_SET_MOTOR_AHEAD: knob_config_set_int("motor_ahead", v); break;
     case KNOB_SET_MOTOR_ASTERN: knob_config_set_int("motor_astern", v); break;
     case KNOB_SET_MOTOR_IDLE: knob_config_set_int("motor_idle_s", v); break;
+    case KNOB_SET_MODES: {
+        /* MODES page: the item in the high byte (knob_modes_page order), on or off in the low one */
+        static const char *const keys[KNOB_MODES_PAGE_COUNT] = { "ap_mode", "lights_mode", "anchor_mode", "music_mode",
+                                                                 "motor_mode", "usb_mode" };
+        int i = (v >> 8) & 0xFF;
+        if (i < KNOB_MODES_PAGE_COUNT) knob_config_set_bool(keys[i], (v & 1) != 0);
+        break;
+    }
     default: break;
     }
     s_write_from_knob = false;
@@ -1132,8 +1153,24 @@ void knob_model_set_mode(int mode)
 
 bool knob_model_mode_enabled(int mode)
 {
-    if (mode == MARINE_MODE_MOTOR) return s_cfg.motor_mode;
-    return mode != MARINE_MODE_MUSIC || s_cfg.music_mode;
+    switch (mode) {
+    case MARINE_MODE_AUTOPILOT: return s_cfg.ap_mode;
+    case MARINE_MODE_DIMMER: return s_cfg.lights_mode;
+    case MARINE_MODE_ANCHOR_WATCH: return s_cfg.anchor_mode;
+    case MARINE_MODE_USB_HID: return s_cfg.usb_mode;
+    case MARINE_MODE_MUSIC: return s_cfg.music_mode;
+    case MARINE_MODE_MOTOR: return s_cfg.motor_mode;
+    default: return true;   /* settings */
+    }
+}
+
+/* The first mode on the MODES page that is on, for a boot or an active mode that was switched off. Settings if none. */
+static marine_ui_mode_t first_enabled_mode(void)
+{
+    for (int i = 0; i < KNOB_MODES_PAGE_COUNT; i++) {
+        if (knob_model_mode_enabled(knob_modes_page[i])) return (marine_ui_mode_t)knob_modes_page[i];
+    }
+    return MARINE_MODE_SETTINGS;
 }
 
 void knob_model_get_status(knob_model_status_t *out)
@@ -1155,7 +1192,16 @@ void knob_model_restore_mode(void)
 {
     int stored = knob_config_last_mode();
     s_boot_mode = (marine_ui_mode_t)knob_boot_mode(stored, MARINE_MODE_COUNT, MARINE_MODE_USB_HID, MARINE_MODE_SETTINGS);
-    ESP_LOGI(TAG, "boot mode %d (stored %d, USB-HID last %d)", (int)s_boot_mode, stored, (int)knob_config_last_hid());
+    {
+        /* A mode switched off on the MODES page is not a boot mode: the first one that is on instead. */
+        static knob_cfg_t c;
+        knob_config_load(&c);
+        portENTER_CRITICAL(&s_mux);
+        s_cfg.ap_mode = c.ap_mode; s_cfg.lights_mode = c.lights_mode; s_cfg.anchor_mode = c.anchor_mode;
+        s_cfg.usb_mode = c.usb_mode; s_cfg.music_mode = c.music_mode; s_cfg.motor_mode = c.motor_mode;
+        portEXIT_CRITICAL(&s_mux);
+        if (!knob_model_mode_enabled(s_boot_mode)) s_boot_mode = first_enabled_mode();
+    }    ESP_LOGI(TAG, "boot mode %d (stored %d, USB-HID last %d)", (int)s_boot_mode, stored, (int)knob_config_last_hid());
     lv_port_lock();
     marine_ui_set_mode(s_boot_mode);
     lv_port_unlock();
@@ -1330,6 +1376,7 @@ void knob_model_start(void)
     strcpy(s_cfg.autopilot_id, "raymarineST"); /* defaults until knob_model_subscribe() loads the settings */
     s_cfg.heading_true = true;
     s_cfg.anchor_radius_m = 35;
+    s_cfg.ap_mode = s_cfg.lights_mode = s_cfg.anchor_mode = s_cfg.usb_mode = s_cfg.music_mode = true;
     knob_motor_init(&s_motor);
     knob_ad_init(&s_ad, knob_ad_script);
     input_set_hook(autodemo_hook);
@@ -1395,6 +1442,10 @@ static void on_config_key(const char *key)
     s_cfg.demo = cfg.demo;
     s_cfg.demo_auto = cfg.demo_auto;
     s_cfg.music_mode = cfg.music_mode;
+    s_cfg.ap_mode = cfg.ap_mode;
+    s_cfg.lights_mode = cfg.lights_mode;
+    s_cfg.anchor_mode = cfg.anchor_mode;
+    s_cfg.usb_mode = cfg.usb_mode;
     s_cfg.motor_mode = cfg.motor_mode;
     s_cfg.motor_curve = cfg.motor_curve;
     s_cfg.motor_max_ahead_pct = cfg.motor_max_ahead_pct;

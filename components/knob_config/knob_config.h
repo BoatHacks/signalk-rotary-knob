@@ -29,6 +29,7 @@ typedef struct {
     uint8_t night_mode;      /* 0 follow environment.mode, 1 day, 2 night */
     bool leds_on;            /* false: every LED dark, the alarm included */
     uint8_t hid_profile;     /* usb_hid_profile_t: 0 chartplotter, 1 media, 2 nav */
+    bool ap_mode, lights_mode, anchor_mode, usb_mode; /* those modes are on the ring (MODES page), on by default */
     bool music_mode;        /* the MUSIC mode is on the ring */
     bool motor_mode;         /* the MOTOR mode is on the ring (#8), off by default */
     char motor_id[32];       /* propulsion.<id> */

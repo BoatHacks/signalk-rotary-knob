@@ -141,6 +141,23 @@ static const int s_off_after[] = { 0, 1, 2, 5, 10, 15, 30, 60, 120, 240 };
 static const char *const s_night_w[] = { "SERVER", "DAY", "NIGHT" };
 static const char *const s_onoff_w[] = { "OFF", "ON" };
 static const char *const s_demo_w[] = { "OFF", "ON", "AUTO" };
+
+const int knob_modes_page[KNOB_MODES_PAGE_COUNT] = { 0, 1, 2, KNOB_MODE_MUSIC, KNOB_MODE_MOTOR, KNOB_MODE_HID };
+const char *const knob_modes_page_name[KNOB_MODES_PAGE_COUNT] = { "AUTO", "LIGHTS", "ANCHOR", "MUSIC", "MOTOR", "USB" };
+
+int knob_modes_count(uint8_t mask)
+{
+    int n = 0;
+    for (int i = 0; i < KNOB_MODES_PAGE_COUNT; i++) if (mask & (1u << i)) n++;
+    return n;
+}
+
+bool knob_modes_toggle_ok(uint8_t mask, int i)
+{
+    if (i < 0 || i >= KNOB_MODES_PAGE_COUNT) return false;
+    if (!(mask & (1u << i))) return true;          /* switching one on is always fine */
+    return knob_modes_count(mask) > 1;
+}
 static const char *const s_heading_w[] = { "TRUE", "MAGNETIC" };
 static const char *const s_hid_w[] = { "CHARTPLOTTER", "MEDIA", "NAV KEYS" };
 static const char *const s_curve_w[] = { "GENTLE", "NORMAL", "QUICK" };
@@ -163,6 +180,7 @@ static const knob_setting_desc_t s_settings[KNOB_SET_COUNT] = {
     [KNOB_SET_MOTOR_AHEAD] = { "LIMIT AHEAD", KNOB_KIND_NUMBER, "%", s_motor_limit, N(s_motor_limit), NULL },
     [KNOB_SET_MOTOR_ASTERN] = { "LIMIT ASTERN", KNOB_KIND_NUMBER, "%", s_motor_limit, N(s_motor_limit), NULL },
     [KNOB_SET_MOTOR_IDLE] = { "MOTOR DISARM", KNOB_KIND_NUMBER, "s", s_motor_idle, N(s_motor_idle), NULL },
+    [KNOB_SET_MODES] = { "MODES", KNOB_KIND_PAGE, NULL, NULL, 0, NULL },
     [KNOB_SET_SETUP_AP] = { "SETUP ACCESS POINT", KNOB_KIND_ACTION, NULL, NULL, 0, NULL },
     [KNOB_SET_DEVICE_INFO] = { "DEVICE INFO", KNOB_KIND_PAGE, NULL, NULL, 0, NULL },
     [KNOB_SET_SIGNALK] = { "SIGNALK", KNOB_KIND_PAGE, NULL, NULL, 0, NULL },

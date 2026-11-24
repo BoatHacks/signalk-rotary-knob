@@ -23,6 +23,7 @@ void knob_config_load(knob_cfg_t *c)
     c->brightness_pct = 100;
     c->leds_on = true;
     c->music_mode = true;
+    c->ap_mode = c->lights_mode = c->anchor_mode = c->usb_mode = true;
     strcpy(c->motor_id, "main");
     c->motor_curve = 1;
     c->motor_max_ahead_pct = 50;
@@ -54,6 +55,11 @@ void knob_config_load(knob_cfg_t *c)
     if (espos_config_get_bool(NS, "leds_on", &leds) == ESP_OK) c->leds_on = leds;
     bool vm = true;
     if (espos_config_get_bool(NS, "music_mode", &vm) == ESP_OK) c->music_mode = vm;
+    bool on;
+    if (espos_config_get_bool(NS, "ap_mode", &on) == ESP_OK) c->ap_mode = on;
+    if (espos_config_get_bool(NS, "lights_mode", &on) == ESP_OK) c->lights_mode = on;
+    if (espos_config_get_bool(NS, "anchor_mode", &on) == ESP_OK) c->anchor_mode = on;
+    if (espos_config_get_bool(NS, "usb_mode", &on) == ESP_OK) c->usb_mode = on;
     bool mm = false;
     if (espos_config_get_bool(NS, "motor_mode", &mm) == ESP_OK) c->motor_mode = mm;
     espos_config_get_str(NS, "motor_id", c->motor_id, sizeof(c->motor_id), NULL);

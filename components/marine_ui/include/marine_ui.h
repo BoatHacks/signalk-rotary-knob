@@ -266,6 +266,7 @@ typedef struct {
 
     // Music (#6, signalk-jukebox): target 0 is MASTER, then the zones.
     bool music_mode;              // the MUSIC slot is on the ring (knob.music_mode)
+    bool ap_mode, lights_mode, anchor_mode, usb_mode; // those slots are on the ring (MODES page, knob.<mode>_mode)
     uint8_t vol_target_count;
     marine_vol_target_t vol_targets[1 + MARINE_MAX_VOL_ZONES];
     uint8_t play_state;            // marine_play_state_t

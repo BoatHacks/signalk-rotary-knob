@@ -137,6 +137,7 @@ typedef enum {
     KNOB_SET_MOTOR_AHEAD,    /* %, the soft limit ahead */
     KNOB_SET_MOTOR_ASTERN,   /* %, the soft limit astern */
     KNOB_SET_MOTOR_IDLE,     /* s, disarm armed in neutral without input, 0 = never */
+    KNOB_SET_MODES,          /* page: switch each mode on or off (pills), value = page index << 8 | on */
     KNOB_SET_SETUP_AP,       /* action: open or close the setup access point */
     KNOB_SET_DEVICE_INFO,    /* read-only page */
     KNOB_SET_SIGNALK,        /* read-only page */
@@ -145,6 +146,15 @@ typedef enum {
 } knob_setting_t;
 
 typedef enum { KNOB_KIND_NUMBER = 0, KNOB_KIND_CHOICE, KNOB_KIND_ACTION, KNOB_KIND_PAGE } knob_setting_kind_t;
+
+/* The MODES page: the modes that can be switched off, in the page's order (two columns, three rows). Settings stays on the
+ * ring always. A mask has bit i set when knob_modes_page[i] is on. */
+#define KNOB_MODES_PAGE_COUNT 6
+extern const int knob_modes_page[KNOB_MODES_PAGE_COUNT];          /* mode numbers: autopilot, lights, anchor, music, motor, USB */
+extern const char *const knob_modes_page_name[KNOB_MODES_PAGE_COUNT];
+/* false when switching page item i would leave no mode on (the last one stays on) */
+bool knob_modes_toggle_ok(uint8_t mask, int i);
+int knob_modes_count(uint8_t mask);
 
 typedef struct {
     const char *name;           /* upper case, as shown */

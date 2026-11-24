@@ -947,6 +947,19 @@ static void test_autodemo_script_loops(void)
     TEST_ASSERT_TRUE(f.longs >= 6);                 /* engage, light off, drop, two profile changes */
     TEST_ASSERT_TRUE(f.doubles >= 6);               /* six trips through the ring */
 }
+/* ---- MODES page ---- */
+static void test_modes_page(void)
+{
+    TEST_ASSERT_EQUAL_INT(6, knob_modes_count(0x3F));
+    TEST_ASSERT_TRUE(knob_modes_toggle_ok(0x3F, 0));      /* off with others on */
+    TEST_ASSERT_FALSE(knob_modes_toggle_ok(0x04, 2));     /* the last one on stays on */
+    TEST_ASSERT_TRUE(knob_modes_toggle_ok(0x04, 1));      /* switching another one on is fine */
+    TEST_ASSERT_FALSE(knob_modes_toggle_ok(0x3F, 6));
+    TEST_ASSERT_EQUAL_INT(KNOB_MODE_HID, knob_modes_page[5]);
+    TEST_ASSERT_EQUAL_STRING("MODES", knob_setting_desc(KNOB_SET_MODES)->name);
+    TEST_ASSERT_EQUAL_INT(KNOB_KIND_PAGE, knob_setting_desc(KNOB_SET_MODES)->kind);
+}
+
 int main(void)
 {
     UNITY_BEGIN();
@@ -992,5 +1005,6 @@ int main(void)
     RUN_TEST(test_autodemo_ring_and_settings);
     RUN_TEST(test_autodemo_pause_and_restart);
     RUN_TEST(test_autodemo_script_loops);
+    RUN_TEST(test_modes_page);
     return UNITY_END();
 }

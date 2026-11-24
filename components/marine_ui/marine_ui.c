@@ -725,10 +725,14 @@ static void refresh_mode_ring_center_preview(void) {
     lv_obj_set_style_text_color(ring_center_bot, c_text(), 0);
 }
 
-// USB only with a USB host on the cable, SETTINGS not while an alarm is active (acknowledged or not).
+// A mode switched off on the MODES page is hidden. USB only with a USB host on the cable, SETTINGS not while an alarm is
+// active (acknowledged or not).
 static bool ring_slot_visible(int s) {
     marine_ui_mode_t m = ring_slot_modes[s];
-    if (m == MARINE_MODE_USB_HID) return snap.usb_host_enumerated;
+    if (m == MARINE_MODE_AUTOPILOT) return snap.ap_mode;
+    if (m == MARINE_MODE_DIMMER) return snap.lights_mode;
+    if (m == MARINE_MODE_ANCHOR_WATCH) return snap.anchor_mode;
+    if (m == MARINE_MODE_USB_HID) return snap.usb_mode && snap.usb_host_enumerated;
     if (m == MARINE_MODE_SETTINGS) return snap.active_alarm == MARINE_ALARM_NONE;
     if (m == MARINE_MODE_MUSIC) return snap.music_mode;
     if (m == MARINE_MODE_MOTOR) return snap.motor_mode;
@@ -2285,7 +2289,7 @@ static void cancel_transients(void) {
 
 // --- Settings screen (#5, ui-design section 3.5). A list of what a skipper changes at the helm. Values come from the snapshot
 // (setting[]), changes go out as MARINE_ACT_SETTING_SET and come back through the snapshot once stored. ---
-typedef enum { SET_LIST = 0, SET_EDIT, SET_CONFIRM, SET_PAGE, SET_RESET } set_view_t;
+typedef enum { SET_LIST = 0, SET_EDIT, SET_CONFIRM, SET_PAGE, SET_RESET, SET_MODES } set_view_t;
 
 #define SET_CONFIRM_MS 5000
 #define SET_RESET_HOLD_MS 5000
@@ -2302,6 +2306,9 @@ static int set_edit_value = 0;
 static int set_edit_was = 0;
 static uint32_t set_confirm_ms = 0;
 static bool set_reset_holding = false;
+static lv_obj_t *set_mode_pill[KNOB_MODES_PAGE_COUNT], *set_mode_lbl[KNOB_MODES_PAGE_COUNT];
+static int set_mode_focus = 0;
+static uint32_t set_mode_refused_ms = 0;   // the last mode on: the bottom line says so for 2 s
 
 static void set_show(lv_obj_t *o, bool on) {
     if (on) lv_obj_remove_flag(o, LV_OBJ_FLAG_HIDDEN);
@@ -2361,9 +2368,35 @@ static lv_obj_t* build_settings_screen(void) {
     set_lbl_page = set_make_label(scr, &lv_font_montserrat_14, 0);
     lv_obj_set_style_text_line_space(set_lbl_page, 4, 0);
 
+    // MODES page: two columns, three rows of pills, filled while the mode is on.
+    for (int i = 0; i < KNOB_MODES_PAGE_COUNT; i++) {
+        lv_obj_t *p = lv_obj_create(scr);
+        lv_obj_set_size(p, 92, 36);
+        lv_obj_align(p, LV_ALIGN_CENTER, (i % 2) ? 50 : -50, -44 + (i / 2) * 44);
+        lv_obj_set_style_radius(p, 18, 0);
+        lv_obj_set_style_pad_all(p, 0, 0);
+        lv_obj_remove_flag(p, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_t *l = lv_label_create(p);
+        lv_obj_set_style_text_font(l, &lv_font_montserrat_14, 0);
+        lv_label_set_text(l, knob_modes_page_name[i]);
+        lv_obj_center(l);
+        lv_obj_add_flag(p, LV_OBJ_FLAG_HIDDEN);
+        set_mode_pill[i] = p;
+        set_mode_lbl[i] = l;
+    }
+
     set_lbl_top = set_make_label(scr, &lv_font_montserrat_12, -86);      // about 150 px at y 34
     set_lbl_bottom = set_make_label(scr, &lv_font_montserrat_12, 82);    // in the arc's gap, about 160 px at y 202
     return scr;
+}
+
+// The MODES page's state from the snapshot: bit i for knob_modes_page[i].
+static uint8_t set_modes_mask(void) {
+    bool on[KNOB_MODES_PAGE_COUNT] = { snap.ap_mode, snap.lights_mode, snap.anchor_mode, snap.music_mode, snap.motor_mode,
+                                       snap.usb_mode };
+    uint8_t m = 0;
+    for (int i = 0; i < KNOB_MODES_PAGE_COUNT; i++) if (on[i]) m |= (uint8_t)(1u << i);
+    return m;
 }
 
 // What the list shows as the item's value.
@@ -2371,6 +2404,8 @@ static void set_value_text(int item, char *out, size_t n) {
     if (item == KNOB_SET_SETUP_AP) {
         if (snap.setup_ap_open && snap.setup_ap_left_s) snprintf(out, n, "OPEN %u:%02u", snap.setup_ap_left_s / 60, snap.setup_ap_left_s % 60);
         else snprintf(out, n, "%s", snap.setup_ap_open ? "OPEN" : "CLOSED");
+    } else if (item == KNOB_SET_MODES) {
+        snprintf(out, n, "%d OF %d ON", knob_modes_count(set_modes_mask()), KNOB_MODES_PAGE_COUNT);
     } else if (item == KNOB_SET_DEVICE_INFO || item == KNOB_SET_SIGNALK) {
         snprintf(out, n, "SHOW");
     } else if (item == KNOB_SET_RESET) {
@@ -2390,9 +2425,10 @@ static void settings_refresh(void) {
     set_show(set_pill, list);
     set_show(set_arc, set_view == SET_EDIT || set_view == SET_CONFIRM || set_view == SET_RESET);
     set_show(set_lbl_big, set_view == SET_EDIT || set_view == SET_CONFIRM || set_view == SET_RESET);
-    set_show(set_lbl_line1, set_view != SET_LIST && set_view != SET_PAGE);
-    set_show(set_lbl_line2, set_view != SET_LIST && set_view != SET_PAGE);
+    set_show(set_lbl_line1, set_view != SET_LIST && set_view != SET_PAGE && set_view != SET_MODES);
+    set_show(set_lbl_line2, set_view != SET_LIST && set_view != SET_PAGE && set_view != SET_MODES);
     set_show(set_lbl_page, set_view == SET_PAGE);
+    for (int i = 0; i < KNOB_MODES_PAGE_COUNT; i++) set_show(set_mode_pill[i], set_view == SET_MODES);
 
     switch (set_view) {
     case SET_LIST:
@@ -2460,6 +2496,21 @@ static void settings_refresh(void) {
         snprintf(bot, sizeof(bot), "PRESS BACK");
         set_label(set_lbl_page, b, c_text());
         break;
+    case SET_MODES: {
+        snprintf(top, sizeof(top), "MODES");
+        bool refused = set_mode_refused_ms && snap.now_ms - set_mode_refused_ms < 2000;
+        snprintf(bot, sizeof(bot), "%s", refused ? "ONE MODE STAYS ON" : "PRESS SWITCH \xE2\x80\xA2 2x BACK");
+        uint8_t mask = set_modes_mask();
+        for (int i = 0; i < KNOB_MODES_PAGE_COUNT; i++) {
+            bool on = mask & (1u << i), foc = i == set_mode_focus;
+            lv_obj_set_style_bg_color(set_mode_pill[i], on ? c_primary() : (snap.night_palette ? lv_color_hex(0x050000) : COL_CARD), 0);
+            lv_obj_set_style_bg_opa(set_mode_pill[i], on ? LV_OPA_COVER : LV_OPA_COVER, 0);
+            lv_obj_set_style_border_width(set_mode_pill[i], foc ? 3 : 1, 0);
+            lv_obj_set_style_border_color(set_mode_pill[i], foc ? (on ? c_text() : c_primary()) : c_muted(), 0);
+            lv_obj_set_style_text_color(set_mode_lbl[i], on ? COL_BG : c_muted(), 0);
+        }
+        break;
+    }
     case SET_RESET: {
         snprintf(top, sizeof(top), "RESET SETUP");
         snprintf(bot, sizeof(bot), "PRESS BACK");
@@ -2508,6 +2559,10 @@ static void settings_on_input(marine_semantic_input_t ev, int32_t val) {
             } else if (set_index == KNOB_SET_RESET) {
                 set_view = SET_RESET;
                 set_reset_holding = false;
+            } else if (set_index == KNOB_SET_MODES) {
+                set_view = SET_MODES;
+                set_mode_focus = 0;
+                set_mode_refused_ms = 0;
             } else if (d->kind == KNOB_KIND_PAGE) {
                 set_view = SET_PAGE;
             } else {
@@ -2545,6 +2600,22 @@ static void settings_on_input(marine_semantic_input_t ev, int32_t val) {
     case SET_RESET:
         if (ev == MARINE_INPUT_SINGLE_PRESS || ev == MARINE_INPUT_DOUBLE_PRESS) set_view = SET_LIST;
         break;
+    case SET_MODES:
+        if (ev == MARINE_INPUT_TURN) {
+            set_mode_focus = knob_list_wrap(set_mode_focus, val, KNOB_MODES_PAGE_COUNT);
+        } else if (ev == MARINE_INPUT_SINGLE_PRESS) {
+            uint8_t mask = set_modes_mask();
+            if (knob_modes_toggle_ok(mask, set_mode_focus)) {
+                bool on = !(mask & (1u << set_mode_focus));
+                emit_action(MARINE_MODE_SETTINGS, MARINE_ACT_SETTING_SET, KNOB_SET_MODES, (set_mode_focus << 8) | (on ? 1 : 0));
+                set_mode_refused_ms = 0;
+            } else {
+                set_mode_refused_ms = snap.now_ms ? snap.now_ms : 1;   // the last one on stays on
+            }
+        } else if (ev == MARINE_INPUT_DOUBLE_PRESS) {
+            set_view = SET_LIST;
+        }
+        break;
     }
     settings_refresh();
 }
@@ -2556,6 +2627,9 @@ static void settings_tick(void) {
         if (knob_confirm_step(set_confirm_ms, snap.now_ms, SET_CONFIRM_MS, KNOB_CONFIRM_EV_TICK, 0) == KNOB_CONFIRM_CANCELLED) {
             set_view = SET_LIST;
         }
+        settings_refresh();
+    } else if (set_view == SET_MODES && set_mode_refused_ms) {
+        if (snap.now_ms - set_mode_refused_ms >= 2000) set_mode_refused_ms = 0;
         settings_refresh();
     } else if (set_view == SET_RESET) {
         if (btn_is_down && !set_reset_holding) set_reset_holding = true;
