@@ -90,7 +90,7 @@ key behaviour, and the course output reaching the pilot.
 - [x] SPEC 6.3, ui-design 3.1, hardware checklist, manual.
 
 ## Files
-`firmware/components/knob_model/knob_model.c`, `firmware/components/knob_actions/knob_actions.c`,
-`firmware/components/marine_ui/*`, `firmware/components/knob_logic/*`, `firmware/components/knob_power/*`,
-`firmware/components/knob_config/*`, `test/host/test_knob_logic.c`, `SPEC.md`, `ARCHITECTURE.md`, `docs/ui-design.md`,
+`components/knob_model/knob_model.c`, `components/knob_actions/knob_actions.c`,
+`components/marine_ui/*`, `components/knob_logic/*`, `components/knob_power/*`,
+`components/knob_config/*`, `test/host/test_knob_logic.c`, `SPEC.md`, `ARCHITECTURE.md`, `docs/ui-design.md`,
 `docs/hardware-checklist.md`, `docs/manual.md`.

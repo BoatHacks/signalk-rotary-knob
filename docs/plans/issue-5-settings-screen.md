@@ -58,5 +58,5 @@ None.
 - [ ] Flash and go through the hardware checklist section "Settings screen".
 
 ## Files
-`firmware/components/marine_ui/*`, `firmware/components/knob_config/*`, `firmware/components/knob_power/*`,
-`firmware/components/knob_logic/*`, `firmware/main/main.c`, `docs/ui-design.md`, `docs/manual.md`.
+`components/marine_ui/*`, `components/knob_config/*`, `components/knob_power/*`,
+`components/knob_logic/*`, `main/main.c`, `docs/ui-design.md`, `docs/manual.md`.

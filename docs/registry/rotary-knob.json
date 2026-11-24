@@ -1,0 +1,30 @@
+{
+  "id": "rotary-knob",
+  "app": "signalk-rotary-knob",
+  "name": "Rotary Helm Knob",
+  "summary": "Helm control knob for autopilot, lights, anchor watch and music over Signal K",
+  "description": "Turns the Elecrow CrowPanel 1.28\" rotary display into a helm control: autopilot (heading, wind and route) with confirm turns, dimmer channels, an anchor watch with drop, move and raise, music volume and playback for signalk-jukebox, and a USB-HID mode for chartplotters. Night palette, idle dimming, settings on the knob and in the browser.",
+  "repo": "BoatHacks/signalk-rotary-knob",
+  "license": "Apache-2.0",
+  "signingKeyId": "4e0a983dc96231e6",
+  "targets": [
+    "esp32s3"
+  ],
+  "boards": [
+    {
+      "id": "elecrow-crowpanel-rotary-1-28",
+      "target": "esp32s3",
+      "flashMinBytes": 16777216,
+      "support": "tested"
+    }
+  ],
+  "channels": [
+    "stable",
+    "beta"
+  ],
+  "assets": {
+    "ota": "^signalk-rotary-knob-esp32s3-v(?<version>[0-9]+\\.[0-9]+\\.[0-9]+)-ota\\.bin$",
+    "merged": "^signalk-rotary-knob-esp32s3-v(?<version>[0-9]+\\.[0-9]+\\.[0-9]+)-merged\\.bin$"
+  },
+  "webAssetsBranch": "release-assets"
+}

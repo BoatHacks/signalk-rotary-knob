@@ -1,0 +1,33 @@
+# Every push to main and every pull request: build the firmware (with a throwaway signing key, nothing here is
+# flashed) and run the host tests. Releases are cut by hand, see cut-release.yml.
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  firmware:
+    uses: signalk-espOS/espOS/.github/workflows/build-firmware.yml@v0.32.0
+    with:
+      target: esp32s3
+      name: signalk-rotary-knob-esp32s3
+      # An image without the web UI partition boots, but serves espOS's placeholder page instead of the settings page.
+      require: storage
+
+  host-tests:
+    runs-on: ubuntu-latest
+    container: espressif/idf:v6.1.1
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: knob_logic tests (Unity from ESP-IDF)
+        shell: bash
+        run: make -C test/host test UNITY_DIR="$IDF_PATH/components/unity/unity/src"
+      - name: release script tests
+        run: python3 -m unittest discover -s test/scripts -v

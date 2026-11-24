@@ -59,6 +59,6 @@ None.
 - [ ] Flash and go through the hardware checklist section "Config and REST API".
 
 ## Files
-`firmware/components/knob_config/*`, a new `knob_api.c` (in `firmware/main` or its own component), `firmware/main/main.c`,
-`firmware/components/marine_ui/*` (mode switch entry point, toast), `firmware/components/knob_logic/*`, `SPEC.md`,
+`components/knob_config/*`, a new `knob_api.c` (in `main` or its own component), `main/main.c`,
+`components/marine_ui/*` (mode switch entry point, toast), `components/knob_logic/*`, `SPEC.md`,
 `docs/manual.md`.

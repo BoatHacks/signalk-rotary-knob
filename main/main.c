@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: Apache-2.0
- * SignalK rotary knob firmware (bring-up stage): espOS plus the knob application. See ARCHITECTURE.md section 2.10. */
+ * SignalK rotary knob firmware: espOS plus the knob application. Boot order and glue, see ARCHITECTURE.md section 2.10. */
 #include "board.h"
 #include "knob_model.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "espos.h"
+#include "espos_config.h"
 #include "espos_sk.h"
 #include "esp_heap_caps.h"
 #include "freertos/FreeRTOS.h"
@@ -15,11 +16,13 @@
 #include "knob_power.h"
 #include "lv_port.h"
 #include "marine_ui.h"
+#include "nvs.h"
 #include "usb_dev.h"
 
 static const char *TAG = "knob";
 
-#define PATH "environment.inside.temperature"
+/* Where released boards look for updates (the release workflow writes manifest.json to the ota branch). */
+#define OTA_MANIFEST_URL "https://raw.githubusercontent.com/BoatHacks/signalk-rotary-knob/ota/manifest.json"
 
 static unsigned long ms(void) { return (unsigned long)(esp_timer_get_time() / 1000); }
 
@@ -67,6 +70,25 @@ static void alloc_failed(size_t size, uint32_t caps, const char *function_name)
     s_alloc_fail_ms = (unsigned)ms();
 }
 
+/* espOS ships with no manifest URL. Fill in this project's once: an emptied URL is also how an owner opts out of update
+ * checks, so after the first boot with this firmware an empty URL stays empty. */
+static void default_ota_manifest(void)
+{
+    nvs_handle_t h;
+    if (nvs_open("knob_app", NVS_READWRITE, &h) != ESP_OK) return;
+    uint8_t done = 0;
+    if (nvs_get_u8(h, "ota_url_set", &done) != ESP_OK || !done) {
+        char url[8] = "";
+        espos_config_get_str("ota", "manifest_url", url, sizeof(url), NULL);
+        if (url[0] == '\0' && espos_config_set_str("ota", "manifest_url", OTA_MANIFEST_URL) == ESP_OK) {
+            ESP_LOGI(TAG, "update manifest: %s", OTA_MANIFEST_URL);
+        }
+        nvs_set_u8(h, "ota_url_set", 1);
+        nvs_commit(h);
+    }
+    nvs_close(h);
+}
+
 void app_main(void)
 {
     heap_caps_register_failed_alloc_callback(alloc_failed);
@@ -96,6 +118,7 @@ void app_main(void)
     ESP_ERROR_CHECK(espos_start(NULL));
     ESP_LOGI(TAG, "espos_start returned at %lu ms", ms());
     heap_step("espos_start");
+    default_ota_manifest();
     knob_model_restore_mode();
     knob_net_start();
     knob_model_subscribe();
@@ -134,7 +157,6 @@ void app_main(void)
                      ld.holder, (unsigned long)ld.held_ms, (unsigned long)ld.in_handler_ms, phase,
                      (unsigned long)loop_age, (unsigned long)apply_age);
         }
-        espos_sk_publish_number(PATH, 293.65);
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }

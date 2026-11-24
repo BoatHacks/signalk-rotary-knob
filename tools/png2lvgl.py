@@ -4,7 +4,7 @@
 
 Standard library only. Transparent pixels are composited over black, which is what a round display shows outside the glass.
 
-    python tools/png2lvgl.py firmware/assets/splash.png firmware/components/marine_ui/splash_img.c marine_splash_img         --shift 1,1 --circle 118.5
+    python tools/png2lvgl.py assets/splash.png components/marine_ui/splash_img.c marine_splash_img         --shift 1,1 --circle 118.5
     python tools/png2lvgl.py --probe image.png X0 Y0 X1 Y1     # print the RGB values of a pixel row/area (layout work)
 
 --erase X0,Y0,X1,Y1  fill a rectangle (inclusive) by fading each column from the pixel above it to the pixel below it, to

@@ -415,6 +415,6 @@ direct_dependencies:
 - signalk-espos/espos_core
 - signalk-espos/espos_ota
 - signalk-espos/espos_sk
-manifest_hash: 0190a67f78332d7e11076a79393c50fc722c58f9fbdb3c2c2e064fd3e0ffa1f2
+manifest_hash: 8c62270bb55bb825ec611851667c14519f9ee3a0290a3acc7169bd470ebb7f9d
 target: esp32s3
 version: 3.0.0

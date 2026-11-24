@@ -101,6 +101,17 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 | A touch in the centre or on the outer arc does nothing | open | | | |
 | No jukebox or stale volume: `NO VOLUME`, a disconnected zone: `ZONE OFFLINE`, turn ignored | open | | | |
 
+## Release and OTA (docs/plans/release.md)
+
+| Item | Status | Date | Commit | Notes |
+|---|---|---|---|---|
+| A release's `-merged.bin` written at 0 on an erased board boots to the setup portal, web UI served | open | | | |
+| First boot writes the project manifest URL into `ota.manifest_url`, an emptied URL stays empty after a restart | open | | | |
+| A knob on the beta channel is offered the next pre-release and installs it, settings and token kept | open | | | |
+| An image signed with another key is refused, the knob keeps running | open | | | |
+| An image that crashes before it reaches the network rolls back to the previous one | open | | | |
+| `GET /api/v1/system/ping` reports app `signalk-rotary-knob` and the release version | open | | | |
+
 ## Lights
 
 | Item | Status | Date | Commit | Notes |

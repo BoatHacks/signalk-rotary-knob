@@ -1,0 +1,14 @@
+# Partition table for the knob: 16 MB flash, copied from espOS 0.32's bundled 16 MB table (espos_core, Apache-2.0).
+# Two 6.5 MB app slots for signed OTA updates with rollback (the knob image is about 2.2 MB), a 1.75 MB LittleFS
+# "storage" partition for espOS's web UI, and 128K of NVS for settings, Wi-Fi, the SignalK token and the knob config.
+# Offsets and sizes are fixed at the first USB flash: an OTA never changes them, so this table must stay as it is for
+# every release. The last 1 MB is free.
+# Name,     Type, SubType,  Offset,  Size,   Flags
+nvs,        data, nvs,      ,        128K,
+otadata,    data, ota,      ,        8K,
+phy_init,   data, phy,      ,        4K,
+nvs_keys,   data, nvs_keys, ,        4K,    encrypted
+coredump,   data, coredump, ,        64K,
+ota_0,      app,  ota_0,    ,        6656K,
+ota_1,      app,  ota_1,    ,        6656K,
+storage,    data, littlefs, ,        1792K,

@@ -1,0 +1,17 @@
+signalk-rotary-knob
+Copyright 2026 Tobias C. Rosenstock and contributors
+Licensed under the Apache License, Version 2.0 (LICENSE).
+
+This firmware is built on, and contains parts adapted from, the following work.
+
+espOS (https://github.com/signalk-espOS/espOS), Apache-2.0, copyright Dirk Wahrheit.
+  Linked as components from the ESP-IDF component registry (signalk-espos/espos_*).
+  CMakeLists.txt, sdkconfig.defaults, partitions.csv, .idf-version and version.txt are adapted from its from_registry
+  example and bundled partition tables. scripts/update_ota_manifest.py follows its OTA manifest format.
+
+Components downloaded at build time (dependencies.lock), each under its own licence:
+  ESP-IDF, esp_tinyusb, TinyUSB, led_strip, esp_lcd_gc9a01, mdns, cJSON, cmake_utilities (Espressif Systems, Apache-2.0,
+  TinyUSB and cJSON MIT)
+  LVGL (https://lvgl.io), MIT. Its built-in Montserrat fonts are under the SIL Open Font License 1.1 and the Font Awesome
+  symbols under their own free licence, as described in LVGL's documentation.
+  littlefs for ESP-IDF (joltwallet), MIT; littlefs itself BSD-3-Clause.

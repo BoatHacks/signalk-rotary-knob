@@ -1,7 +1,7 @@
 # SignalK Rotary Knob Architecture
 
 > DRAFT 1. Requirements live in [SPEC.md](SPEC.md), the screens and input rules in [docs/ui-design.md](docs/ui-design.md), the board
-> in [docs/hardware.md](docs/hardware.md), the evidence behind the base choice in [docs/spike-espos.md](docs/spike-espos.md).
+> in [docs/hardware.md](docs/hardware.md), the evidence behind the base choice in [docs/history/spike-espos.md](docs/history/spike-espos.md).
 > Items marked **(verify)** are unchecked against a live server or the board.
 
 ## 1. Overview
@@ -46,7 +46,7 @@ Principles:
 
 ## 2. System Components
 
-All new components live under `firmware/components/`. Public headers are the only coupling between them.
+All new components live under `components/`. Public headers are the only coupling between them.
 
 ### 2.1 board
 Pin map, power rails (GPIO1/2 high first), GC9A01 over SPI2, backlight PWM, PCNT quadrature (x4, 4 edges per detent), button,
@@ -252,36 +252,37 @@ Spike measurements: app_main at 0.33 s, first frame 0.6 s, LVGL up 0.37 s after 
 
 ## 7. File Structure
 
+The ESP-IDF project is the repository root, so espOS's reusable build and release workflows apply unchanged (they expect
+`.idf-version` and `idf.py build` there).
+
 ```
 signalk-rotary-knob/
-  SPEC.md  ARCHITECTURE.md
-  docs/            hardware.md  spike-espos.md  ui-design.md  HANDOFF.md
-  firmware/
-    CMakeLists.txt  sdkconfig.defaults  partitions.csv  dependencies.lock
-    main/                       app_main, boot order, glue
-    components/
-      board/  lv_port/  input/  knob_net/  knob_model/  knob_actions/ (the adapters and their worker task)  knob_logic/ (pure logic)  knob_power/
-      knob_usb/ (+ knob_hid)  knob_config/
-      marine_ui/                from ui/marine_ui_v5/esp_idf_component
-    test/                       Unity tests, linux target
-  ui/marine_ui_v5/prototype/    browser prototype stays as the design reference
-  tools/                        flash and capture helpers (no machine paths)
+  CMakeLists.txt  sdkconfig.defaults  partitions.csv  dependencies.lock  .idf-version  version.txt
+  SPEC.md  ARCHITECTURE.md  CHANGELOG.md
+  main/                         app_main, boot order, glue
+  components/
+    board/  lv_port/  input/  knob_net/  knob_model/  knob_actions/ (the adapters and their worker task)  knob_logic/ (pure logic)
+    knob_power/  knob_usb/ (+ knob_hid)  knob_config/  knob_api/
+    marine_ui/                  from ui/marine_ui_v5/esp_idf_component
+  assets/                       splash picture source (tools/png2lvgl.py turns it into C)
+  test/host/                    Unity tests of knob_logic on the build machine
+  docs/                         manual, hardware, UI design, plans
+  spikes/                       small standalone hardware experiments
+  ui/marine_ui_v5/prototype/    browser prototype, the design reference
+  tools/                        build and flash helper (no machine paths)
 ```
-
-`spike/` is promoted with `git mv` to `firmware/`, then refactored. The spike test screen (`app_ui.c`) is deleted when `marine_ui`
-replaces it. `ui/marine_ui_v5/esp_idf_component` moves to `firmware/components/marine_ui`, the prototype stays under `ui/`.
 
 ## 8. Deployment
 
 - **Build:** ESP-IDF 6.1.x, `idf.py -B <build dir outside the tree> build`. The espOS build needs an app signing key
   (`espsecure generate-signing-key --version 2 --scheme rsa3072`), kept outside git. A lost key means a USB reflash, nothing
   more.
-- **Flashing (MVP):** over USB. The native USB pins belong to TinyUSB at runtime, so a running knob re-enters the ROM
-  download mode when the CDC port is opened at 1200 baud (the firmware does this, `tools/` has the script). The BOOT button is the
-  fallback. A blank board flashes over USB-Serial/JTAG as usual.
-- **Updates over the air:** post-MVP. The 2-slot table, app rollback and the signing key stay in the build so OTA can be added
-  without a re-partition. Signed firmware repository and update source are post-MVP, nothing in the MVP points `espos_ota` at a
-  server (this replaces the earlier "never OTA" decision, SPEC sections 10 and 12).
+- **Flashing:** over USB-Serial/JTAG with the usual automatic reset. The port is the console at all times, TinyUSB takes it
+  over only while the USB-HID mode is active (leave that mode, or press the RESET button, to flash).
+- **Releases and updates over the air:** see docs/plans/release.md. GitHub Actions builds and signs each release with the
+  project key, attaches a full-flash image and an OTA image, and adds the build to `manifest.json` on the `ota` branch, which
+  `espos_ota` checks. The 2-slot table and app rollback make a bad update roll back by itself. The firmware is listed in the
+  espOS registry, so the signalk-espos-manager plugin and the web flasher can install it.
 - **First run:** setup AP, Wi-Fi credentials on a phone, SignalK access request approved in the server admin UI, channels and
   anchor target set on the settings page.
 - **Runtime requirements:** 5 V supply, a SignalK server with security on (the knob is a normal device client), the autopilot
@@ -289,8 +290,8 @@ replaces it. `ui/marine_ui_v5/esp_idf_component` moves to `firmware/components/m
 - **Persistence:** NVS holds espOS settings, token and the knob config. Nothing else is written, so power loss is safe.
 - **USB identity:** the spike uses the Espressif VID with a throwaway PID, fine for the bench. Before anyone else uses this
   firmware it needs its own VID/PID.
-- **Licence:** Apache-2.0 (decided), matching the espOS and cockpit code we reuse. A `LICENSE` file and per-file headers on new
-  files go in with the promotion to `firmware/`.
+- **Licence:** Apache-2.0, matching the espOS and cockpit code we reuse. Third-party code and its licences are listed in
+  `NOTICE`.
 
 ## 9. Spike Gate, Risks and Open Items
 

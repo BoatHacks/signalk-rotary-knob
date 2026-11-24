@@ -1,4 +1,4 @@
-# Host unit tests for the pure logic in firmware/components/knob_logic.
+# Host unit tests for the pure logic in components/knob_logic.
 #
 #   make test UNITY_DIR=/path/to/Unity/src
 #
@@ -7,7 +7,7 @@
 # Last run 2026-11-23 on gcc 14 (aarch64 Debian): 28 tests, 0 failures.
 CC ?= gcc
 UNITY_DIR ?= $(IDF_PATH)/components/unity/unity/src
-LOGIC := ../../firmware/components/knob_logic
+LOGIC := ../../components/knob_logic
 
 test_knob_logic: test_knob_logic.c $(LOGIC)/knob_logic.c $(LOGIC)/knob_demo.c $(UNITY_DIR)/unity.c
 	$(CC) -std=c11 -Wall -Wextra -I$(LOGIC) -I$(UNITY_DIR) $^ -lm -o $@

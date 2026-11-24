@@ -35,7 +35,7 @@ if ($Flash -and -not $Port) { throw '-Flash needs -Port.' }
 if (-not $LogFile) { $LogFile = Join-Path $BuildDir 'build-status.log' }
 if (-not $StatusFile) { $StatusFile = Join-Path $BuildDir 'build-status.txt' }
 
-$firmware = Join-Path (Split-Path -Parent $PSScriptRoot) 'firmware'
+$firmware = Split-Path -Parent $PSScriptRoot   # the ESP-IDF project is the repository root
 $clock = [System.Diagnostics.Stopwatch]::StartNew()
 
 function Write-Status([string]$text) {

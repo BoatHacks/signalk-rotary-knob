@@ -1,0 +1,11 @@
+## espOS from the component registry, pinned to one exact release (its components are released in lockstep). Bump it on
+## purpose, with a commit that names the version. dependencies.lock pins everything else to what was tested.
+dependencies:
+  idf: ">=6.1.0,<6.2.0"
+  signalk-espos/espos_core: "0.32.0"
+  signalk-espos/espos_sk: "0.32.0"
+  signalk-espos/espos_ota: "0.32.0"
+  espressif/esp_lcd_gc9a01: "^2.0.4"
+  lvgl/lvgl: "~9.3.0"
+  espressif/esp_tinyusb: "^2.0.0"
+  espressif/led_strip: "^3.0.0"

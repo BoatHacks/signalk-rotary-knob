@@ -261,7 +261,7 @@ static lv_obj_t *sys_lbl_line1;
 static lv_obj_t *sys_lbl_line2;
 static lv_obj_t *sys_arc_prog;
 
-// Boot splash: a full-screen RGB565 picture (splash_img.c, from firmware/assets/splash.png) covers the system screen while
+// Boot splash: a full-screen RGB565 picture (splash_img.c, from assets/splash.png) covers the system screen while
 // booting. The picture has its own progress bar baked in. The live bar below is drawn over that bar's inside (x 62..176,
 // y 206..214 in the 240 x 240 picture) so the progress shown is real.
 extern const lv_image_dsc_t marine_splash_img;

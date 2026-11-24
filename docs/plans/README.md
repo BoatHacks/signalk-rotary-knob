@@ -20,6 +20,7 @@ Name files `issue-<n>-<short-name>.md` for a GitHub issue, `<short-name>.md` oth
 | [issue-6-volume-mode.md](issue-6-volume-mode.md) | #6 | A new mode on signalk-jukebox, survey and design done |
 | [issue-7-autopilot-modes.md](issue-7-autopilot-modes.md) | #7 | Needs the SeaTalk pilot wired to the server, compass mode proven on the boat, and an upstream fix for wind targets |
 | [issue-2-user-manual.md](issue-2-user-manual.md) | #2 | Follows the behaviour, so it finishes last |
+| [release.md](release.md) | none | CI, signed releases, OTA manifest, espOS registry and the cleanup before going public. Its owner decisions come first |
 
 The plans for the open issues (#2 to #7) were agreed with the owner on 2026-11-23, with mockups for #5, #6 and #7. Their
 decisions are in SPEC.md section 12 and docs/ui-design.md sections 3.1, 3.5 and 3.6. None of them has open questions left,

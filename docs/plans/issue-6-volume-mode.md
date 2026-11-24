@@ -66,6 +66,6 @@ None.
       espOS's SignalK client and that the zone names GET works with the knob's token (both **verify** in the plan).
 
 ## Files
-`firmware/components/marine_ui/*`, `firmware/components/knob_model/knob_model.c`, `firmware/components/knob_actions/knob_actions.c`,
-`firmware/components/knob_config/*`, `firmware/components/knob_logic/*`, `test/host/test_knob_logic.c`, `SPEC.md`,
+`components/marine_ui/*`, `components/knob_model/knob_model.c`, `components/knob_actions/knob_actions.c`,
+`components/knob_config/*`, `components/knob_logic/*`, `test/host/test_knob_logic.c`, `SPEC.md`,
 `docs/ui-design.md`, `docs/manual.md`, `docs/hardware-checklist.md`.

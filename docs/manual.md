@@ -165,9 +165,18 @@ so you can switch demo off from a phone. It stays on across restarts until you s
 
 ## 7. Updating the firmware
 
-Updates are made over USB (over-the-air updates come later). Connect the knob to a computer. A running knob reboots into the bootloader
-when its USB serial port is opened at 1200 baud, or hold BOOT and tap RESET. The repository's `tools/build.ps1` builds and flashes.
-See docs/HANDOFF.md for the details and the pitfalls.
+**Over the air.** A knob running a release checks this project's update manifest for newer releases on its channel
+(stable by default, beta also gets pre-releases). The update section of the settings page shows what is offered, and
+installs it, or a release's `-ota.bin` given by hand. The knob restarts into the new firmware. If the new firmware fails to
+start or to reach the network, the knob goes back to the previous one by itself. Settings, Wi-Fi and the SignalK token are
+kept. Clearing the manifest address on the settings page stops the checks.
+
+**Over USB**, for a first install or a knob that will not start: connect it to a computer and write the release's
+`-merged.bin` at offset 0 with esptool (README). The port resets the knob into the bootloader by itself. If the knob is in
+the USB-HID mode, leave the mode first or press RESET. A merged image starts from scratch: set the knob up again afterwards.
+
+A knob only accepts updates signed with the key it was flashed with. A knob built and flashed from source with your own key
+needs one USB install of a release before it takes release updates.
 
 ## 8. Troubleshooting
 

@@ -7,7 +7,7 @@ This collects the items that have to be done before it runs unattended on the bo
 ## Relevant SPEC / ARCHITECTURE sections
 - ARCHITECTURE.md section 6 (security), section 10 (own USB VID/PID).
 - SPEC section 13 (token permission, question 9).
-- docs/HANDOFF.md "Gotchas learned".
+- docs/history/HANDOFF.md "Gotchas learned".
 
 ## Approach
 - **API key:** optional (decided 2026-11-23): the boat's instrument Wi-Fi is a trusted network, the settings page and the API
@@ -37,5 +37,5 @@ setup AP is gone while connected, the USB IDs show the new values in the device 
 - [x] Update ARCHITECTURE.md section 6 and the manual's settings section (optional key, portal password).
 
 ## Files
-`firmware/sdkconfig.defaults` (or a product profile), `firmware/components/knob_usb/usb_dev.c`, `ARCHITECTURE.md`,
+`sdkconfig.defaults` (or a product profile), `components/knob_usb/usb_dev.c`, `ARCHITECTURE.md`,
 `docs/manual.md`.

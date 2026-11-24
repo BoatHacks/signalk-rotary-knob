@@ -37,5 +37,5 @@ None.
 - [ ] Flash and go through the hardware checklist section "Demo mode".
 
 ## Files
-New `firmware/components/knob_demo/*`, `firmware/main/main.c`, `firmware/components/marine_ui/*` (tag),
-`firmware/components/knob_power/*`, `firmware/components/knob_config/*`, `docs/manual.md`.
+New `components/knob_demo/*`, `main/main.c`, `components/marine_ui/*` (tag),
+`components/knob_power/*`, `components/knob_config/*`, `docs/manual.md`.

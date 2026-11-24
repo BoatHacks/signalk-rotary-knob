@@ -10,7 +10,7 @@ espOS's health watchdog raises an alarm below 10 KB and reboots below 12 KB of f
 moment crashes. This has to be found and fixed before anything else is tried on the board.
 
 ## Relevant SPEC / ARCHITECTURE sections
-- ARCHITECTURE.md section 9 (risks), docs/HANDOFF.md "Internal RAM is the scarce resource".
+- ARCHITECTURE.md section 9 (risks), docs/history/HANDOFF.md "Internal RAM is the scarce resource".
 - ARCHITECTURE.md section 2 (lv_port: LVGL on a PSRAM allocator).
 
 ## Approach
@@ -38,7 +38,7 @@ None, this is a fix.
 - [ ] Add per-step heap logging in `main.c` (keep it, it is cheap).
 - [ ] Flash, read one boot, find the step that takes the RAM.
 - [ ] Fix the cause, rebuild, five cold boots.
-- [ ] Update the hardware checklist and HANDOFF.md.
+- [ ] Update the hardware checklist and docs/history/HANDOFF.md.
 
 ## Files
-`firmware/main/main.c`, `firmware/components/marine_ui/marine_ui.c`, possibly `firmware/components/lv_port/lv_port.c`.
+`main/main.c`, `components/marine_ui/marine_ui.c`, possibly `components/lv_port/lv_port.c`.

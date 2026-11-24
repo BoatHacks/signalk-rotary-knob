@@ -1,0 +1,26 @@
+{
+  "id": "elecrow-crowpanel-rotary-1-28",
+  "vendor": "Elecrow",
+  "model": "CrowPanel 1.28inch HMI ESP32 Rotary Display",
+  "name": "Elecrow CrowPanel 1.28\" rotary knob display",
+  "target": "esp32s3",
+  "flashBytes": 16777216,
+  "psramBytes": 8388608,
+  "features": [
+    "wifi",
+    "ble",
+    "display",
+    "touch"
+  ],
+  "display": {
+    "inches": 1.28,
+    "width": 240,
+    "height": 240
+  },
+  "usbBridge": {
+    "chip": "ESP32-S3 USB-Serial/JTAG",
+    "vid": "303a",
+    "pid": "1001"
+  },
+  "notes": "Round GC9A01 screen with CST816D touch inside an aluminium rotary knob: encoder, push button, ring of five RGB LEDs. Powered and flashed over USB-C."
+}

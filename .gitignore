@@ -9,3 +9,8 @@ managed_components/
 *.pem
 # idf.py monitor's log files.
 log/
+
+# Host test binaries and Python caches.
+test/host/test_knob_logic
+test/host/test_knob_logic.exe
+__pycache__/

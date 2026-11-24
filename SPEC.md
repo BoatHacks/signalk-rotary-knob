@@ -242,7 +242,7 @@ Everything else is ephemeral.
   from `dirkwa/espos-p4-cockpit`: the `cockpit_hal` display/touch HAL split, `IdleDimmer` with wake overlay, `sun_state`
   and the day/night theme. We do not adopt its touch-first JSON Layout Player for the MVP: our UI is a fixed set of
   modes driven by the encoder. espOS is pre-1.0 and S3/CrowPanel support is unverified, hence the bench spike
-  ([docs/spike-espos.md](docs/spike-espos.md)).
+  ([docs/history/spike-espos.md](docs/history/spike-espos.md)).
 - **One credential, config on the knob** (questions 5 and 6, decided 2026-11-22). The SignalK access request is the only
   pairing step, the token stays in NVS. Layout, channels, steps, timeouts, dim levels and HID profile are set on the knob's
   own espOS settings page. The knob uses espOS's SignalK client directly for simple paths.

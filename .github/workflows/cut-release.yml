@@ -1,0 +1,151 @@
+# Cut a release by hand: Actions, "Cut release", Run workflow on main, with a version such as v0.1.0.
+#
+# 1. Checks that CHANGELOG.md has an entry for the version with a summary line (boards show it as the update's notes).
+# 2. Tags the head of main and creates the GitHub release from that entry, as a pre-release unless unticked.
+# 3. Calls espOS's release-firmware.yml: builds and signs the image with SIGNING_KEY_PEM, attaches
+#    signalk-rotary-knob-esp32s3-vX.Y.Z-merged.bin (first flash over USB) and -ota.bin (updates), and mirrors them to the
+#    release-assets branch, where the web flasher can read them.
+# 4. Adds the build to manifest.json on the ota branch, which knobs check for updates: a full release on the stable and
+#    beta channels, a pre-release on beta only. Never an unsigned build: no knob would accept it.
+#
+# Re-running with the same version retries a failed run, as long as the tag still points at the same commit. Tags and
+# releases made with the workflow token start no other workflow, so everything runs from here.
+name: Cut release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, vX.Y.Z (a beta is a plain version released as a pre-release)"
+        type: string
+        required: true
+      prerelease:
+        description: "Publish as a pre-release (untick for a full release)"
+        type: boolean
+        default: true
+
+concurrency:
+  group: cut-release-${{ inputs.version }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check the version and its CHANGELOG entry
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::run this workflow on main (got $GITHUB_REF)"; exit 1
+          fi
+          # Plain vX.Y.Z only: the espOS registry reads a suffix as part of the file name.
+          if ! printf '%s' "$VERSION" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::version must look like v1.2.3 (got '$VERSION')"; exit 1
+          fi
+          if ! scripts/changelog_section.sh "$VERSION" >/dev/null; then
+            echo "::error::CHANGELOG.md has no entry for $VERSION. Add a dated '## [${VERSION#v}] - YYYY-MM-DD' section first."
+            exit 1
+          fi
+          if ! err=$(scripts/changelog_summary.sh "$VERSION" 2>&1 >/dev/null); then
+            echo "::error::$err"; exit 1
+          fi
+
+      - name: Tag and create the release
+        id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+          PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          if existing=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$VERSION" --jq .object.sha 2>/dev/null); then
+            if [ "$existing" != "$GITHUB_SHA" ]; then
+              echo "::error::tag $VERSION already exists on another commit ($existing)"; exit 1
+            fi
+            echo "tag $VERSION already on $GITHUB_SHA, rebuilding"
+          else
+            gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$VERSION" -f sha="$GITHUB_SHA" >/dev/null
+            echo "tagged $GITHUB_SHA as $VERSION"
+          fi
+          if ! gh release view "$VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            scripts/changelog_section.sh "$VERSION" > notes.md
+            pre=(--prerelease)
+            if [ "$PRERELEASE" = "false" ]; then pre=(); fi
+            gh release create "$VERSION" --repo "$GITHUB_REPOSITORY" --verify-tag "${pre[@]}" \
+              --title "$VERSION" --notes-file notes.md
+          fi
+          echo "tag=$VERSION" >> "$GITHUB_OUTPUT"
+
+  firmware:
+    needs: tag
+    permissions:
+      contents: write
+    uses: signalk-espOS/espOS/.github/workflows/release-firmware.yml@v0.32.0
+    with:
+      name: signalk-rotary-knob
+      builds: '[{"target": "esp32s3"}]'
+      tag: ${{ needs.tag.outputs.tag }}
+      require: storage
+    secrets:
+      signing_key: ${{ secrets.SIGNING_KEY_PEM }}
+
+  manifest:
+    needs: [tag, firmware]
+    # An unsigned build carries a throwaway key: every knob would download it and reject it.
+    if: vars.ESPOS_ALLOW_UNSIGNED_RELEASE != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: ota-manifest
+      cancel-in-progress: false
+    env:
+      TAG: ${{ needs.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ needs.tag.outputs.tag }}
+
+      - name: Add the build to manifest.json on the ota branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          image="signalk-rotary-knob-esp32s3-${TAG}-ota.bin"
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "$image" --dir dist
+          url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/${image}"
+          # Ask GitHub, so a release flag changed by hand counts too.
+          pre=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isPrerelease --jq .isPrerelease)
+          flag=()
+          if [ "$pre" = "true" ]; then flag=(--prerelease); fi
+          notes=$(scripts/changelog_summary.sh "$TAG")
+
+          git init -q ota
+          cd ota
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          # No ota branch yet on the first release: create it.
+          if git fetch -q --depth 1 origin ota 2>/dev/null; then
+            git checkout -q -b ota FETCH_HEAD
+          else
+            git checkout -q --orphan ota
+            printf '%s\n' "# OTA manifest" "" \
+              "Written by the Cut release workflow, do not edit by hand. Knobs check manifest.json for updates." > README.md
+          fi
+          python3 ../scripts/update_ota_manifest.py --manifest manifest.json \
+            --version "$TAG" --url "$url" --image "../dist/$image" --notes "$notes" "${flag[@]}"
+          git add -A
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -q -m "OTA manifest: ${TAG}$([ "$pre" = "true" ] && echo ' (beta)')"
+          git push -q origin ota

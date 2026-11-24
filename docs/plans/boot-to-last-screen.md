@@ -57,6 +57,6 @@ None.
 - [x] Update the gate table in ARCHITECTURE.md.
 
 ## Files
-`firmware/components/knob_model/knob_model.c`, `firmware/components/marine_ui/marine_ui.c`, `firmware/components/knob_net/*`,
-`firmware/components/knob_config/*`, `firmware/components/knob_logic/*`, `firmware/main/main.c`, `test/host/test_knob_logic.c`,
+`components/knob_model/knob_model.c`, `components/marine_ui/marine_ui.c`, `components/knob_net/*`,
+`components/knob_config/*`, `components/knob_logic/*`, `main/main.c`, `test/host/test_knob_logic.c`,
 `ARCHITECTURE.md`, `SPEC.md`, `docs/ui-design.md`, `docs/manual.md`, `docs/hardware-checklist.md`.
