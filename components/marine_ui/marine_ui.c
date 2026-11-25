@@ -2469,7 +2469,7 @@ static void settings_refresh(void) {
         snprintf(bot, sizeof(bot), "PRESS CANCELS");
         set_label(set_lbl_big, "TURN RIGHT", c_primary());
         set_label(set_lbl_line1, "to allow", c_text());
-        set_label(set_lbl_line2, "Autopilot and anchor", c_muted());
+        set_label(set_lbl_line2, "Autopilot, anchor, motor", c_muted());
         uint32_t el = snap.now_ms - set_confirm_ms;
         lv_arc_set_range(set_arc, 0, SET_CONFIRM_MS);
         lv_arc_set_value(set_arc, el >= SET_CONFIRM_MS ? 0 : (int32_t)(SET_CONFIRM_MS - el));
@@ -2540,6 +2540,9 @@ static void settings_refresh(void) {
     }
     }
     set_label(set_lbl_top, top, set_view == SET_LIST ? c_muted() : c_text());
+    // Inside the arc when it is shown (about 144 px at y -50), else near the edge.
+    bool arc = set_view == SET_EDIT || set_view == SET_CONFIRM || set_view == SET_RESET;
+    lv_obj_align(set_lbl_top, LV_ALIGN_CENTER, 0, arc ? -50 : -86);
     set_label(set_lbl_bottom, bot, c_muted());
 }
 
@@ -3015,7 +3018,7 @@ static void motor_refresh(void) {
 
     // Bottom: what the knob does next.
     if (armed && snap.motor_limit_warning) {
-        snprintf(b, sizeof(b), "LIMIT %d %% \xE2\x80\xA2 2x: ALLOW MORE", set >= 0 ? snap.motor_max_ahead_pct : snap.motor_max_astern_pct);
+        snprintf(b, sizeof(b), "LIMIT %d %% \xE2\x80\xA2 2x: MORE", set >= 0 ? snap.motor_max_ahead_pct : snap.motor_max_astern_pct);
         anc_set_line(mot_lbl_hint, b, c_amber());
     } else if (armed) {
         anc_set_line(mot_lbl_hint, set != 0 ? "HOLD: NEUTRAL" : "HOLD: DISARM", c_muted());
@@ -3063,7 +3066,7 @@ static void build_control_notice(void) {
     lv_obj_add_flag(ovl_ctl_ring, LV_OBJ_FLAG_HIDDEN);
 
     ovl_ctl_pill = lv_obj_create(lv_layer_top());
-    lv_obj_set_size(ovl_ctl_pill, 160, 44);
+    lv_obj_set_size(ovl_ctl_pill, 192, 44);
     lv_obj_align(ovl_ctl_pill, LV_ALIGN_TOP_MID, 0, 152);
     lv_obj_set_style_radius(ovl_ctl_pill, 22, 0);
     lv_obj_set_style_border_width(ovl_ctl_pill, 2, 0);
@@ -3904,6 +3907,9 @@ void marine_ui_apply_snapshot(const marine_ui_snapshot_t *snapshot) {
         sys_set_steps(false, 0);
         lv_obj_add_flag(ovl_stale, LV_OBJ_FLAG_HIDDEN);
         sys_splash_show(snap.system_screen == MARINE_SCREEN_BOOT, snap.boot_progress_pct);
+        lv_obj_set_style_text_color(sys_lbl_title, c_text(), 0);
+        lv_obj_set_style_text_color(sys_lbl_line1, c_text(), 0);
+        lv_obj_set_style_text_color(sys_lbl_line2, c_text(), 0);
         // The status lines and the pairing text are shown per screen below
         lv_obj_remove_flag(sys_lbl_state, LV_OBJ_FLAG_HIDDEN);
         lv_obj_remove_flag(sys_lbl_bottom, LV_OBJ_FLAG_HIDDEN);

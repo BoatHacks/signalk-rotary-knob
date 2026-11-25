@@ -35,7 +35,7 @@ anything is unclear so that the motor side falls back to neutral by itself. Deci
   - **Double press:** acknowledges the limit warning while it shows, otherwise opens the mode ring as everywhere.
 - **Limits:** two settings, max ahead and max astern (10 to 100 %), both 50 % by default. The first time in an arm cycle the
   throttle would pass a limit it stops there, nothing above the limit is sent, and a warning shows
-  (`LIMIT 50 %`, `2x: ALLOW MORE`). A double press lifts both limits until the next disarm, the throttle stays where it is and
+  (`LIMIT 50 %`, `2x: MORE`). A double press lifts both limits until the next disarm, the throttle stays where it is and
   only rises with the next turn. Turning back below the limit clears the warning (changed 2026-11-24 by the owner, it used to stay until acknowledged).
   While the warning shows, all five LEDs flash amber fast (4 Hz, on and off equally), on every screen. Unlike the throttle
   pattern it also shows at night, at the night brightness, because it is a warning. The LEDs setting off turns it off, an

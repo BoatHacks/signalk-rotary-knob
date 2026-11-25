@@ -8,10 +8,17 @@ To release, set `version.txt` to the version, rename `[Unreleased]` to the versi
 `## [0.1.0] - 2026-11-30`, and run the "Cut release" workflow (CONTRIBUTING.md).
 
 ## [Unreleased]
-A notice while an update is installed.
+Readable setup screens, updates that need less internal memory, dimmer levels.
 
 ### Added
 - `UPDATING FIRMWARE` on the screen while an update is installed.
+
+### Fixed
+- The text in the middle of JOIN WI-FI, NO SERVER and RESET was almost black on black.
+- Secure connections take their memory from PSRAM: an update could be cut off by a low-memory restart after hours of uptime.
+- A dimmer shows its real level, and one at 50 % or less is no longer shown as off.
+- Text: the motor limit line fits, settings titles are clear of the arc, SET OVER THE NETWORK fits its pill, the question before
+  allowing control names the motor too.
 
 ## [0.2.0] - 2026-11-25
 First release on the stable channel, the same firmware as 0.1.2.

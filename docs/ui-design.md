@@ -265,7 +265,7 @@ motor reports, large (`F` green, `N`, `R` amber, `!` red for a fault, `---` with
 then RPM, and torque and power when the boat publishes them. Top line: `MOTOR`, `ARM MOTOR?`, `ARMED`, or for 5 s why the knob
 refused or let go (`CONTROL IS OFF`, `NO LINK`, `NO MOTOR DATA`, `SET NEUTRAL FIRST`, `IDLE, DISARMED`); `MOTOR FAULT` in red
 stays until the next arm. Bottom line: `HOLD: ARM`, `TURN RIGHT TO ARM`, `HOLD: NEUTRAL`, `HOLD: DISARM`, or the limit warning
-`LIMIT 50 % · 2x: ALLOW MORE` in amber.
+`LIMIT 50 % · 2x: MORE` in amber.
 
 - Limits: max ahead and max astern, 50 % by default. The first time in an arm cycle the throttle stops there and the warning
   shows, nothing above the limit is sent. Turning back below the limit clears the warning (owner, 2026-11-24).

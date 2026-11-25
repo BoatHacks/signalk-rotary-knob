@@ -70,6 +70,7 @@ typedef struct {
     double lat, lon;
     uint32_t pos_ms;
     int8_t light[8];                            /* -1 unknown, 0 off, 1 on */
+    uint8_t light_pct[8];                       /* 0..100, a dimmer's ratio (a relay has 0 or 100) */
     uint32_t light_ms;
     bool anchor_seen, anchor_on;
     float anchor_curr_m, anchor_max_m, anchor_dist_bow_m, anchor_bearing_rad;
@@ -362,11 +363,21 @@ static void on_update(const espos_sk_update_t *u, void *arg)
         for (int i = 0; i < N_LIGHTS; i++) {
             if (!strcmp(p, s_lights[i].path)) {
                 int8_t val = -1;
-                if (parse_num(v, &d)) val = d > 0.5 ? 1 : 0;
-                else if (!strcmp(v, "true")) val = 1;
-                else if (!strcmp(v, "false")) val = 0;
+                uint8_t pct = 0;
+                if (parse_num(v, &d)) {
+                    if (s_lights[i].onoff) pct = d > 0.5 ? 100 : 0;
+                    else if (d > 0) pct = d >= 1.0 ? 100 : (uint8_t)lround(d * 100.0);
+                    if (!s_lights[i].onoff && d > 0 && pct == 0) pct = 1; /* barely on is not off */
+                    val = pct > 0;
+                } else if (!strcmp(v, "true")) {
+                    val = 1;
+                    pct = 100;
+                } else if (!strcmp(v, "false")) {
+                    val = 0;
+                }
                 portENTER_CRITICAL(&s_mux);
                 s_m.light[i] = val;
+                s_m.light_pct[i] = pct;
                 s_m.light_ms = now;
                 portEXIT_CRITICAL(&s_mux);
                 break;
@@ -584,7 +595,10 @@ static void demo_feed(uint32_t now)
     s_m.gps_known = s_m.gps_fix = true;
     s_m.pos_valid = true;
     s_m.pos_ms = now;
-    for (int i = 0; i < N_LIGHTS && i < KNOB_DEMO_LIGHTS; i++) s_m.light[i] = s_dm.light[i] ? 1 : 0;
+    for (int i = 0; i < N_LIGHTS && i < KNOB_DEMO_LIGHTS; i++) {
+        s_m.light[i] = s_dm.light[i] ? 1 : 0;
+        s_m.light_pct[i] = !s_dm.light[i] ? 0 : s_lights[i].onoff ? 100 : s_dm.level[i];
+    }
     s_m.light_ms = now;
     if (s_m.vol_master < 0) {
         s_m.vol_master = 40;
@@ -799,7 +813,7 @@ static void build_snapshot(marine_ui_snapshot_t *s, uint32_t now)
         strncpy(g->name, s_lights[i].name, sizeof(g->name) - 1);
         g->onoff_only = s_lights[i].onoff;
         g->on = m.light[i] == 1;
-        g->level_pct = g->on ? 100 : 0;
+        g->level_pct = g->on ? m.light_pct[i] : 0;
     }
     s->dimmer_updated_ms = m.light_ms;
     s->dimmer_timeout_ms = 0;
