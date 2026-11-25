@@ -20,8 +20,8 @@ A demo mode runs all of it on a simulated boat, by hand or as an automatic tour.
 `environment.mode`, dims when idle, wakes on touch. Nothing reaches the autopilot, the anchor or a motor until **allow
 control** is switched on in the settings.
 
-> **Status: pre-release.** Setup, the SignalK link, the REST API and switching a relay have been checked on hardware. Much of the
-> rest, the settings screen, music, USB-HID and updates over the air among it, is built but not fully checked, and autopilot,
+> **Status: early release.** Setup, the SignalK link, the REST API, switching a relay and installing an update over the air have been checked on hardware. Much of the
+> rest, the settings screen, music and USB-HID among it, is built but not fully checked, and autopilot,
 > anchor and motor have not been used on a boat: see the [hardware checklist](docs/hardware-checklist.md). Do not rely on
 > it for steering, anchor watch or throttle. Before 1.0.0, any release may change behaviour or settings.
 

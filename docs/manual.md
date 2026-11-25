@@ -232,11 +232,10 @@ leave it alone for a minute and it starts again. The tour itself stores nothing.
 
 ## 8. Updating the firmware
 
-**(not verified, there has been no release yet)**
+**(installing over the air works, the rest is not verified)**
 
 **Over the air.** A knob checks this project's update list once a day. In the *OTA* section of the settings page:
-- *Channel* `stable` (the default) offers full releases, `beta` also offers pre-releases. While there are only pre-releases, set
-  it to `beta` to be offered any.
+- *Channel* `stable` (the default) offers full releases, `beta` also offers pre-releases.
 - An update is only shown, not installed, unless *Install automatically* is on.
 - An image can also be installed from its web address: paste the link to a release's `-ota.bin`.
 

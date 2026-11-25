@@ -9,6 +9,15 @@ To release, set `version.txt` to the version, rename `[Unreleased]` to the versi
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-25
+First release on the stable channel, the same firmware as 0.1.2.
+
+### Known limits
+- Autopilot, anchor and motor have not been used on a boat. Do not rely on them for steering, anchor watch or throttle.
+- Updates over the air have been installed and work. Rolling back a bad one and refusing a wrongly signed one have not been
+  tried on the hardware.
+- Much of the hardware checklist is still open (docs/hardware-checklist.md).
+
 ## [0.1.2] - 2026-11-25
 A calmer alarm screen and new icons on the mode ring.
 
