@@ -35,10 +35,10 @@ around the arc instead of a full-width rectangle).
 None, this is a fix.
 
 ## Steps
-- [ ] Add per-step heap logging in `main.c` (keep it, it is cheap).
-- [ ] Flash, read one boot, find the step that takes the RAM.
-- [ ] Fix the cause, rebuild, five cold boots.
-- [ ] Update the hardware checklist and docs/history/HANDOFF.md.
+- [x] Add per-step heap logging in `main.c` (keep it, it is cheap).
+- [x] Flash, read one boot, find the step that takes the RAM.
+- [ ] Five cold boots on the fixed build (cause fixed and rebuilt 2026-11-23).
+- [x] Update the hardware checklist and docs/history/HANDOFF.md.
 
 ## Files
 `main/main.c`, `components/marine_ui/marine_ui.c`, possibly `components/lv_port/lv_port.c`.

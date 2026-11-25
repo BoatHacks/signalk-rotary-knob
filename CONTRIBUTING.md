@@ -37,7 +37,8 @@ CI runs the firmware build and both test sets on every push and pull request (`.
 
 ## Releasing (maintainers)
 
-1. Under `## [Unreleased]` in [CHANGELOG.md](CHANGELOG.md), rename the heading to the version and date
+1. Set `version.txt` to the version (`0.2.0`): it is what the knob reports, and the workflow refuses a mismatch. Under
+   `## [Unreleased]` in [CHANGELOG.md](CHANGELOG.md), rename the heading to the version and date
    (`## [0.2.0] - 2026-12-01`) and check its first line: one summary of at most 127 bytes, which knobs show as the
    update's notes. Commit and push to main.
 2. Actions, **Cut release**, Run workflow on main with the version (`v0.2.0`). "Publish as a pre-release" is ticked by

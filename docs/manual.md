@@ -1,13 +1,12 @@
 # Rotary knob user manual
 
-> DRAFT 2, 2026-11-23: written from the implemented behaviour and docs/ui-design.md, updated with the settings screen, demo
-> mode, the music mode and the autopilot's wind and route modes. Items marked **(not verified)** have not been tried on the
-> real hardware yet. The autopilot and anchor sections get their final words after the trials at the boat. Photos and
-> screenshots will be added once the UI has been checked on the panel (demo mode is meant for them).
+> DRAFT 3, 2026-11-25, written from the implemented behaviour. Items marked **(not verified)** have not been tried on the real
+> hardware yet. The autopilot, anchor and motor sections get their final words after the trials at the boat. Photos and
+> screenshots are still missing.
 
-The knob is a helm-side control surface for a SignalK boat: it steers the autopilot, switches lights, watches the anchor and turns
-the music up and down. It has
-one round screen, an endless dial with a push button, five LEDs around the edge, and a touch screen that is only a helper.
+The knob is a helm-side control surface for a SignalK boat: it steers the autopilot, watches the anchor, switches lights, turns
+the music up and down, and can drive a motor's throttle. It has one round screen, an endless dial with a push button, five LEDs
+around the base, and a touch screen that is only a helper.
 
 ## 1. First setup
 
@@ -36,14 +35,24 @@ setup network again.
 
 | Input | What it does |
 |---|---|
-| Turn | Changes the value on the screen (target heading, lights, anchor radius) |
+| Turn | Changes the value on the screen (target heading, lights, anchor radius, volume, throttle) |
 | Single press | Confirms, or steps to the next item (next light channel) |
 | Double press | Opens the mode ring: turn to pick a mode, press to switch |
 | Long press (about 0.75 s) | State changes: engage the autopilot, switch a light on or off |
 | Touch | Secondary and never changes autopilot or anchor state. A touch in the centre is ignored (a push on the knob presses the glass there) |
 
 Safety rules: the autopilot is engaged with a long press **and** a confirm turn. A bumped dial cannot engage anything, and losing
-the knob (unplugged, Wi-Fi gone) never changes the autopilot or the anchor.
+the knob (unplugged, Wi-Fi gone) never changes the autopilot or the anchor. A motor is the exception: it goes to neutral (see
+Motor).
+
+### The mode ring
+A double press opens it. Turn to a mode, press to switch. Another double press closes it. Clockwise the order is `MOTOR`, `AUTO`
+(at 12 o'clock), `ANCHOR`, `LIGHTS`, `MUSIC`, `USB`, `SETUP`. A mode that is switched off is left out and the others keep their
+order. `USB` only shows while a computer is connected, and `SETUP` is hidden during an alarm.
+
+**Choosing the modes.** Open the settings on the knob and choose *MODES*: one pill per mode. A filled pill is on the ring. Turn to
+a pill and press to switch it, press twice to go back. One mode always stays on. The same switches are on the settings page
+(*AUTOPILOT mode*, *LIGHTS mode* and so on). `MOTOR` is off on a new knob. **(not verified)**
 
 ## 3. Modes
 
@@ -85,20 +94,17 @@ With the **hoekens-anchor-alarm** plugin installed:
 - **Long press** opens a dialog with only the actions that fit: **Drop here** while the anchor is raised, **Move drop point here**
   and **Raise anchor** while it is dropped, and always **Cancel**. Turn to choose, press to confirm. A radius you turned to but
   did not apply is used when you drop.
-- After you choose, the screen shows a spinner until the server confirms. If the knob could not do it, it says why (live control
-  off, no link, no position fix, the server refused) and that nothing was changed.
+- After you choose, the screen shows a spinner until the server confirms. If the knob could not do it, it says why (control is
+  off, no link, no position fix, the server refused, not confirmed) and that nothing was changed.
 Anchor and autopilot commands are only sent when **allow control** is on (see section 6).
 
 ### Music
 
 The boat's music through the jukebox on the SignalK server. Turn for the volume (2 % a click, sent when you stop turning), press
 to play or pause, hold to step from `MASTER` to each zone. The touch screen is a small player: previous on the left, next on
-the right, play or pause at the bottom, tap the name at the top for the next zone. A zone whose speaker is off shows
-`ZONE OFFLINE`. On a boat without the jukebox, switch *MUSIC mode* off on the settings page and the mode leaves the ring.
-
-**Choosing the modes.** On the knob, open the settings and choose *MODES*: one pill per mode (autopilot, lights, anchor, music,
-motor, USB). A filled pill is on the ring. Turn to a pill and press to switch it; press twice to go back. One mode always stays
-on. The same switches are on the settings page (*AUTOPILOT mode*, *LIGHTS mode* and so on).
+the right, play or pause at the bottom, tap the name at the top for the next zone.
+The line under the volume says `PAUSED` while paused. A zone whose speaker is off shows `ZONE OFFLINE`. On a boat without the
+jukebox, switch the mode off (see *Choosing the modes*).
 
 The LEDs around the base show the volume in violet-blue, filling clockwise from the bottom left (half volume lights the left
 two), dimmer for a muted zone. The bottom LED is green while the music plays. They stay dark at night. **(not verified)**
@@ -112,8 +118,9 @@ have one, *Motor power path*. The mode then sits just left of AUTO on the ring. 
   running motor: out of neutral it says `SET NEUTRAL FIRST`.
 - **Throttle:** turn right for more ahead, left for more astern. Slow clicks are 1 %, faster turning takes bigger steps (the
   *Throttle steps* setting: gentle, normal or quick). Neutral is at 12 o'clock, ahead in green clockwise, astern in amber.
-- **Through neutral:** coming from ahead the throttle stops at neutral, even on a fast spin. The next click goes on into
-  astern straight away (and the same the other way).
+- **Through neutral:** coming from ahead the throttle stops at neutral for one click, the next click goes on into astern (and
+  the same the other way). There is no pause: **keep spinning and the motor goes straight from ahead to astern.** To stop the
+  motor, hold the knob.
 - **Neutral:** hold the knob. Hold it again in neutral to disarm. A single press does nothing.
 - **Limits:** the throttle stops at 50 % each way (*Throttle limit ahead / astern* on the settings page, `MOTOR LIMITS` in
   the knob's settings) and warns. Turning back below the limit clears the warning. A double press while it shows allows
@@ -126,8 +133,12 @@ have one, *Motor power path*. The mode then sits just left of AUTO on the ring. 
 - While the motor is out of neutral, every other screen shows `F 40 %` or `R 15 %` at the bottom and the screen stays on.
 
 ### USB-HID
-Listed in the mode ring only while a computer has recognised the knob over USB. The dial then acts as an input device for that computer:
-chartplotter profile (mouse wheel zoom, push is a click), media profile (volume, push is mute), navigation keys (arrow keys, push is Enter).
+Listed in the mode ring only while a computer has recognised the knob over USB. The knob shows up as a USB input device only
+while this mode is on screen. A long press steps through the profiles, the choice is stored:
+- **Chartplotter:** mouse wheel (zoom), a push is a click.
+- **Media:** volume, a push is mute.
+- **Navigation keys:** arrow keys, a push is Enter.
+
 **(not verified)**
 
 ## 4. Alarms
@@ -146,11 +157,27 @@ work. Values the boat does not publish show `---`.
 
 ## 6. Settings and allow control
 
-- **Settings on the knob.** Double press for the mode ring, choose `SETUP` (the gear, last slot). Turn to move through the list,
-  press to edit, turn to change, press to store, double press to cancel an edit or to leave. The list: brightness, dim after,
-  dim level, off after, night mode (server, day or night), LEDs (off keeps every LED dark, the alarm flash included), heading
-  (true or magnetic), HID profile, allow control, setup access point, device info, SignalK, reset setup. What you store here
-  shows on the settings page at once, and the other way round.
+- **Settings on the knob.** Double press for the mode ring, choose `SETUP` (the gear). Turn to move through the list, press to
+  edit, turn to change, press to store, double press to cancel an edit or to leave. What you store here shows on the settings
+  page at once, and the other way round. **(not verified)**
+
+  | Item | What it does |
+  |---|---|
+  | `BRIGHTNESS` | The normal brightness |
+  | `DIM AFTER`, `DIM LEVEL` | When the screen dims and how far, `NEVER` keeps it bright |
+  | `OFF AFTER` | When the screen goes dark, `NEVER` keeps it on |
+  | `NIGHT MODE` | Follow the server, or always day or night |
+  | `LEDS` | `OFF` keeps every LED dark, the alarm flash included |
+  | `HEADING` | True or magnetic |
+  | `HID PROFILE` | What the dial does in USB-HID mode |
+  | `ALLOW CONTROL` | Whether autopilot, anchor and throttle commands leave the knob |
+  | `DEMO MODE` | See section 7 |
+  | `THROTTLE STEPS`, `MOTOR LIMITS` | Motor settings, only in the list while the motor mode is on. `MOTOR LIMITS` opens `LIMIT AHEAD`, `LIMIT ASTERN` and `MOTOR DISARM` |
+  | `MODES` | Which modes are on the ring |
+  | `SETUP ACCESS POINT` | Opens the knob's own setup network |
+  | `DEVICE INFO`, `SIGNALK` | Firmware, Wi-Fi and connection, to read only |
+  | `RESET SETUP` | Forgets Wi-Fi and the SignalK approval |
+
   - *Allow control* off to on is a press and then one click to the right within 5 seconds, any press cancels. On to off is one
     press.
   - *Setup access point* opens the knob's own setup network for 10 minutes next to your Wi-Fi, so a phone can reach the settings
@@ -163,11 +190,11 @@ work. Values the boat does not publish show `---`.
   light channels. Changes apply at once, the light channels after a restart. The page is open to anyone on the boat network. If you want a password, set an
   API key in the *HTTP server* section (*Generate* makes one), the page then asks for it. If the knob loses its network for 90
   seconds it opens its setup network again, which you can give a password in the *WiFi* section (*Access point password*).
-- **Allow control.** Autopilot and anchor commands only leave the knob while *Allow control* is on in the *Rotary knob* section.
-  It is off on a new knob and after a factory reset, and stays as you set it across restarts. When it goes on from the settings
-  page, the knob shows `CONTROL ON` for three seconds. A knob with it off only shows. On the bench, the single character `l` on
-  the USB serial port flips it until the next restart without storing it. **(switching it on the knob itself comes with the
-  settings screen)**
+- **Allow control.** Autopilot, anchor and throttle commands only leave the knob while *Allow control* is on. It is off on a new
+  knob and after a factory reset, and stays as you set it across restarts. When it goes on from the settings page, the knob
+  shows `CONTROL ON` for three seconds. With it off, the knob shows everything and changes nothing on those three (lights and
+  music are not affected). On the bench, the single character `l` on the USB serial port flips it until the next restart without
+  storing it.
 - **Backup and remote control.** The knob answers on its own small REST API (with the API key as `Authorization: Bearer <key>`
   when you set one):
 
@@ -181,14 +208,14 @@ work. Values the boat does not publish show `---`.
 
   The mode call only switches the screen, it never engages, drops, raises or acknowledges anything.
 - **Night and day.** The knob follows the SignalK path `environment.mode`. It starts in day mode until the first value arrives.
-- **Dimming.** After 30 seconds without input the backlight drops to 10 %, after 10 minutes it goes off, but never while the autopilot
-  is engaged or an alarm is active. Any input wakes it: a turn, a press or a touch anywhere on the glass. When the screen was off,
+- **Dimming.** After 30 seconds without input the backlight drops to 10 %, after 10 minutes it goes off (both can be set, or
+  switched off with `NEVER`). It never goes off while the autopilot is engaged or an alarm is active. Any input wakes it: a turn, a press or a touch anywhere on the glass. When the screen was off,
   that first input only wakes it and does nothing else (an alarm acknowledge excepted). When it was dimmed, the input also does
   what it normally does.
 
-## 6a. Demo mode
+## 7. Demo mode
 
-For trying the knob away from the boat. Switch *Demo mode* on in the settings (on the knob or on the settings page). The knob
+For trying the knob away from the boat. Set *Demo mode* to `ON` in the settings (on the knob or on the settings page). The knob
 restarts, shows `DEMO` at the bottom edge and runs on a simulated boat: the heading drifts, the autopilot steers to its target,
 the boat swings on the anchor, the lights switch. Set the anchor radius smaller than the swing and the drag alarm goes off.
 Nothing is sent to SignalK in demo mode, the knob does not even connect to the server, but Wi-Fi and the settings page stay up,
@@ -198,26 +225,33 @@ so you can switch demo off from a phone. It stays on across restarts until you s
 screen it goes through every mode on its own, engages the autopilot and turns it, drops the anchor, dims a light, turns the
 music up, raises and clears a drag alarm, changes the USB profile and ends in the settings. Every turn, press and touch it
 makes is drawn on the screen, with a short caption at the top. Touch or turn the knob and it stops and lets you take over;
-leave it alone for a minute and it starts again. Nothing is stored while it runs. To end it, set *Demo mode* to `OFF` or
+leave it alone for a minute and it starts again. The tour itself stores nothing. To end it, set *Demo mode* to `OFF` or
 `ON`. *Demo mode* `QUIET` runs the same tour without the drawn inputs and captions, for filming the screen. In `AUTO` and
-`QUIET` the screen stays at full brightness.
+`QUIET` the screen does not dim or go dark. On the settings page the same choices are *Demo mode*, *Automatic demo* and
+*Automatic demo without indicators*. **(not verified)**
 
-## 7. Updating the firmware
+## 8. Updating the firmware
 
-**Over the air.** A knob running a release checks this project's update manifest for newer releases on its channel
-(stable by default, beta also gets pre-releases). The update section of the settings page shows what is offered, and
-installs it, or a release's `-ota.bin` given by hand. The knob restarts into the new firmware. If the new firmware fails to
-start or to reach the network, the knob goes back to the previous one by itself. Settings, Wi-Fi and the SignalK token are
-kept. Clearing the manifest address on the settings page stops the checks.
+**(not verified, there has been no release yet)**
+
+**Over the air.** A knob checks this project's update list once a day. In the *OTA* section of the settings page:
+- *Channel* `stable` (the default) offers full releases, `beta` also offers pre-releases. While there are only pre-releases, set
+  it to `beta` to be offered any.
+- An update is only shown, not installed, unless *Install automatically* is on.
+- An image can also be installed from its web address: paste the link to a release's `-ota.bin`.
+
+The knob restarts into the new firmware and keeps its settings, Wi-Fi and SignalK approval. If the new firmware crashes early or
+does not reach the network within 10 minutes, the knob goes back to the previous one by itself. Emptying *Manifest URL* stops the
+checks.
 
 **Over USB**, for a first install or a knob that will not start: connect it to a computer and write the release's
 `-merged.bin` at offset 0 with esptool (README). The port resets the knob into the bootloader by itself. If the knob is in
-the USB-HID mode, leave the mode first or press RESET. A merged image starts from scratch: set the knob up again afterwards.
+the USB-HID mode, leave the mode first or press RESET. A merged image erases the settings: set the knob up again afterwards.
 
 A knob only accepts updates signed with the key it was flashed with. A knob built and flashed from source with your own key
 needs one USB install of a release before it takes release updates.
 
-## 8. Troubleshooting
+## 9. Troubleshooting
 
 | What you see | What it means |
 |---|---|
@@ -227,5 +261,9 @@ needs one USB install of a release before it takes release updates.
 | `NO SERVER` | The server refused or cannot be reached. The knob keeps retrying |
 | A short `LINK LOST` a few seconds after every start | The setting *Fall back to the SignalK clock* (time section of the settings page) is on. Switch it off, the knob does not need it |
 | `CONTROL IS OFF` when you engage or drop | *Allow control* is off, see section 6 |
-| The screen is dim | Idle dim, any input wakes it |
+| The screen is dim | Idle dim, any input wakes it. `DIM AFTER` sets the time or `NEVER` |
+| Night colours by day (or the other way round) | `NIGHT MODE` follows the server's `environment.mode`, so check that value on the server. `DAY` or `NIGHT` in the knob's settings overrides it |
+| A mode is missing from the ring | It is switched off under *MODES*. `USB` also needs a computer on the cable, `SETUP` is hidden during an alarm |
+| `DEMO` at the bottom edge | Demo mode is on: nothing shown is real and nothing is sent. Set `DEMO MODE` to `OFF` |
+| The motor refuses to arm | `SET NEUTRAL FIRST`, or allow control is off, or the motor's gear is not reported. The screen says which |
 | Phantom touches | The touch controller sometimes reports ghost touches, the knob drops them |

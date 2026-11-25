@@ -11,14 +11,19 @@ Turn to choose a mode on the ring, press to open it:
 - **Lights**: switch and dim the boat's dimmer channels.
 - **Anchor**: watch circle with the boat's track, drop, move and raise the anchor, drag alarm.
 - **Music**: volume, play, pause and track for the [signalk-jukebox](https://github.com/BoatHacks/signalk-jukebox) plugin, master and zones.
+- **Motor**: throttle with arming, soft limits and a fall back to neutral, for a motor controller that takes a SignalK `PUT`.
+  Off by default, no motor has been driven yet.
 - **USB-HID**: plugged into a chartplotter or PC, the knob becomes a mouse wheel, media keys or arrow keys.
 - **Settings** on the knob itself, plus a settings page and a REST API in the browser.
 
-Night palette with the boat's `environment.mode`, dims when idle, wakes on touch. Nothing reaches the autopilot or the anchor
-until **allow control** is switched on in the settings.
+A demo mode runs all of it on a simulated boat, by hand or as an automatic tour. Night palette with the boat's
+`environment.mode`, dims when idle, wakes on touch. Nothing reaches the autopilot, the anchor or a motor until **allow
+control** is switched on in the settings.
 
-> **Status: pre-release.** Lights, music, settings and USB-HID are tested on the bench. Autopilot and anchor have not yet
-> been used against a real autopilot on the water. Before 1.0.0, any release may change behaviour or settings.
+> **Status: pre-release.** Setup, the SignalK link, the REST API and switching a relay have been checked on hardware. Much of the
+> rest, the settings screen, music, USB-HID and updates over the air among it, is built but not fully checked, and autopilot,
+> anchor and motor have not been used on a boat: see the [hardware checklist](docs/hardware-checklist.md). Do not rely on
+> it for steering, anchor watch or throttle. Before 1.0.0, any release may change behaviour or settings.
 
 ## Installing
 
@@ -26,8 +31,8 @@ Get the newest release from the [Releases](../../releases) page:
 
 - `signalk-rotary-knob-esp32s3-vX.Y.Z-merged.bin` for a first install over USB, written at offset 0:
   `esptool --chip esp32s3 write-flash 0 signalk-rotary-knob-esp32s3-vX.Y.Z-merged.bin`
-- `-ota.bin` to update a knob by hand from its settings page. Knobs also check for updates on their own (stable channel
-  by default, beta for pre-releases).
+- `-ota.bin` for updates over the air. Knobs check for them once a day and show them on the settings page (stable channel by
+  default, set it to `beta` for pre-releases). Its link can also be pasted there.
 
 Then follow the [user manual](docs/manual.md): join the knob to the boat's Wi-Fi from a phone, approve its access request
 in the SignalK admin UI, and pick the light channels and the autopilot.

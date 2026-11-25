@@ -90,13 +90,18 @@ do not write an OTA manifest, so that job stays ours (8relay's `update_ota_manif
       `environment.inside.temperature` publish removed (a spike leftover that wrote a fake value to the boat), README,
       CONTRIBUTING, CHANGELOG, manual section 7, bench-era docs to `docs/history/`.
 - [x] Move `firmware/` to the root, fix `tools/build.ps1`, the docs and the spike's relative paths. Build locally.
-- [x] `build.yml` with espOS's `build-firmware.yml` (v0.32.0) plus host tests. Green on GitHub still to see.
+- [x] `build.yml` with espOS's `build-firmware.yml` (v0.32.0) plus host tests. Green on GitHub since 2026-11-24.
 - [x] CMake project renamed, default manifest URL written once on the first boot. No extra rollback check: a failed hard
       init aborts and the bootloader rolls the unconfirmed image back, and rolling back on a soft fault (no touch answer) would
       make a knob with a broken touch panel refuse every update.
 - [x] CHANGELOG.md, `scripts/`, `test/scripts` (10 tests pass), `cut-release.yml` with the manifest job, hardware
       checklist section "Release and OTA".
 - [x] Production key created 2026-11-24 (key id `4e0a983dc96231e6`), stored as the secret `SIGNING_KEY_PEM`. Backup: owner.
+- [x] 2026-11-25: whole-history scan (addresses, SSIDs, MACs, tokens, keys, host and user names): no hits. The commits carry the
+      author's `dev@` address and two early messages carry session links, both become public with the repo (owner to accept).
+- [x] 2026-11-25: `cut-release.yml` checks `version.txt` against the version (the image reports that file, not the tag). README
+      status corrected, it claimed bench tests that have not been done. Changelog brought up to date.
+- [ ] Owner: origin and licence of `assets/splash.png` (nothing records it), then NOTICE.
 - [ ] Repo public (owner), branch protection with the oss-branch-protection template.
 - [ ] Cut `v0.1.0` as a pre-release (owner says when). Bench checks: USB flash, OTA, bad signature, rollback.
 - [ ] Registry: board file and project entry, validate, pull request (owner approves posting).

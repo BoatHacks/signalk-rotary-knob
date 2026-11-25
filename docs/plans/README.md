@@ -10,7 +10,7 @@ Name files `issue-<n>-<short-name>.md` for a GitHub issue, `<short-name>.md` oth
 
 | Plan | Issue | Why this order |
 |---|---|---|
-| [internal-ram-dip.md](internal-ram-dip.md) | none | A boot with 276 bytes of internal RAM left can reboot the knob. Blocks everything else |
+| [internal-ram-dip.md](internal-ram-dip.md) | none | Fixed 2026-11-23 (39.8 KB minimum at boot). The automatic demo dips lower, see #10 |
 | [live-control-trials.md](live-control-trials.md) | none | Autopilot and anchor have never run against the real boat. Needs the owner at the boat |
 | [boot-to-last-screen.md](boot-to-last-screen.md) | none | Built and checked 2026-11-23. Left: anchor and USB-HID restore checks |
 | [hardening.md](hardening.md) | none | Required before the knob runs unattended or the repo goes public |

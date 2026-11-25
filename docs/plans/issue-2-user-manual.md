@@ -30,6 +30,7 @@ None.
       settings section.
 - [ ] Autopilot and anchor sections, after the live control trials.
 - [x] Settings screen and demo mode (#5, #4), volume (#6), the pilot dialog, wind and route (#7). Draft 2.
+- [x] Draft 3 (2026-11-25): mode ring and MODES, the knob's settings as a table, motor, demo values, updates, troubleshooting.
 - [ ] Screenshots and photos.
 - [x] README and settings page link to the manual (the knob section's description on the settings page).
 - [ ] A read-through by someone new.
