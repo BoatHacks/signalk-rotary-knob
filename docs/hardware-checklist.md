@@ -98,10 +98,12 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 
 | Item | Status | Date | Commit | Notes |
 |---|---|---|---|---|
-| MUSIC on the ring after ANCHOR, off the ring with `knob.music_mode` off, the API answers 409 then | open | | | |
+| MUSIC on the ring after LIGHTS, off the ring with `knob.music_mode` off, the API answers 409 then | open | | | |
 | Turn changes the master volume on the server, 2 % a click, amber until confirmed | open | | | |
 | Long press and a tap on the name step through MASTER and the zones, zone names from the plugin | open | | | |
 | A zone's volume follows the turn | open | | | |
+| `playback.track` arrives as an object through espOS's SignalK client (track and artist show) | open | | | |
+| Zone names load with the knob's token | open | | | |
 | Press plays and pauses, touch previous, next, play or pause | open | | | |
 | A change from the jukebox web UI shows on the knob, track and artist | open | | | |
 | A touch in the centre or on the outer arc does nothing | open | | | |
