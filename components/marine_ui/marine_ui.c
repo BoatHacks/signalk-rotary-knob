@@ -432,6 +432,7 @@ static stale_state_t current_stale(void) {
 
 static void update_stale_overlay(void);
 static void cancel_transients(void);
+static void settings_edit_abort(void);
 
 static bool is_full_alarm_blocking(void) {
     if (snap.active_alarm == MARINE_ALARM_NONE) return false;
@@ -1254,6 +1255,7 @@ static void anchor_menu_open_dialog(void) {
         anc_items[1] = (anc_item_t){ "RAISE ANCHOR", MARINE_ACT_ANCHOR_RAISE, false, true };
         anc_items[2] = (anc_item_t){ "CANCEL", MARINE_ACT_ANCHOR_RAISE, true, false };
         anc_menu_count = 3;
+        anchor_menu_idx = 1;   // RAISE ANCHOR is focused (owner, 2026-11-25)
     } else {
         lv_label_set_text(anc_menu_title, "DROP ANCHOR");
         snprintf(b, sizeof(b), "%u m circle at this position", (unsigned)r);
@@ -1292,7 +1294,7 @@ static void anchor_pending_refuse(uint8_t code) {    anc_pend = ANC_PEND_REFUSED
     anc_pend_until_ms = snap.now_ms + 4000;
     const char *t = "NOT SENT", *s1 = "", *s2 = "NOTHING WAS CHANGED";
     switch (code) {
-    case MARINE_RESULT_LIVE_OFF: s1 = "LIVE CONTROL IS OFF"; break;
+    case MARINE_RESULT_LIVE_OFF: s1 = "CONTROL IS OFF"; break;
     case MARINE_RESULT_NO_LINK: s1 = "NO LINK TO THE SERVER"; break;
     case MARINE_RESULT_NO_POSITION: s1 = "NO POSITION FIX"; break;
     case MARINE_RESULT_FAILED: t = "FAILED"; s1 = "THE SERVER REFUSED IT"; s2 = "CHECK THE ANCHOR PLUGIN"; break;
@@ -2289,6 +2291,7 @@ static void cancel_transients(void) {
         ap_confirm_open = false;
         lv_obj_add_flag(ovl_ap_confirm, LV_OBJ_FLAG_HIDDEN);
     }
+    settings_edit_abort();
     anchor_dialogs_close();
     ap_pending_active = false;
     ap_pending_sent = false;
@@ -2300,7 +2303,7 @@ static void cancel_transients(void) {
 
 // --- Settings screen (#5, ui-design section 3.5). A list of what a skipper changes at the helm. Values come from the snapshot
 // (setting[]), changes go out as MARINE_ACT_SETTING_SET and come back through the snapshot once stored. ---
-typedef enum { SET_LIST = 0, SET_EDIT, SET_CONFIRM, SET_PAGE, SET_RESET, SET_MODES } set_view_t;
+typedef enum { SET_LIST = 0, SET_EDIT, SET_CONFIRM, SET_PAGE, SET_RESET, SET_MODES, SET_MENU } set_view_t;
 
 #define SET_CONFIRM_MS 5000
 #define SET_RESET_HOLD_MS 5000
@@ -2319,6 +2322,8 @@ static int set_edit_was = 0;
 static uint32_t set_confirm_ms = 0;
 static bool set_reset_holding = false;
 static lv_obj_t *set_mode_pill[KNOB_MODES_PAGE_COUNT], *set_mode_lbl[KNOB_MODES_PAGE_COUNT];
+#define SET_MENU_MAX 4
+static lv_obj_t *set_menu_pill, *set_menu_items[SET_MENU_MAX];   // a choice as a pill menu, as in the anchor dialog
 static int set_mode_focus = 0;
 static uint32_t set_mode_refused_ms = 0;   // the last mode on: the bottom line says so for 2 s
 
@@ -2379,6 +2384,17 @@ static lv_obj_t* build_settings_screen(void) {
     set_lbl_line2 = set_make_label(scr, &lv_font_montserrat_12, 46);
     set_lbl_page = set_make_label(scr, &lv_font_montserrat_14, 0);
     lv_obj_set_style_text_line_space(set_lbl_page, 4, 0);
+
+    set_menu_pill = lv_obj_create(scr);   // behind the item labels: created first
+    lv_obj_set_size(set_menu_pill, 190, 30);
+    lv_obj_set_style_radius(set_menu_pill, 15, 0);
+    lv_obj_set_style_border_width(set_menu_pill, 0, 0);
+    lv_obj_remove_flag(set_menu_pill, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_flag(set_menu_pill, LV_OBJ_FLAG_HIDDEN);
+    for (int i = 0; i < SET_MENU_MAX; i++) {
+        set_menu_items[i] = set_make_label(scr, &lv_font_montserrat_14, 0);
+        lv_obj_add_flag(set_menu_items[i], LV_OBJ_FLAG_HIDDEN);
+    }
 
     // MODES page: two columns, three rows of pills, filled while the mode is on.
     for (int i = 0; i < KNOB_MODES_PAGE_COUNT; i++) {
@@ -2449,10 +2465,12 @@ static void settings_refresh(void) {
     set_show(set_pill, list);
     set_show(set_arc, set_view == SET_EDIT || set_view == SET_CONFIRM || set_view == SET_RESET);
     set_show(set_lbl_big, set_view == SET_EDIT || set_view == SET_CONFIRM || set_view == SET_RESET);
-    set_show(set_lbl_line1, set_view != SET_LIST && set_view != SET_PAGE && set_view != SET_MODES);
-    set_show(set_lbl_line2, set_view != SET_LIST && set_view != SET_PAGE && set_view != SET_MODES);
+    set_show(set_lbl_line1, set_view != SET_LIST && set_view != SET_PAGE && set_view != SET_MODES && set_view != SET_MENU);
+    set_show(set_lbl_line2, set_view != SET_LIST && set_view != SET_PAGE && set_view != SET_MODES && set_view != SET_MENU);
     set_show(set_lbl_page, set_view == SET_PAGE);
     for (int i = 0; i < KNOB_MODES_PAGE_COUNT; i++) set_show(set_mode_pill[i], set_view == SET_MODES);
+    set_show(set_menu_pill, set_view == SET_MENU);
+    for (int i = 0; i < SET_MENU_MAX; i++) set_show(set_menu_items[i], set_view == SET_MENU && i < d->n_values);
 
     switch (set_view) {
     case SET_LIST:
@@ -2525,6 +2543,20 @@ static void settings_refresh(void) {
         snprintf(bot, sizeof(bot), "PRESS BACK");
         set_label(set_lbl_page, b, c_text());
         break;
+    case SET_MENU: {
+        // All the choices, the focused one in the amber pill, the stored one in the primary colour.
+        snprintf(top, sizeof(top), "%s", d->name);
+        snprintf(bot, sizeof(bot), "PRESS STORE \xE2\x80\xA2 2x BACK");
+        int n = d->n_values < SET_MENU_MAX ? d->n_values : SET_MENU_MAX;
+        for (int i = 0; i < n; i++) {
+            int y = i * 34 - (n - 1) * 17;
+            set_label(set_menu_items[i], d->words[i], i == set_edit_value ? COL_BG : i == set_edit_was ? c_primary() : c_text());
+            lv_obj_align(set_menu_items[i], LV_ALIGN_CENTER, 0, y);
+            if (i == set_edit_value) lv_obj_align(set_menu_pill, LV_ALIGN_CENTER, 0, y);
+        }
+        lv_obj_set_style_bg_color(set_menu_pill, c_amber(), 0);
+        break;
+    }
     case SET_MODES: {
         snprintf(top, sizeof(top), "MODES");
         bool refused = set_mode_refused_ms && snap.now_ms - set_mode_refused_ms < 2000;
@@ -2557,8 +2589,28 @@ static void settings_refresh(void) {
     set_label(set_lbl_bottom, bot, c_muted());
 }
 
+// The brightness shows on the panel while it is edited (SETTING_PREVIEW), it is stored when the edit is left with a press.
+static void settings_preview(int value) {
+    if (set_index == KNOB_SET_BRIGHTNESS) {
+        emit_action(MARINE_MODE_SETTINGS, MARINE_ACT_SETTING_PREVIEW, KNOB_SET_BRIGHTNESS, value);
+    }
+}
+
+// An edit that is left without storing (undo, a mode change from elsewhere): the previewed value goes back.
+static void settings_edit_abort(void) {
+    if (set_view != SET_EDIT && set_view != SET_MENU) return;
+    if (set_edit_value != set_edit_was) settings_preview(set_edit_was);
+    set_view = SET_LIST;
+}
+
+// Night mode, heading, HID profile and demo mode: the choices as a pill menu (owner, 2026-11-25).
+static bool set_is_menu(int item) {
+    return item == KNOB_SET_NIGHT || item == KNOB_SET_HEADING || item == KNOB_SET_HID_PROFILE || item == KNOB_SET_DEMO;
+}
+
 // Opening the settings always starts in the list, never in an edit left behind.
 static void settings_enter(void) {
+    settings_edit_abort();
     set_view = SET_LIST;
     if (set_group >= 0) { set_index = set_group; set_group = -1; }   // always the main list
     set_reset_holding = false;
@@ -2602,21 +2654,24 @@ static void settings_on_input(marine_semantic_input_t ev, int32_t val) {
             } else if (d->kind == KNOB_KIND_PAGE) {
                 set_view = SET_PAGE;
             } else {
-                set_view = SET_EDIT;
+                set_view = set_is_menu(set_index) ? SET_MENU : SET_EDIT;
                 set_edit_value = set_edit_was = snap.setting[set_index];
             }
         }
         break;
     case SET_EDIT:
+    case SET_MENU:
         if (ev == MARINE_INPUT_TURN) {
-            set_edit_value = knob_setting_step((knob_setting_t)set_index, set_edit_value, val);
+            int v = knob_setting_step((knob_setting_t)set_index, set_edit_value, val);
+            if (v != set_edit_value) settings_preview(v);
+            set_edit_value = v;
         } else if (ev == MARINE_INPUT_SINGLE_PRESS) {
             if (set_edit_value != set_edit_was) {
                 emit_action(MARINE_MODE_SETTINGS, MARINE_ACT_SETTING_SET, set_index, set_edit_value);
             }
             set_view = SET_LIST;
         } else if (ev == MARINE_INPUT_DOUBLE_PRESS) {
-            set_view = SET_LIST;   // cancel, nothing stored
+            settings_edit_abort();   // cancel, nothing stored
         }
         break;
     case SET_CONFIRM: {

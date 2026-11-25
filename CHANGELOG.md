@@ -8,6 +8,15 @@ To release, set `version.txt` to the version, rename `[Unreleased]` to the versi
 `## [0.1.0] - 2026-11-30`, and run the "Cut release" workflow (CONTRIBUTING.md).
 
 ## [Unreleased]
+The knob's settings are easier to use: live brightness and pill menus.
+
+### Changed
+- The brightness setting shows on the screen while it is turned, and is stored on leaving it.
+- Night mode, heading, HID profile and demo mode are pill menus.
+- The anchor dialog opens on Raise anchor while the anchor is dropped.
+
+### Fixed
+- The refusal says `CONTROL IS OFF`, as the manual does.
 
 ## [0.1.0] - 2026-11-25
 First public pre-release: a SignalK helm knob for autopilot, lights, anchor watch and music, plus a USB-HID mode.

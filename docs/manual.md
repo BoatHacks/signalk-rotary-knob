@@ -92,7 +92,8 @@ a short trail shows where the boat has been. The distance is written next to the
 With the **hoekens-anchor-alarm** plugin installed:
 - **Turn** changes the radius (a new amber ring shows the preview), a **press** applies it.
 - **Long press** opens a dialog with only the actions that fit: **Drop here** while the anchor is raised, **Move drop point here**
-  and **Raise anchor** while it is dropped, and always **Cancel**. Turn to choose, press to confirm. A radius you turned to but
+  and **Raise anchor** while it is dropped, and always **Cancel**. While it is dropped, **Raise anchor** is the one selected
+  when the dialog opens. Turn to choose, press to confirm. A radius you turned to but
   did not apply is used when you drop.
 - After you choose, the screen shows a spinner until the server confirms. If the knob could not do it, it says why (control is
   off, no link, no position fix, the server refused, not confirmed) and that nothing was changed.
@@ -162,7 +163,7 @@ work. Values the boat does not publish show `---`.
 
   | Item | What it does |
   |---|---|
-  | `BRIGHTNESS` | The normal brightness |
+  | `BRIGHTNESS` | The normal brightness. Changes while you turn, stored with the press, a double press puts it back |
   | `DIM AFTER`, `DIM LEVEL` | When the screen dims and how far, `NEVER` keeps it bright |
   | `OFF AFTER` | When the screen goes dark, `NEVER` keeps it on |
   | `NIGHT MODE` | Follow the server, or always day or night |

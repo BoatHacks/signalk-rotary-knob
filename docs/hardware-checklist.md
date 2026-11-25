@@ -64,6 +64,8 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 | MODES page: pills readable at day and night, a press switches the mode and the ring follows, the last one on refuses with `ONE MODE STAYS ON`, the web page shows the same | open | | | |
 | A mode switched off while on screen (web page) goes to the first one on, a boot into a switched-off mode too | open | | | |
 | List: turn moves and wraps, prev and next items above and below, `SETTINGS 3/14` | open | | | |
+| Brightness follows every click, the press stores it, a double press and a mode change from the API put the old one back | open | | | |
+| Night mode, heading, HID profile and demo mode open a pill menu with the stored choice marked, at day and night | open | | | |
 | `MOTOR LIMITS` opens its own list (ahead, astern, disarm), edits come back to it, a double press goes back to the main list | open | | | |
 | With the MOTOR mode off, `THROTTLE STEPS` and `MOTOR LIMITS` are not in the list; switched off while shown, the list moves on | open | | | |
 | All text straight: settings top and bottom lines, alarm telemetry, setup screens' bottom line, nothing clipped | open | | | curved text removed 2026-11-23 |

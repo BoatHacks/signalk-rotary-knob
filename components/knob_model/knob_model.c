@@ -1134,6 +1134,9 @@ void knob_model_action_cb(const marine_ui_action_t *act, void *ctx)
         lv_async_call(save_mode_async, NULL);
         return;
     case MARINE_ACT_SETTING_SET: queue_setting((knob_setting_t)act->value, (int)act->meta); return;
+    case MARINE_ACT_SETTING_PREVIEW:
+        if (act->value == KNOB_SET_BRIGHTNESS) knob_power_set_brightness((uint8_t)act->meta);
+        return;
     case MARINE_ACT_SETUP_AP: setup_ap(act->value != 0); return;
     case MARINE_ACT_SYS_FACTORY_RESET: lv_async_call(reset_setup_async, NULL); return;
     case MARINE_ACT_HID_NEXT_PROFILE: /* stored, so it survives a restart. The change applies through the watcher. */

@@ -110,7 +110,7 @@ Controls:
 - Single press: apply the previewed radius. While raised it is only remembered for the next drop, while dropped it goes to the
   server.
 - Long press: open the dialog, which lists only the valid actions and always ends with **Cancel**. Raised: **Drop here**
-  (with the radius, at the current position). Dropped: **Move drop point here**, **Raise anchor** (red), Cancel. Turn chooses,
+  (with the radius, at the current position). Dropped: **Move drop point here**, **Raise anchor** (red, focused when the dialog opens), Cancel. Turn chooses,
   one press confirms, a long press or 5 s without input leaves it. A radius turned to but not applied is the one used to drop.
 - After a choice the screen shows what is happening: an amber spinner (`DROPPING...`, `MOVING DROP POINT...`, `RAISING...`,
   `SETTING RADIUS...`) until the server confirms through the data stream, or a red cross with the reason and `NOTHING WAS CHANGED`
@@ -174,6 +174,10 @@ Look:
   text above and below, `SETTINGS 3/14` on the top line, `PRESS EDIT · 2x BACK` on the bottom line (straight, 12 px).
 - **Editing:** the item name on the top line, the new value large in amber on a 270 degree amber arc, `was 80 %` under it,
   `PRESS STORE · 2x UNDO` on the bottom line. On/off and choice items show the word instead of the arc.
+- **Pill menu** (owner, 2026-11-25): night mode, heading, HID profile and demo mode show all their choices as in the anchor
+  dialog, the focused one in an amber pill, the stored one in the primary colour. A press stores, a double press goes back.
+- **Brightness** (owner, 2026-11-25) changes on the panel with every click. It is stored with the press that leaves the edit, an
+  undo puts the old brightness back.
 - **Sub-list** (owner, 2026-11-24): `MOTOR LIMITS` in the main list shows `50/50 % 60 s` and opens a list of its own with
   `LIMIT AHEAD`, `LIMIT ASTERN` and `MOTOR DISARM`, the same look with `MOTOR LIMITS 2/3` on the top line. A press edits as
   usual and comes back to the sub-list, a double press goes back to the main list on `MOTOR LIMITS`. Opening the settings

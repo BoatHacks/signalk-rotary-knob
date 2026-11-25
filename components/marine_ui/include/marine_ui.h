@@ -88,6 +88,7 @@ typedef enum {
     MARINE_ACT_AP_TACK,             // value = -1 port, +1 starboard, after the confirm turn
     MARINE_ACT_MOTOR_TURN,          // value = +1 or -1, one encoder click on the motor screen (sent at once, not batched)
     MARINE_ACT_MOTOR_LONG,          // value = 1, long press on the motor screen: arm, neutral, or disarm (knob_motor decides)
+    MARINE_ACT_SETTING_PREVIEW,     // value = knob_setting_t, meta = a value to show at once without storing (brightness)
     MARINE_ACT_MOTOR_ACK            // value = 1, double press while the limit warning shows: lifts both limits
 } marine_ui_action_type_t;
 
