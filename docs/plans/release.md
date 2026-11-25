@@ -101,7 +101,7 @@ do not write an OTA manifest, so that job stays ours (8relay's `update_ota_manif
       author's `dev@` address and two early messages carry session links, both become public with the repo (owner to accept).
 - [x] 2026-11-25: `cut-release.yml` checks `version.txt` against the version (the image reports that file, not the tag). README
       status corrected, it claimed bench tests that have not been done. Changelog brought up to date.
-- [ ] Owner: origin and licence of `assets/splash.png` (nothing records it), then NOTICE.
+- [x] `assets/splash.png` was made by the owner (2026-11-25), recorded in NOTICE.
 - [ ] Repo public (owner), branch protection with the oss-branch-protection template.
 - [ ] Cut `v0.1.0` as a pre-release (owner says when). Bench checks: USB flash, OTA, bad signature, rollback.
 - [ ] Registry: board file and project entry, validate, pull request (owner approves posting).
