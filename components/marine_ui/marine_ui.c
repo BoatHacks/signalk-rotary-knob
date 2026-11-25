@@ -2868,6 +2868,7 @@ static uint8_t vol_sel_peek(void) { return vol_sel < snap.vol_target_count ? vol
 #define MOTOR_SHOW_WHY_MS 5000   // a refusal or disarm reason stays on top this long (a fault stays until the next arm)
 static lv_obj_t *mot_arc_ahead, *mot_arc_astern, *mot_arc_confirm, *mot_dot_rep, *mot_dot_lim[2];
 static lv_obj_t *mot_lbl_top, *mot_lbl_gear, *mot_lbl_set, *mot_lbl_rpm, *mot_lbl_data, *mot_lbl_hint;
+static lv_obj_t *ovl_update;      // UPDATING FIRMWARE, while an update is installed
 static lv_obj_t *ovl_motor_tag;   // F 40 % on every other screen while the motor is out of neutral
 
 static lv_color_t c_green(void) { return snap.night_palette ? COL_NIGHT_RED : COL_GREEN; }
@@ -3412,6 +3413,17 @@ void marine_ui_init(marine_ui_action_cb_t action_cb, void *user_ctx) {
     lv_obj_set_style_text_font(ovl_motor_tag, &lv_font_montserrat_14, 0);
     lv_obj_align(ovl_motor_tag, LV_ALIGN_CENTER, 0, 95);   // above the DEMO tag
     lv_obj_add_flag(ovl_motor_tag, LV_OBJ_FLAG_HIDDEN);
+    // A small opaque pill in the middle. The controls stay usable, an alarm covers it.
+    ovl_update = lv_label_create(lv_layer_top());
+    lv_label_set_text(ovl_update, "UPDATING FIRMWARE");
+    lv_obj_set_style_text_font(ovl_update, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_bg_opa(ovl_update, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(ovl_update, 2, 0);
+    lv_obj_set_style_radius(ovl_update, 18, 0);
+    lv_obj_set_style_pad_hor(ovl_update, 14, 0);
+    lv_obj_set_style_pad_ver(ovl_update, 8, 0);
+    lv_obj_center(ovl_update);
+    lv_obj_add_flag(ovl_update, LV_OBJ_FLAG_HIDDEN);
     // Above every dialog and tag, below the DEMO tag (the alarm is created early, the dialogs after it).
     lv_obj_move_to_index(ovl_alarm, lv_obj_get_index(ovl_demo_tag) - 1);
     dfx_create();   // last: the demo overlay sits above everything else on the top layer
@@ -3814,6 +3826,16 @@ void marine_ui_apply_snapshot(const marine_ui_snapshot_t *snapshot) {
     }
 
     motor_tag_update();
+
+    if (snap.updating && !is_full_alarm_blocking()) {
+        lv_obj_set_style_bg_color(ovl_update, snap.night_palette ? lv_color_hex(0x050000) : COL_CARD, 0);
+        lv_obj_set_style_border_color(ovl_update, c_amber(), 0);
+        lv_obj_set_style_text_color(ovl_update, c_amber(), 0);
+        lv_obj_remove_flag(ovl_update, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_move_foreground(ovl_update);
+    } else {
+        lv_obj_add_flag(ovl_update, LV_OBJ_FLAG_HIDDEN);
+    }
 
     static bool ring_night;
     if (mode_ring_open && ring_night != snap.night_palette) refresh_mode_ring();   // the palette changed under the open ring

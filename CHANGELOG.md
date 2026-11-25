@@ -8,6 +8,10 @@ To release, set `version.txt` to the version, rename `[Unreleased]` to the versi
 `## [0.1.0] - 2026-11-30`, and run the "Cut release" workflow (CONTRIBUTING.md).
 
 ## [Unreleased]
+A notice while an update is installed.
+
+### Added
+- `UPDATING FIRMWARE` on the screen while an update is installed.
 
 ## [0.2.0] - 2026-11-25
 First release on the stable channel, the same firmware as 0.1.2.

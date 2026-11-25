@@ -292,6 +292,11 @@ States follow SPEC section 3.1. In STALE (and while connecting):
 - The LEDs show a slow amber pulse.
 - The knob never sends an action while stale. Losing the knob changes nothing on the boat (SPEC section 2).
 
+### Firmware update (owner, 2026-11-25)
+
+While an update is downloaded and installed an opaque amber pill, `UPDATING FIRMWARE` (14 px), sits in the middle of every screen
+until the knob restarts, or goes away when the install fails. The controls stay usable and an alarm covers it.
+
 ### Demo mode (#4)
 
 The whole UI runs on a simulated boat. A small `DEMO` (12 px, purple, red at night) sits at the bottom edge, below the bottom

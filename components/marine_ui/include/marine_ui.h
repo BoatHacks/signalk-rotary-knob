@@ -248,6 +248,7 @@ typedef struct {
     char info_token[12];           // approved, waiting, none
     bool info_allow_control;       // what applies now (stored setting or the serial override)
 
+    bool updating;                 // a firmware update is being installed: the UPDATING FIRMWARE notice is shown
     bool demo;                     // demo mode (#4): simulated data, the DEMO tag is shown on every screen
 
     // Autopilot states (#7): what the pilot does while engaged, and the data the wind and route screens show.

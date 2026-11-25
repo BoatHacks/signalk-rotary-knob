@@ -9,6 +9,8 @@
 
 #include "esp_log.h"
 #include "esp_timer.h"
+#include "espos_event.h"
+#include "espos_ota.h"
 #include "espos_sk.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/idf_additions.h"
@@ -643,6 +645,15 @@ static void demo_action(const marine_ui_action_t *a)
     (void)lit;
 }
 
+/* A firmware update being installed: 0 no, 1 downloading, 2 finished (restarts in a moment, or it failed). From espOS's events,
+ * espos_ota_busy() alone also covers the daily check. */
+static volatile uint8_t s_updating;
+static void on_update_event(void *arg, esp_event_base_t base, int32_t id, void *data)
+{
+    (void)arg; (void)base; (void)data;
+    s_updating = id == ESPOS_EVENT_UPDATE_STARTED ? 1 : s_updating ? 2 : 0;
+}
+
 static void build_snapshot(marine_ui_snapshot_t *s, uint32_t now)
 {
     model_t m;
@@ -851,6 +862,8 @@ static void build_snapshot(marine_ui_snapshot_t *s, uint32_t now)
 
     s->usb_host_enumerated = usb_dev_host_present(); /* a host on the cable: the USB-HID mode is offered on the ring */
     s->hid_profile = knob_hid_profile();
+    s->updating = s_updating != 0;
+    if (s_updating == 2 && !espos_ota_busy()) s_updating = 0; /* ended without a restart: the install failed */
     if (!s->device_name[0]) strncpy(s->device_name, ns.hostname, sizeof(s->device_name) - 1);
 
     if (s_demo) {
@@ -1528,6 +1541,8 @@ void knob_model_subscribe(void)
     knob_actions_set_allow_control(cfg.allow_control, "boot");
     apply_device_settings(&cfg);
     knob_config_watch(on_config_key);
+    espos_event_subscribe(ESPOS_EVENT_UPDATE_STARTED, on_update_event, NULL);
+    espos_event_subscribe(ESPOS_EVENT_UPDATE_FINISHED, on_update_event, NULL);
     s_cfg_loaded = true;
     bool held = s_ad_toggle_held;
     s_ad_toggle_held = false;
