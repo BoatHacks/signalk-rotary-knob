@@ -96,12 +96,16 @@ do not write an OTA manifest, so that job stays ours (8relay's `update_ota_manif
       make a knob with a broken touch panel refuse every update.
 - [x] CHANGELOG.md, `scripts/`, `test/scripts` (10 tests pass), `cut-release.yml` with the manifest job, hardware
       checklist section "Release and OTA".
-- [x] Production key created 2026-11-24 (key id `4e0a983dc96231e6`), stored as the secret `SIGNING_KEY_PEM`. Backup: owner.
+- [x] Production key created 2026-11-24 (key id `4e0a983dc96231e6`), stored as the secret `SIGNING_KEY_PEM`. Offline backup
+      made by the owner (2026-11-25).
 - [x] 2026-11-25: whole-history scan (addresses, SSIDs, MACs, tokens, keys, host and user names): no hits. The commits carry the
-      author's `dev@` address and two early messages carry session links, both become public with the repo (owner to accept).
+      author's address and two session links were removed from the history on 2026-11-25 (rewritten and force-pushed). GitHub
+      still serves the old commits by hash and through PR #1 until they are purged.
 - [x] 2026-11-25: `cut-release.yml` checks `version.txt` against the version (the image reports that file, not the tag). README
       status corrected, it claimed bench tests that have not been done. Changelog brought up to date.
 - [x] `assets/splash.png` was made by the owner (2026-11-25), recorded in NOTICE.
+- [ ] GitHub support: purge the unreferenced commits and the PR #1 ref, before the repo goes public.
+- [ ] After the repo is public: request a USB PID at pid.codes. Until then Espressif's test ID stays (owner, 2026-11-25).
 - [ ] Repo public (owner), branch protection with the oss-branch-protection template.
 - [ ] Cut `v0.1.0` as a pre-release (owner says when). Bench checks: USB flash, OTA, bad signature, rollback.
 - [ ] Registry: board file and project entry, validate, pull request (owner approves posting).
