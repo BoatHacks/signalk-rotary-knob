@@ -5,6 +5,15 @@
     {
       "target": "esp32s3",
       "channel": "beta",
+      "version": "v0.1.2",
+      "url": "https://github.com/BoatHacks/signalk-rotary-knob/releases/download/v0.1.2/signalk-rotary-knob-esp32s3-v0.1.2-ota.bin",
+      "size": 2297856,
+      "sha256": "9afbcdfc3fc3dcd5d079a92970856c329daf1d945b915ea2b2e5aba71ddee1df",
+      "notes": "A calmer alarm screen and new icons on the mode ring."
+    },
+    {
+      "target": "esp32s3",
+      "channel": "beta",
       "version": "v0.1.1",
       "url": "https://github.com/BoatHacks/signalk-rotary-knob/releases/download/v0.1.1/signalk-rotary-knob-esp32s3-v0.1.1-ota.bin",
       "size": 2232320,
