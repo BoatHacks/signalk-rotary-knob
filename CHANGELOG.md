@@ -8,6 +8,8 @@ To release, set `version.txt` to the version, rename `[Unreleased]` to the versi
 `## [0.1.0] - 2026-11-30`, and run the "Cut release" workflow (CONTRIBUTING.md).
 
 ## [Unreleased]
+
+## [0.1.1] - 2026-11-25
 The knob's settings are easier to use: live brightness and pill menus.
 
 ### Changed
