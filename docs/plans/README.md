@@ -32,7 +32,6 @@ only facts marked **(verify)** that the work checks first.
 ## Decisions waiting for the owner
 
 - Which relays beyond Relay 1 become light channels, and their names (SPEC section 13).
-- Where the knob's own USB PID comes from (hardening.md, deferred 2026-11-23).
 
 Decided 2026-11-23 while planning the issues: "live control" becomes the stored setting **allow control** (SPEC section 2),
 switched on the web page, the config API or the knob's settings screen.

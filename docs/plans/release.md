@@ -105,8 +105,9 @@ do not write an OTA manifest, so that job stays ours (8relay's `update_ota_manif
       status corrected, it claimed bench tests that have not been done. Changelog brought up to date.
 - [x] `assets/splash.png` was made by the owner (2026-11-25), recorded in NOTICE.
 - [x] Old commits still reachable on GitHub by hash and through PR #1: accepted by the owner (2026-11-25), no purge.
-- [ ] After the repo is public: request a USB PID at pid.codes. Until then Espressif's test ID stays (owner, 2026-11-25).
-- [ ] Repo public (owner), branch protection with the oss-branch-protection template.
+- [x] USB ID: Espressif's ready-made TinyUSB ID for a HID-only device, 303A:4004 (owner, 2026-11-25). The 4F22 used before was
+      no test ID. The pid.codes draft in docs/pid-request/ is not sent.
+- [x] Repo public (owner, 2026-11-25), branch protection, read-only workflow token, secret scanning.
 - [ ] Cut `v0.1.0` as a pre-release (owner says when). Bench checks: USB flash, OTA, bad signature, rollback.
 - [ ] Registry: board file and project entry, validate, pull request (owner approves posting).
 - [ ] Pre-1.0 review, live control trials, then `v1.0.0`.

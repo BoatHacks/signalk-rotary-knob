@@ -1,5 +1,7 @@
 # pid.codes request (draft, not sent)
 
+Not needed for now: the knob uses Espressif's ready-made 303A:4004 (2026-11-25).
+
 The two files for a pull request to [pidcodes/pidcodes.github.com](https://github.com/pidcodes/pidcodes.github.com), at the same
 paths there (`org/BoatHacks/index.md`, `1209/B0A7/index.md`). 0xB0A7 was free on main and in every open pull request on
 2026-11-25, check again before sending. Rules: https://pid.codes/howto/.

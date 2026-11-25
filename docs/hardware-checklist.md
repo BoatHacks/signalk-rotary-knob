@@ -212,6 +212,7 @@ First in demo mode (a simulated motor), then against a test plugin, then with th
 
 | Item | Status | Date | Commit | Notes |
 |---|---|---|---|---|
+| In the USB-HID mode the computer sees a HID device 303A:4004 and the knob works | open | | | ID changed 2026-11-25 |
 | Idle dim after 30 s, off after 10 min, input wakes | open | | | |
 | No LED flicker with all LEDs dark (LIGHTS, MUSIC) or in a steady colour | open | | | one LED flickered: the RMT frame was refilled mid-frame (64 symbols for 121), now 144 and sent only on a change, plus every 5 s |
 | Screen off: a touch anywhere (centre included) wakes it and does nothing else | ok | 2026-11-23 | 24f9ab0 | centre and edge, on the anchor screen |

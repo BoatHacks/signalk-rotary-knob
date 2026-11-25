@@ -303,8 +303,8 @@ signalk-rotary-knob/
 - **Runtime requirements:** 5 V supply, a SignalK server with security on (the knob is a normal device client), the autopilot
   and anchor plugins configured.
 - **Persistence:** NVS holds espOS settings, token and the knob config. Nothing else is written, so power loss is safe.
-- **USB identity:** the spike uses the Espressif VID with a throwaway PID, fine for the bench. Before anyone else uses this
-  firmware it needs its own VID/PID.
+- **USB identity:** Espressif's ready-made TinyUSB ID for a HID-only device, 303A:4004 (2026-11-25). It may be used with the standard class drivers, so the
+  firmware needs no PID of its own.
 - **Licence:** Apache-2.0, matching the espOS and cockpit code we reuse. Third-party code and its licences are listed in
   `NOTICE`.
 
@@ -348,4 +348,4 @@ config export/import (10), token permission (9). The wake-from-dim check and PRE
 - Haptics, a second knob, a custom enclosure and mounting.
 - Config export/import and a second-knob clone path.
 - Config export/import as JSON from the settings page (planned, after the MVP works).
-- Own USB VID/PID before the repo goes public.
+- USB ID: decided 2026-11-25, 303A:4004 (section 8).

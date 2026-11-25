@@ -25,13 +25,13 @@ Hardware checklist additions: setup through the portal on a phone, REST API answ
 setup AP is gone while connected, the USB IDs show the new values in the device manager.
 
 ## Open questions
-- pid.codes or another source for the USB PID (owner).
+None.
 ## Steps
 - [x] Decide the API key: optional (owner, 2026-11-23).
 - [x] Setup through the portal on a phone with a key (2026-11-23): key first, then Wi-Fi, the API answers 401 without it. Without
       a key still to try.
 - [x] Verify the setup AP closes (log `portal down` right after the join).
-- [ ] USB VID/PID.
+- [x] USB VID/PID: Espressif's ready-made TinyUSB ID for a HID-only device, 303A:4004 (owner, 2026-11-25).
 - [x] Token permission check: `readwrite` is the narrowest level that allows `PUT` and the v2 calls, read from the
       signalk-server source on the boat (2026-11-23). Server ACLs can narrow it per path, that is server setup.
 - [x] Update ARCHITECTURE.md section 6 and the manual's settings section (optional key, portal password).
