@@ -118,9 +118,8 @@ have one, *Motor power path*. The mode then sits just left of AUTO on the ring. 
   running motor: out of neutral it says `SET NEUTRAL FIRST`.
 - **Throttle:** turn right for more ahead, left for more astern. Slow clicks are 1 %, faster turning takes bigger steps (the
   *Throttle steps* setting: gentle, normal or quick). Neutral is at 12 o'clock, ahead in green clockwise, astern in amber.
-- **Through neutral:** coming from ahead the throttle stops at neutral for one click, the next click goes on into astern (and
-  the same the other way). There is no pause: **keep spinning and the motor goes straight from ahead to astern.** To stop the
-  motor, hold the knob.
+- **Through neutral:** a turn from ahead towards neutral ends at neutral, however fast and far you spin. Let go for a moment (a
+  quarter of a second is enough) and turn on into astern, and the same the other way. Holding the knob also goes to neutral.
 - **Neutral:** hold the knob. Hold it again in neutral to disarm. A single press does nothing.
 - **Limits:** the throttle stops at 50 % each way (*Throttle limit ahead / astern* on the settings page, `MOTOR LIMITS` in
   the knob's settings) and warns. Turning back below the limit clears the warning. A double press while it shows allows

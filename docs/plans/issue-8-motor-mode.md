@@ -77,7 +77,7 @@ SignalK has no standard path for a throttle command. Defaults, `<id>` is `knob.m
 
 ## Approach
 - **knob_logic** (host tested): the arming and throttle state machine as pure code: `knob_motor_t` with arm, confirm, turn
-  (click time in, step out by preset), the neutral stop (the 1 s pause dropped 2026-11-24 by the owner), long press, double press, the limits and their
+  (click time in, step out by preset), the neutral stop (a turn ends at neutral, the next one goes on, owner 2026-11-25), long press, double press, the limits and their
   warning, stale gear, fault and mismatch, allow control off, idle and keepalive due times. The firmware feeds it events and the clock, and sends what it returns. Safety rules live here so they are tested.
 - **knob_model:** subscriptions for the gear, RPM, torque, reported throttle and the power path, a motor stale reason, the
   snapshot fields, the motor state for the tag.

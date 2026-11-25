@@ -250,7 +250,7 @@ shows its state. Needs allow control. Not verified on a real motor yet.
 | Input | Disarmed | Armed |
 |---|---|---|
 | Long press | Arm: then one click right within 5 s (countdown arc). Refused out of neutral, without allow control, without a fresh gear, on a fault | Out of neutral: throttle 0 at once (at 750 ms, while still holding), stays armed. In neutral: disarm |
-| Turn | Nothing | Right more ahead, left more astern. 1 % per slow click (over 150 ms apart), more when faster (gentle 1/1/2, normal 1/2/5, quick 1/3/10 %). Stops at neutral from either side, the next click goes on into the other direction (no wait, owner 2026-11-24). Clicks in the first 500 ms after arming are ignored |
+| Turn | Nothing | Right more ahead, left more astern. 1 % per slow click (over 150 ms apart), more when faster (gentle 1/1/2, normal 1/2/5, quick 1/3/10 %). A turn ends at neutral from either side, the next turn (clicks 250 ms apart or more) goes on into the other direction (owner 2026-11-25). Clicks in the first 500 ms after arming are ignored |
 | Single press | Nothing | Nothing (it only counts after the 300 ms double-press wait, too slow for neutral) |
 | Double press | Mode ring | Limit warning showing: lift both limits until the next disarm, the throttle stays. Otherwise the mode ring (the throttle keeps its value) |
 

@@ -165,7 +165,7 @@ it sends it and shows it amber until the server's value matches, like the autopi
 
 ### 2.9e Motor (#8)
 The safety rules are one pure state machine, `knob_motor` in knob_logic (host tested): arming (only at neutral, with allow
-control, a fresh gear and no fault, then a confirm turn), the speed-dependent steps, the stop on neutral (no wait, the next click goes on),
+control, a fresh gear and no fault, then a confirm turn), the speed-dependent steps, the stop on neutral (a turn ends there, the next one goes on),
 long press for neutral and for disarm, the soft limits and their double-press override, and the fall back to neutral on control
 off, link loss, a gear older than 3 s, a fault, a gear that does not follow, or idle. It also decides what goes out: a change,
 one 0 on a disarm, and a 1 s keepalive, never anything after a reboot.

@@ -145,7 +145,7 @@ First in demo mode (a simulated motor), then against a test plugin, then with th
 | Arming refused with `SET NEUTRAL FIRST`, `CONTROL IS OFF`, `NO MOTOR DATA` | open | | | not in demo (control always allowed, gear always fresh): needs a test plugin |
 | A spin that confirms does not raise the throttle (first 500 ms ignored) | ok | 2026-11-24 | 36de0b5 | demo |
 | Steps: slow 1 %, normal and fast bigger per preset; the arc follows | ok | 2026-11-24 | 36de0b5 | demo, normal preset, "looks and feels right" |
-| From ahead the throttle stops at N, the next click goes on into astern, and back | ok | 2026-11-24 | 38c2cbb | demo, no wait at neutral since a0f768f: stops at 0, the next click goes on |
+| A fast spin from ahead stops at N and stays there, the next turn goes on into astern, and back | open | | | changed 2026-11-25, the next-click rule before it was ok on 38c2cbb |
 | Long press out of N: 0 at once (while holding), long press in N: disarm, single press nothing | ok | 2026-11-24 | 36de0b5 | demo |
 | Limit at 50 %: stops, warning, amber LED flash on every screen; double press lifts both, raises nothing | ok | 2026-11-24 | 38c2cbb | demo; the warning also clears below the limit (a0f768f) |
 | Tag `F 40 %` / `R 15 %` on other screens, not on the alarm; screen does not dim while out of N | ok | 2026-11-24 | 36de0b5 | demo, the alarm case not tried |

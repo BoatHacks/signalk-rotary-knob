@@ -137,9 +137,12 @@ void knob_motor_turn(knob_motor_t *m, const knob_motor_in_t *in, int dir)
     m->last_input_ms = now;
     int cur = m->set_pct;
 
-    /* The stop on neutral: a click that would cross 0 lands on 0, the next one goes on to the other side. No wait at
-     * neutral (owner, 2026-11-24). */
-    if (cur == 0) m->hold_side = 0;
+    /* The stop on neutral (owner, 2026-11-25): a spin that reaches 0 ends there, the rest of the same spin is ignored. The
+     * next turn goes on to the other side, back to the side it came from works at once. */
+    if (cur == 0 && m->hold_side != 0) {
+        if (dir == -m->hold_side && since < KNOB_MOTOR_SPIN_MS) return;
+        m->hold_side = 0;
+    }
 
     int nv = cur + dir * knob_motor_step(in->curve, since);
     if (cur > 0 && nv <= 0) { nv = 0; m->hold_side = 1; }

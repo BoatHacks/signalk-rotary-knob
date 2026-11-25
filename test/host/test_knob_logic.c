@@ -615,25 +615,26 @@ static void test_motor_neutral_stop(void)
     uint32_t t = motor_arm(&m, 1000);
     t = motor_clicks(&m, t, 1, 10);
     TEST_ASSERT_EQUAL_INT(10, m.set_pct);
-    /* down to 1, then a fast click (a big step) lands on 0, not past it */
-    t = motor_clicks(&m, t, -1, 9);
-    TEST_ASSERT_EQUAL_INT(1, m.set_pct);
-    t += 20;
+    /* a fast spin to the left from ahead stops at 0, however long it goes on */
+    for (int i = 0; i < 40; i++) { t += 20; knob_motor_in_t in = motor_in(t); knob_motor_turn(&m, &in, -1); }
+    TEST_ASSERT_EQUAL_INT(0, m.set_pct);
+    /* the spin running out, its clicks getting slower, is still the same turn */
+    t += 240;
     knob_motor_in_t in = motor_in(t);
     knob_motor_turn(&m, &in, -1);
     TEST_ASSERT_EQUAL_INT(0, m.set_pct);
-    /* the next click goes astern at once: no wait at neutral (owner, 2026-11-24) */
-    t += 20;
+    /* the next turn goes astern, with its first click */
+    t += KNOB_MOTOR_SPIN_MS;
     in = motor_in(t);
     knob_motor_turn(&m, &in, -1);
-    TEST_ASSERT_TRUE(m.set_pct < 0);
-    /* back to ahead through 0 also stops on 0 first */
-    t = motor_clicks(&m, t, 1, 1);
-    int8_t before = m.set_pct;
-    t = motor_clicks(&m, t, 1, -before);
+    TEST_ASSERT_EQUAL_INT(-1, m.set_pct);
+    /* the other way round: stops at 0, and back to the side it came from needs nothing */
+    for (int i = 0; i < 20; i++) { t += 20; in = motor_in(t); knob_motor_turn(&m, &in, 1); }
     TEST_ASSERT_EQUAL_INT(0, m.set_pct);
-    t = motor_clicks(&m, t, 1, 1);
-    TEST_ASSERT_EQUAL_INT(1, m.set_pct);
+    t += 200;
+    in = motor_in(t);
+    knob_motor_turn(&m, &in, -1);
+    TEST_ASSERT_EQUAL_INT(-1, m.set_pct);
 }
 
 static void test_motor_presses(void)
