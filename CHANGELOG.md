@@ -8,6 +8,8 @@ To release, set `version.txt` to the version, rename `[Unreleased]` to the versi
 `## [0.1.0] - 2026-11-30`, and run the "Cut release" workflow (CONTRIBUTING.md).
 
 ## [Unreleased]
+
+## [0.1.2] - 2026-11-25
 A calmer alarm screen and new icons on the mode ring.
 
 ### Fixed

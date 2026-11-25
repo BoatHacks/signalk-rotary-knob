@@ -61,7 +61,7 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 | Item | Status | Date | Commit | Notes |
 |---|---|---|---|---|
 | Mode ring: slots evenly spaced, gear `SETUP` last, 5 with a USB host, 4 without, hidden during an alarm | open | | | |
-| Mode ring: no label cut off, colours follow day and night while it is open | open | | | changed 2026-11-25 |
+| Mode ring: no label cut off, colours follow day and night while it is open | ok | 2026-11-25 | 6664e9b | owner |
 | MODES page: pills readable at day and night, a press switches the mode and the ring follows, the last one on refuses with `ONE MODE STAYS ON`, the web page shows the same | open | | | |
 | A mode switched off while on screen (web page) goes to the first one on, a boot into a switched-off mode too | open | | | |
 | List: turn moves and wraps, prev and next items above and below, `SETTINGS 3/14` | open | | | |
@@ -150,7 +150,7 @@ First in demo mode (a simulated motor), then against a test plugin, then with th
 | Arming refused with `SET NEUTRAL FIRST`, `CONTROL IS OFF`, `NO MOTOR DATA` | open | | | not in demo (control always allowed, gear always fresh): needs a test plugin |
 | A spin that confirms does not raise the throttle (first 500 ms ignored) | ok | 2026-11-24 | 83bb5f1 | demo |
 | Steps: slow 1 %, normal and fast bigger per preset; the arc follows | ok | 2026-11-24 | 83bb5f1 | demo, normal preset, "looks and feels right" |
-| A fast spin from ahead stops at N and stays there, the next turn goes on into astern, and back | open | | | changed 2026-11-25, the next-click rule before it was ok on 3b63264 |
+| A fast spin from ahead stops at N and stays there, the next turn goes on into astern, and back | open | 2026-11-25 | 6664e9b | owner: a fast spin stops at N (demo). The next turn into astern and back not asked |
 | Long press out of N: 0 at once (while holding), long press in N: disarm, single press nothing | ok | 2026-11-24 | 83bb5f1 | demo |
 | Limit at 50 %: stops, warning, amber LED flash on every screen; double press lifts both, raises nothing | ok | 2026-11-24 | 3b63264 | demo; the warning also clears below the limit (d467bb3) |
 | Tag `F 40 %` / `R 15 %` on other screens, not on the alarm; screen does not dim while out of N | ok | 2026-11-24 | 83bb5f1 | demo, the alarm case not tried |
@@ -207,7 +207,7 @@ First in demo mode (a simulated motor), then against a test plugin, then with th
 | Raise anchor | open | | 998cf0f | |
 | Radius change while dropped goes to the server | open | | 998cf0f | |
 | State line (20 px) and telemetry line (14 px) straight and readable, inside the round edge | ok | 2026-11-23 | e55de32 | were curved 12 px, 14 px state looked too small |
-| New alarm screen: opaque over every screen and dialog, one pulsing symbol, all text inside the edge, at day and night | open | | | changed 2026-11-25 |
+| New alarm screen: opaque over every screen and dialog, one pulsing symbol, all text inside the edge, at day and night | open | 2026-11-25 | 6664e9b | owner: fine in demo mode, night and GPS lost not asked |
 | Alarm screen: `DRAGGING` / `FIX LOST` straight on top, `14 m OF 35 m` under the headline, nothing clipped | ok | 2026-11-23 | e55de32 | replaced by the new alarm screen 2026-11-25 (the old one was cut off with the telemetry shown) |
 | Boot and setup screens: straight top line (`HELM DIAL`, `JOIN WI-FI`, `CONNECTING`, `NO SERVER`, `RESET`) inside the edge | open | | | `CONNECTING` is the widest |
 | Drag alarm takes over the screen, LEDs flash, press acknowledges | open | | | bench alarm (`a`) ok on an earlier build, real alarm open |
