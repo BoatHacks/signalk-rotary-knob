@@ -48,7 +48,7 @@ None. The colours (violet-blue 24, 8, 64 and warm white 64, 40, 16 on the 0 to 6
 - [x] knob_power: music and lights level patterns, colours, night, LEDs setting, brightness and idle dim. The zone's `muted`
       is parsed and in the snapshot, marine_ui reports the selected channel and target.
 - [x] Docs: ui-design section 7, manual (lights, music), hardware checklist.
-- [x] Built and flashed 2026-11-24 (721471a). The owner checked music and lights on the panel and kept the colours.
+- [x] Built and flashed 2026-11-24 (e5dca70). The owner checked music and lights on the panel and kept the colours.
 - [ ] The remaining hardware checklist rows (play/pause, muted, offline, night, idle dim, alarm).
 
 ## Files

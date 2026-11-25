@@ -5,7 +5,7 @@ buffers in PSRAM and moving the task stacks (all but LVGL) to PSRAM. Low-water m
 until the trials confirm it over a longer run, then delete.
 
 ## Overview
-Since commit 84adfd6 the boot log reports a lowest free internal RAM of 276 bytes (4,112 before, steady state about 32 KB).
+Since commit 998cf0f the boot log reports a lowest free internal RAM of 276 bytes (4,112 before, steady state about 32 KB).
 espOS's health watchdog raises an alarm below 10 KB and reboots below 12 KB of free internal RAM, and a failed allocation at that
 moment crashes. This has to be found and fixed before anything else is tried on the board.
 

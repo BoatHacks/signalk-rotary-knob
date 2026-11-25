@@ -105,17 +105,17 @@ SignalK has no standard path for a throttle command. Defaults, `<id>` is `knob.m
 
 ## Steps
 - [x] **Spike `spikes/encoder-timing`** (2026-11-24): 30 detents per turn, 4 edges each, thresholds 50 and 150 ms.
-- [x] knob_logic: `knob_motor` state machine and step presets, host tests (def719c). Clicks in the first 500 ms after arming
+- [x] knob_logic: `knob_motor` state machine and step presets, host tests (6536ef7). Clicks in the first 500 ms after arming
       are ignored, so a confirming spin cannot run the throttle up.
-- [x] knob_config keys and settings items (62294f1).
+- [x] knob_config keys and settings items (bacc0c0).
 - [x] knob_model: subscriptions, the state machine wired to inputs and the tick, the throttle as a PUT over the stream (no
-      worker queue, a click wakes the model task so neutral goes out at once), demo motor (62294f1).
-- [x] marine_ui: motor screen, arming, refusals, limit warning, tag, ring slot, keep-awake (ef12138).
+      worker queue, a click wakes the model task so neutral goes out at once), demo motor (bacc0c0).
+- [x] marine_ui: motor screen, arming, refusals, limit warning, tag, ring slot, keep-awake (282e508).
 - [x] knob_power: the throttle LED pattern (two LEDs per side with `knob_led_fill`, the bottom LED the reported gear, off at
       night) and the limit warning's amber 4 Hz flash on every screen, also at night.
 - [x] Docs: SPEC 6.3, manual, ui-design (ring order, section 3.7), hardware checklist (motor section), ARCHITECTURE 2.9e.
 - [x] Host tests run 2026-11-24 on the Pi: 37 tests, 0 failures, no warnings.
-- [ ] Bench check in demo mode (the build on the knob since f9ac9d3 has the screen; the LEDs came with d6c03bb).
+- [ ] Bench check in demo mode (the build on the knob since 880c2f6 has the screen; the LEDs came with 3ffca7e).
 - [ ] The motor side: which plugin takes the throttle, then the checks at the boat.
 
 ## Files
