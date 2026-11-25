@@ -3,8 +3,12 @@
 > DRAFT 3, 2026-11-25, written from the implemented behaviour. Items marked **(not verified)** have not been tried on the real
 > hardware yet. The autopilot, anchor and motor sections get their final words after the trials at the boat.
 >
-> The pictures are renderings: the v0.2.0 screens drawn on a PC, with simulated data (`tools/ui-render`). Most are from demo mode,
+> Apart from the photo, the pictures are renderings: the screens of the version after v0.2.0 (585ea07) drawn on a PC, with simulated data (`tools/ui-render`). Most are from demo mode,
 > hence the `DEMO` at the bottom edge.
+
+<img src="img/photo-knob-demo.jpg" width="420" alt="The knob in demo mode, on the autopilot screen">
+
+*The knob in demo mode (photo).*
 
 The knob is a helm-side control surface for a SignalK boat: it steers the autopilot, watches the anchor, switches lights, turns
 the music up and down, and can drive a motor's throttle. It has one round screen, an endless dial with a push button, five LEDs
@@ -33,9 +37,9 @@ If the knob is moved to a different network, or its approval is removed on the s
 over completely use *Reset setup* in the knob's settings (hold 5 seconds): it forgets the Wi-Fi and the approval and opens the
 setup network again.
 
-| <img src="img/manual/setup-splash.png" width="170" alt="Starting"> | <img src="img/manual/setup-pairing.png" width="170" alt="Approve the knob in the SignalK admin UI"> |
-|:---:|:---:|
-| Starting | Approve the knob in the SignalK admin UI |
+| <img src="img/manual/setup-wifi.png" width="170" alt="Join the setup network"> | <img src="img/manual/setup-splash.png" width="170" alt="Starting"> | <img src="img/manual/setup-pairing.png" width="170" alt="Approve the knob in the SignalK admin UI"> | <img src="img/manual/setup-no-server.png" width="170" alt="The server cannot be reached"> |
+|:---:|:---:|:---:|:---:|
+| Join the setup network | Starting | Approve the knob in the SignalK admin UI | The server cannot be reached |
 
 ## 2. Using the knob
 
@@ -311,6 +315,10 @@ the USB-HID mode, leave the mode first or press RESET. A merged image erases the
 
 A knob only accepts updates signed with the key it was flashed with. A knob built and flashed from source with your own key
 needs one USB install of a release before it takes release updates.
+
+| <img src="img/manual/updating.png" width="170" alt="While an update is installed"> |
+|:---:|
+| While an update is installed |
 
 ## 9. Troubleshooting
 

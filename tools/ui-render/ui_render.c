@@ -215,8 +215,7 @@ static void setto(int item)
 }
 static void sysshot(marine_system_screen_t scr, const char *n) { sys = scr; run(600); shot(n); sys = MARINE_SCREEN_OPERATIONAL; run(300); }
 
-/* The manual's pictures. The setup screens use placeholder names. JOIN WI-FI and NO SERVER are left out: their middle labels
- * have no text colour and cannot be read (v0.2.0). */
+/* The manual's pictures. The setup screens use placeholder names. */
 static void manual(void)
 {
     live = true;
@@ -224,7 +223,9 @@ static void manual(void)
     strcpy(s.device_name, "helm-knob");
     strcpy(s.boot_phase, "SIGNALK");
     s.boot_progress_pct = 55;
+    sysshot(MARINE_SCREEN_WIFI_PORTAL, "setup-wifi");
     sysshot(MARINE_SCREEN_PAIRING, "setup-pairing");
+    sysshot(MARINE_SCREEN_CANNOT_CONNECT, "setup-no-server");
     sysshot(MARINE_SCREEN_BOOT, "setup-splash");
     live = false;
     run(1000);
@@ -243,6 +244,7 @@ static void manual(void)
     heading_stale = true; run(7000);
     shot("stale-heading"); heading_stale = false; run(500);
     live = false; run(500);
+    s.updating = true; run(800); shot("updating"); s.updating = false; run(500);
     link_down = true; run(8000); shot("stale-link"); link_down = false; run(500);
 
     ringto(MARINE_MODE_ANCHOR_WATCH); shot("anchor-raised");
