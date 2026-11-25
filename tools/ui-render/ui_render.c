@@ -33,6 +33,10 @@ static knob_motor_t mo;
 static marine_ui_snapshot_t s;
 static int vol = 42, play = MARINE_PLAY_PLAYING, hid = HID_PROFILE_NAV_KEYS, apst = 0, radius = 35, pos = 53000;
 static bool ack, night, gps_lost;
+/* live: what the firmware shows outside demo mode on a boat without rudder, depth and voltage, with a route set.
+ * control_off refuses anchor actions, link_down and heading_stale are the fault states, sys is a system screen. */
+static bool live, control_off, link_down, heading_stale;
+static marine_system_screen_t sys = MARINE_SCREEN_OPERATIONAL;
 static uint16_t seq;
 
 static uint8_t gear(void) { return mo.set_pct > 0 ? KNOB_GEAR_FORWARD : mo.set_pct < 0 ? KNOB_GEAR_REVERSE : KNOB_GEAR_NEUTRAL; }
@@ -48,6 +52,11 @@ static void act(const marine_ui_action_t *a, void *c)
 {
     knob_motor_in_t in = motor_in();
     bool rep = false;
+    if (control_off && a->action >= MARINE_ACT_ANCHOR_SET_RADIUS && a->action <= MARINE_ACT_ANCHOR_RAISE) {
+        s.action_result = MARINE_RESULT_LIVE_OFF;
+        s.action_result_seq = ++seq;
+        return;
+    }
     switch (a->action) {
     case MARINE_ACT_AP_ENGAGE: knob_demo_engage(&dm, true); apst = 1; break;
     case MARINE_ACT_AP_SET_STATE: apst = a->value; break;
@@ -63,6 +72,7 @@ static void act(const marine_ui_action_t *a, void *c)
     case MARINE_ACT_HID_NEXT_PROFILE: hid = (hid + 1) % HID_PROFILE_COUNT; break;
     case MARINE_ACT_MOTOR_TURN: knob_motor_turn(&mo, &in, a->value > 0 ? 1 : -1); break;
     case MARINE_ACT_MOTOR_LONG: knob_motor_long_press(&mo, &in); break;
+    case MARINE_ACT_MOTOR_ACK: knob_motor_double_press(&mo, &in); break;
     case MARINE_ACT_ALARM_ACK: ack = true; break;
     default: break;
     }
@@ -78,12 +88,12 @@ static void apply(void)
     knob_demo_step(&dm, now);
     s.now_ms = now;
     s.fx_glass_enabled = s.fx_glow_enabled = s.fx_ring_pulse_enabled = s.alarm_ack_return_with_badge = true;
-    s.system_screen = MARINE_SCREEN_OPERATIONAL;
+    s.system_screen = sys;
     s.night_palette = night;
-    s.signalk_connected = true;
-    s.last_data_ms = now;
-    s.demo = true;
-    s.heading_ref = 'T'; s.heading_deg = dm.heading_deg; s.heading_updated_ms = now; s.heading_timeout_ms = 5000;
+    s.signalk_connected = !link_down;
+    if (!link_down) s.last_data_ms = now;
+    s.demo = !live;
+    s.heading_ref = 'T'; s.heading_deg = dm.heading_deg; if (!heading_stale) s.heading_updated_ms = now; s.heading_timeout_ms = 5000;
     if (!dm.engaged) apst = 0;
     s.ap_engaged = dm.engaged; s.ap_state = apst; s.cts_deg = dm.target_deg;
     s.ap_state_updated_ms = s.cts_updated_ms = now; s.ap_state_timeout_ms = s.cts_timeout_ms = 15000;
@@ -91,6 +101,12 @@ static void apply(void)
     s.rudder_deg = dm.rudder_deg; s.depth_m = dm.depth_m; s.voltage_v = dm.voltage_v;
     s.rudder_updated_ms = s.depth_updated_ms = s.voltage_updated_ms = now;
     s.rudder_timeout_ms = 5000; s.depth_timeout_ms = 10000; s.voltage_timeout_ms = 30000;
+    if (live) s.rudder_updated_ms = s.depth_updated_ms = s.voltage_updated_ms = 0;
+    if (live) {
+        strcpy(s.route_wpt, "WAYPOINT");
+        s.route_brg_deg = 268; s.route_dist_nm = 1.4; s.route_xte_m = 18; s.route_updated_ms = now;
+    }
+    s.route_timeout_ms = 10000;
     s.gps_3d_fix = true; s.gps_updated_ms = now;
     s.anchor_dropped = dm.anchor_down; s.anchor_radius_m = dm.anchor_down ? lroundf(dm.radius_m) : radius;
     s.anchor_dist_m = dm.anchor_dist_m; s.anchor_bearing_deg = dm.anchor_bearing_deg;
@@ -191,7 +207,85 @@ static void brightest(const char *n) /* a pulsing screen at the top of its pulse
     }
 }
 
-int main(void)
+static void setto(int item)
+{
+    for (int i = 0; i < 40 && marine_ui_settings_index() != item; i++) turn(1);
+    if (marine_ui_settings_index() != item) printf("MISSED setting %d\n", item);
+    run(500);
+}
+static void sysshot(marine_system_screen_t scr, const char *n) { sys = scr; run(600); shot(n); sys = MARINE_SCREEN_OPERATIONAL; run(300); }
+
+/* The manual's pictures. The setup screens use placeholder names. JOIN WI-FI and NO SERVER are left out: their middle labels
+ * have no text colour and cannot be read (v0.2.0). */
+static void manual(void)
+{
+    live = true;
+    strcpy(s.setup_ap_ssid, "espOS-1234");
+    strcpy(s.device_name, "helm-knob");
+    strcpy(s.boot_phase, "SIGNALK");
+    s.boot_progress_pct = 55;
+    sysshot(MARINE_SCREEN_PAIRING, "setup-pairing");
+    sysshot(MARINE_SCREEN_BOOT, "setup-splash");
+    live = false;
+    run(1000);
+    dbl(); run(600); shot("ring"); dbl(); run(800);
+
+    shot("ap-standby");
+    lng(); run(700); shot("ap-confirm"); turn(1); run(2000);
+    press(); run(600); turn(-2); run(700); press(); run(600); turn(-3); run(3500); both("ap-compass");
+    run(15000);
+    lng(); run(600); shot("ap-dialog");
+    turn(1); press(); run(1500); shot("ap-wind");
+    lng(); run(600); turn(4); press(); run(600); shot("ap-tack"); run(6000);
+    live = true; run(500);
+    lng(); run(600); turn(2); press(); run(1500); shot("ap-route");
+    lng(); run(600); press(); run(1500);
+    heading_stale = true; run(7000);
+    shot("stale-heading"); heading_stale = false; run(500);
+    live = false; run(500);
+    link_down = true; run(8000); shot("stale-link"); link_down = false; run(500);
+
+    ringto(MARINE_MODE_ANCHOR_WATCH); shot("anchor-raised");
+    turn(-3); run(800); shot("anchor-radius"); press(); run(1500);
+    live = control_off = true; lng(); run(800); press(); run(1200); shot("anchor-refused"); run(5000);
+    live = control_off = false; run(500);
+    lng(); run(1000); shot("anchor-drop"); press(); run(25000); shot("anchor-dropped");
+    lng(); run(1000); shot("anchor-dialog"); dbl(); run(6000);
+    if (marine_ui_ring_is_open()) dbl();
+    run(1000);
+
+    ringto(MARINE_MODE_DIMMER); turn(-4); run(1500); shot("lights-dimmer");
+    press(); run(500); press(); run(500); turn(1); run(1200); shot("lights-relay");
+    ringto(MARINE_MODE_MUSIC); run(1000); shot("music");
+
+    ringto(MARINE_MODE_MOTOR); shot("motor-disarmed");
+    lng(); run(400); shot("motor-confirm"); turn(1); run(1500); turn(24); run(2000); shot("motor-ahead");
+    for (int i = 0; i < 60 && !mo.limit_warning; i++) turn(1);
+    run(600); shot("motor-limit"); dbl(); run(500); /* lifts the limits, not the ring */
+    ringto(MARINE_MODE_AUTOPILOT); run(800); shot("motor-tag");
+    ringto(MARINE_MODE_MOTOR); lng(); run(500); lng(); run(800);
+
+    ringto(MARINE_MODE_USB_HID); run(800); shot("usb-navigation"); lng(); run(1500); shot("usb-chartplotter"); lng(); run(1500); shot("usb-media");
+
+    ringto(MARINE_MODE_SETTINGS); run(800); shot("set-list");
+    press(); run(600); turn(-4); run(400); shot("set-edit"); dbl(); run(800);
+    setto(KNOB_SET_NIGHT); press(); run(700); shot("set-menu"); dbl(); run(800);
+    setto(KNOB_SET_ALLOW_CONTROL); shot("set-allow"); press(); run(1200); shot("set-allow-confirm"); press(); run(800);
+    setto(KNOB_SET_MODES); press(); run(900); shot("set-modes"); dbl(); run(800);
+    setto(KNOB_SET_RESET); press(); run(900); shot("set-reset"); dbl(); run(800);
+
+    ringto(MARINE_MODE_ANCHOR_WATCH);
+    knob_demo_set_swing(&dm, 26); run(20000);
+    for (int i = 0; i < 600 && dm.anchor_dist_m < 24; i++) run(100);
+    brightest("alarm-drag");
+    press(); run(2000); shot("alarm-acknowledged");
+    knob_demo_set_radius(&dm, 60); run(1000);
+    gps_lost = true; run(1000); brightest("alarm-gps");
+    gps_lost = false; run(1000);
+    s.control_on_seq++; run(800); shot("control-on");
+}
+
+int main(int argc, char **argv)
 {
     static uint8_t buf[240 * 240 * 2] __attribute__((aligned(8)));
     lv_init();
@@ -209,6 +303,7 @@ int main(void)
     apply();
     marine_ui_set_mode(MARINE_MODE_AUTOPILOT);
     run(8000);
+    if (argc > 1) { manual(); return 0; }
     shot("autopilot-standby");
     lng(); run(700); shot("autopilot-confirm");
     turn(1); run(2000); press(); run(600); turn(-2); run(700); press(); run(600); turn(-3); run(3500);

@@ -1,8 +1,10 @@
 # Rotary knob user manual
 
 > DRAFT 3, 2026-11-25, written from the implemented behaviour. Items marked **(not verified)** have not been tried on the real
-> hardware yet. The autopilot, anchor and motor sections get their final words after the trials at the boat. Photos and
-> screenshots are still missing.
+> hardware yet. The autopilot, anchor and motor sections get their final words after the trials at the boat.
+>
+> The pictures are renderings: the v0.2.0 screens drawn on a PC, with simulated data (`tools/ui-render`). Most are from demo mode,
+> hence the `DEMO` at the bottom edge.
 
 The knob is a helm-side control surface for a SignalK boat: it steers the autopilot, watches the anchor, switches lights, turns
 the music up and down, and can drive a motor's throttle. It has one round screen, an endless dial with a push button, five LEDs
@@ -31,6 +33,10 @@ If the knob is moved to a different network, or its approval is removed on the s
 over completely use *Reset setup* in the knob's settings (hold 5 seconds): it forgets the Wi-Fi and the approval and opens the
 setup network again.
 
+| <img src="img/manual/setup-splash.png" width="170" alt="Starting"> | <img src="img/manual/setup-pairing.png" width="170" alt="Approve the knob in the SignalK admin UI"> |
+|:---:|:---:|
+| Starting | Approve the knob in the SignalK admin UI |
+
 ## 2. Using the knob
 
 | Input | What it does |
@@ -54,6 +60,10 @@ order. `USB` only shows while a computer is connected, and `SETUP` is hidden dur
 a pill and press to switch it, press twice to go back. One mode always stays on. The same switches are on the settings page
 (*AUTOPILOT mode*, *LIGHTS mode* and so on). `MOTOR` is off on a new knob. **(not verified)**
 
+| <img src="img/manual/ring.png" width="170" alt="The mode ring"> | <img src="img/manual/set-modes.png" width="170" alt="The *MODES* page"> |
+|:---:|:---:|
+| The mode ring | The *MODES* page |
+
 ## 3. Modes
 
 ### Autopilot
@@ -76,6 +86,14 @@ ticks, and the course to steer (`CTS`).
   At night the on-course colour fades out after 2 seconds, red and green stay.
 - No rudder angle or depth is shown unless your boat publishes them (the display shows `---`).
 
+| <img src="img/manual/ap-standby.png" width="170" alt="Standby"> | <img src="img/manual/ap-confirm.png" width="170" alt="Engage: the confirm turn"> | <img src="img/manual/ap-compass.png" width="170" alt="Steering to the target"> | <img src="img/manual/ap-dialog.png" width="170" alt="The pilot dialog"> |
+|:---:|:---:|:---:|:---:|
+| Standby | Engage: the confirm turn | Steering to the target | The pilot dialog |
+
+| <img src="img/manual/ap-wind.png" width="170" alt="Wind (no target from the pilot here)"> | <img src="img/manual/ap-tack.png" width="170" alt="Tack: the confirm turn"> | <img src="img/manual/ap-route.png" width="170" alt="Route"> |
+|:---:|:---:|:---:|
+| Wind (no target from the pilot here) | Tack: the confirm turn | Route |
+
 ### Lights
 Channels are set on the settings page (name, SignalK path, relay or dimmer). The boat this was built for has relays only, so a channel
 is on or off:
@@ -85,6 +103,10 @@ is on or off:
   back on at that level.
 - The LEDs around the base light warm white while the selected channel is on: all five for a switched channel, a level for a
   dimmer (filling clockwise from the bottom left, the bottom LED on). They stay dark at night. **(not verified)**
+
+| <img src="img/manual/lights-dimmer.png" width="170" alt="A dimmer channel"> | <img src="img/manual/lights-relay.png" width="170" alt="A relay"> |
+|:---:|:---:|
+| A dimmer channel | A relay |
 
 ### Anchor
 The watch circle is drawn as a plot: the ring is the radius you chose, the green dot is the boat, the anchor is in the centre, and
@@ -99,6 +121,14 @@ With the **hoekens-anchor-alarm** plugin installed:
   off, no link, no position fix, the server refused, not confirmed) and that nothing was changed.
 Anchor and autopilot commands are only sent when **allow control** is on (see section 6).
 
+| <img src="img/manual/anchor-raised.png" width="170" alt="Anchor raised"> | <img src="img/manual/anchor-radius.png" width="170" alt="Turn: the new radius"> | <img src="img/manual/anchor-drop.png" width="170" alt="Hold: drop here"> | <img src="img/manual/anchor-dropped.png" width="170" alt="The watch, with the trail"> |
+|:---:|:---:|:---:|:---:|
+| Anchor raised | Turn: the new radius | Hold: drop here | The watch, with the trail |
+
+| <img src="img/manual/anchor-dialog.png" width="170" alt="Hold while dropped"> | <img src="img/manual/anchor-refused.png" width="170" alt="Refused: allow control is off"> |
+|:---:|:---:|
+| Hold while dropped | Refused: allow control is off |
+
 ### Music
 
 The boat's music through the jukebox on the SignalK server. Turn for the volume (2 % a click, sent when you stop turning), press
@@ -109,6 +139,10 @@ jukebox, switch the mode off (see *Choosing the modes*).
 
 The LEDs around the base show the volume in violet-blue, filling clockwise from the bottom left (half volume lights the left
 two), dimmer for a muted zone. The bottom LED is green while the music plays. They stay dark at night. **(not verified)**
+
+| <img src="img/manual/music.png" width="170" alt="Volume and player"> |
+|:---:|
+| Volume and player |
 
 ### Motor
 **(not verified, no motor has been driven by the knob yet)** For a motor whose controller takes a throttle over SignalK. Off
@@ -132,6 +166,14 @@ have one, *Motor power path*. The mode then sits just left of AUTO on the ring. 
   when it hears nothing for about 3 seconds, so a knob that dies or loses Wi-Fi leaves the motor in neutral.
 - While the motor is out of neutral, every other screen shows `F 40 %` or `R 15 %` at the bottom and the screen stays on.
 
+| <img src="img/manual/motor-disarmed.png" width="170" alt="Disarmed"> | <img src="img/manual/motor-confirm.png" width="170" alt="Arm: the confirm turn"> | <img src="img/manual/motor-ahead.png" width="170" alt="Ahead"> | <img src="img/manual/motor-limit.png" width="170" alt="At the limit"> |
+|:---:|:---:|:---:|:---:|
+| Disarmed | Arm: the confirm turn | Ahead | At the limit |
+
+| <img src="img/manual/motor-tag.png" width="170" alt="The throttle on another screen"> |
+|:---:|
+| The throttle on another screen |
+
 ### USB-HID
 Listed in the mode ring only while a computer has recognised the knob over USB. The knob shows up as a USB input device only
 while this mode is on screen. A long press steps through the profiles, the choice is stored:
@@ -141,6 +183,10 @@ while this mode is on screen. A long press steps through the profiles, the choic
 
 **(not verified)**
 
+| <img src="img/manual/usb-chartplotter.png" width="170" alt="Chartplotter"> | <img src="img/manual/usb-media.png" width="170" alt="Media"> | <img src="img/manual/usb-navigation.png" width="170" alt="Navigation keys"> |
+|:---:|:---:|:---:|
+| Chartplotter | Media | Navigation keys |
+
 ## 4. Alarms
 
 An anchor drag or GPS-lost alarm takes over the screen: the backlight goes to full, the five LEDs flash red, the screen says what
@@ -149,11 +195,19 @@ clears the alarm. The knob never decides an alarm itself, the server does.
 
 The GPS-lost alarm is raised while the anchor is armed and the position stops updating for 30 seconds or the fix is lost.
 
+| <img src="img/manual/alarm-drag.png" width="170" alt="Drag alarm"> | <img src="img/manual/alarm-gps.png" width="170" alt="GPS lost"> | <img src="img/manual/alarm-acknowledged.png" width="170" alt="Acknowledged, until the server clears it"> |
+|:---:|:---:|:---:|
+| Drag alarm | GPS lost | Acknowledged, until the server clears it |
+
 ## 5. When data is missing
 
 Every value has its own age. If something the screen depends on stops arriving, the knob says so (`NO HEADING`, `NO AP STATE`,
 `LINK LOST`, or `CONNECTING` right after a start) and ignores that mode's controls. It never shows old values as current. The mode ring and the alarm acknowledge still
 work. Values the boat does not publish show `---`.
+
+| <img src="img/manual/stale-link.png" width="170" alt="No link to the server"> | <img src="img/manual/stale-heading.png" width="170" alt="One value is missing"> |
+|:---:|:---:|
+| No link to the server | One value is missing |
 
 ## 6. Settings and allow control
 
@@ -212,6 +266,14 @@ work. Values the boat does not publish show `---`.
   switched off with `NEVER`). It never goes off while the autopilot is engaged or an alarm is active. Any input wakes it: a turn, a press or a touch anywhere on the glass. When the screen was off,
   that first input only wakes it and does nothing else (an alarm acknowledge excepted). When it was dimmed, the input also does
   what it normally does.
+
+| <img src="img/manual/set-list.png" width="170" alt="The settings list"> | <img src="img/manual/set-edit.png" width="170" alt="Editing a number"> | <img src="img/manual/set-menu.png" width="170" alt="Choosing from a menu"> | <img src="img/manual/set-reset.png" width="170" alt="*Reset setup*"> |
+|:---:|:---:|:---:|:---:|
+| The settings list | Editing a number | Choosing from a menu | *Reset setup* |
+
+| <img src="img/manual/set-allow.png" width="170" alt="*Allow control* is off"> | <img src="img/manual/set-allow-confirm.png" width="170" alt="Switching it on: the confirm turn"> | <img src="img/manual/control-on.png" width="170" alt="Switched on from the settings page"> | <img src="img/manual/ap-compass-night.png" width="170" alt="Night colours"> |
+|:---:|:---:|:---:|:---:|
+| *Allow control* is off | Switching it on: the confirm turn | Switched on from the settings page | Night colours |
 
 ## 7. Demo mode
 

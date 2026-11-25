@@ -1,10 +1,13 @@
-"""Crops the raw screens round, upscales them and builds the overview. Usage: render.py <build dir> <version text>"""
+"""Crops the raw screens round, upscales them and builds the overview, and the manual's pictures.
+
+Usage: render.py <build dir> <version text>, or render.py <build dir> manual (every screen in out/, 360 px, in img/manual)."""
 import os
 import sys
 
 from PIL import Image, ImageDraw, ImageFont
 
 build, version = sys.argv[1], sys.argv[2]
+MANUAL = version == 'manual'
 SCREENS = [('autopilot', 'Autopilot'), ('anchor', 'Anchor watch'), ('lights', 'Lights'), ('music', 'Music'),
            ('motor', 'Motor (off by default)'), ('usb', 'USB-HID'), ('mode-ring', 'Mode ring'), ('settings', 'Settings'),
            ('drag-alarm', 'Drag alarm'), ('autopilot-night', 'Night palette')]
@@ -19,6 +22,12 @@ def screen(name, n):
 
 
 img = os.path.join(build, 'img')
+if MANUAL:
+    img = os.path.join(img, 'manual')
+    os.makedirs(img, exist_ok=True)
+    for f in sorted(os.listdir(os.path.join(build, 'out'))):
+        screen(f[:-4], 360).quantize(256, method=Image.Quantize.FASTOCTREE).save(os.path.join(img, f[:-4] + '.png'), optimize=True)
+    sys.exit()
 os.makedirs(img, exist_ok=True)
 font = ImageFont.load_default(24)
 sheet = Image.new('RGB', (1720, 850), (43, 45, 49))
