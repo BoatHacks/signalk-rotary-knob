@@ -220,25 +220,17 @@ static lv_obj_t *hid_lbl_hint;
 static lv_obj_t *ring_slot_boxes[MARINE_MODE_COUNT];
 static lv_obj_t *ring_slot_labels[MARINE_MODE_COUNT];
 static lv_obj_t *ring_slot_icons[MARINE_MODE_COUNT];
-static uint8_t *ring_icon_buf[MARINE_MODE_COUNT];
-static uint32_t ring_icon_col[MARINE_MODE_COUNT];   // set to "never drawn" when the ring is built
 static lv_obj_t *ring_center_top;
 static lv_obj_t *ring_center_mid;
 static lv_obj_t *ring_center_bot;
 
 // Alarm widgets
-static lv_obj_t *alm_geofence;
-static lv_obj_t *alm_boat_dot;
-static lv_obj_t *alm_lbl_title;
+static lv_obj_t *alm_lbl_title;   // above the icon: DRAG ALARM or GPS LOST
+static lv_obj_t *alm_icon;        // one big symbol in the middle, pulsing (knob_icon_96)
+static bool alm_pulsing = false;
+static lv_obj_t *alm_lbl_dist;    // below the icon: distance and radius, or NO GPS FIX
 static lv_obj_t *alm_lbl_ack;
-static lv_obj_t *alm_icon_anchor;
-static lv_obj_t *alm_icon_warn;
-static uint8_t *alm_icon_anchor_buf = NULL;
-static uint8_t *alm_icon_warn_buf = NULL;
-static uint32_t alm_icon_col = 0xFFFFFFFFu;
-static lv_obj_t *alm_lbl_state;   // top line, straight 20 px: DRAGGING or FIX LOST
-static lv_obj_t *alm_lbl_dist;    // distance and radius under the headline (drag alarm)
-static lv_obj_t *alm_lbl_telem;   // bottom line: what the boat publishes, the GPS fix
+
 
 // Stale, Confirm, Anchor Menu & System Screen Widgets
 static lv_obj_t *stale_lbl_age;
@@ -774,8 +766,7 @@ static void refresh_mode_ring(void) {
         lv_obj_set_style_shadow_width(ring_slot_boxes[s], (sel && snap.fx_glow_enabled) ? 16 : 0, 0);
         lv_obj_set_style_shadow_color(ring_slot_boxes[s], c_primary(), 0);
         lv_obj_set_style_text_color(ring_slot_labels[s], sel ? c_primary() : c_text(), 0);
-        static const icon_id_t slot_icons[MARINE_MODE_COUNT] = { ICON_PROP, ICON_AUTO, ICON_ANCHOR, ICON_LIGHT, ICON_MUSIC, ICON_USB, ICON_GEAR };
-        icon_recolor(ring_slot_icons[s], slot_icons[s], 28, sel ? c_primary() : c_text(), &ring_icon_col[s]);
+        lv_obj_set_style_text_color(ring_slot_icons[s], sel ? c_primary() : c_text(), 0);
     }
 }
 
@@ -1798,16 +1789,20 @@ static void build_overlays_and_system(void) {
     lv_obj_align(ring_center_bot, LV_ALIGN_BOTTOM_MID, 0, -14);
 
     for (int s = 0; s < MARINE_MODE_COUNT; s++) {   // positions are set by refresh_mode_ring() from the visible slots
-        ring_icon_col[s] = 0xFFFFFFFFu;
         ring_slot_boxes[s] = lv_obj_create(ovl_mode_ring);
-        lv_obj_set_size(ring_slot_boxes[s], 54, 48);          // drawn icon (28 px) above the label
+        lv_obj_set_size(ring_slot_boxes[s], 54, 48);          // icon (knob_icon_28) above the label
         lv_obj_set_style_radius(ring_slot_boxes[s], 6, 0);
         lv_obj_set_style_pad_all(ring_slot_boxes[s], 0, 0);
         lv_obj_align(ring_slot_boxes[s], LV_ALIGN_CENTER, 0, -86);
         lv_obj_remove_flag(ring_slot_boxes[s], LV_OBJ_FLAG_SCROLLABLE);
 
-        ring_slot_icons[s] = icon_canvas_create(ring_slot_boxes[s], 28, &ring_icon_buf[s]);
-        lv_obj_align(ring_slot_icons[s], LV_ALIGN_TOP_MID, 0, 3);
+        // In ring order: propeller, ship's wheel, anchor, light bulb, music notes, USB, gear.
+        static const char *const slot_icons[MARINE_MODE_COUNT] = { "\xEF\xA1\xA3", "\xEF\x99\x95", "\xEF\x84\xBD", "\xEF\x83\xAB",
+                                                                   "\xEF\x80\x81", "\xEF\x8A\x87", "\xEF\x80\x93" };
+        ring_slot_icons[s] = lv_label_create(ring_slot_boxes[s]);
+        lv_obj_set_style_text_font(ring_slot_icons[s], &knob_icon_28, 0);
+        lv_label_set_text(ring_slot_icons[s], slot_icons[s]);
+        lv_obj_align(ring_slot_icons[s], LV_ALIGN_TOP_MID, 0, 2);
 
         ring_slot_labels[s] = lv_label_create(ring_slot_boxes[s]);
         lv_label_set_text(ring_slot_labels[s], mode_registry[ring_slot_modes[s]].ring_label);
@@ -1822,61 +1817,17 @@ static void build_overlays_and_system(void) {
     lv_obj_center(ovl_alarm);
     lv_obj_set_style_radius(ovl_alarm, LV_RADIUS_CIRCLE, 0);
     lv_obj_set_style_bg_color(ovl_alarm, COL_BG, 0);
-    lv_obj_set_style_border_width(ovl_alarm, 8, 0);
-    lv_obj_set_style_border_color(ovl_alarm, lv_color_hex(0x4A5668), 0);
+    lv_obj_set_style_bg_opa(ovl_alarm, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(ovl_alarm, 6, 0);
+    lv_obj_set_style_border_color(ovl_alarm, COL_RED, 0);
+    lv_obj_set_style_pad_all(ovl_alarm, 0, 0);
     lv_obj_remove_flag(ovl_alarm, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_add_flag(ovl_alarm, LV_OBJ_FLAG_HIDDEN);
 
-    alm_geofence = lv_obj_create(ovl_alarm);
-    lv_obj_set_size(alm_geofence, 84, 84);
-    lv_obj_align(alm_geofence, LV_ALIGN_CENTER, 0, -34);
-    lv_obj_set_style_radius(alm_geofence, LV_RADIUS_CIRCLE, 0);
-    lv_obj_set_style_bg_opa(alm_geofence, LV_OPA_TRANSP, 0);
-    lv_obj_set_style_border_width(alm_geofence, 2, 0);
-    lv_obj_set_style_border_color(alm_geofence, COL_TEXT_MUTED, 0);
-    lv_obj_remove_flag(alm_geofence, LV_OBJ_FLAG_SCROLLABLE);
-
-    // Drawn anchor icon inside the geofence and a drawn warning triangle above the headline (no font glyphs)
-    alm_icon_anchor = icon_canvas_create(ovl_alarm, 48, &alm_icon_anchor_buf);
-    lv_obj_align(alm_icon_anchor, LV_ALIGN_CENTER, 0, -34);
-    alm_icon_warn = icon_canvas_create(ovl_alarm, 22, &alm_icon_warn_buf);
-    lv_obj_align(alm_icon_warn, LV_ALIGN_CENTER, 0, 14);
-
-    alm_boat_dot = lv_obj_create(ovl_alarm);
-    lv_obj_set_size(alm_boat_dot, 12, 12);
-    lv_obj_set_style_radius(alm_boat_dot, LV_RADIUS_CIRCLE, 0);
-    lv_obj_set_style_bg_color(alm_boat_dot, COL_RED, 0);
-    lv_obj_set_style_border_color(alm_boat_dot, COL_TEXT_MAIN, 0);
-    lv_obj_set_style_border_width(alm_boat_dot, 1, 0);
-    lv_obj_align(alm_boat_dot, LV_ALIGN_CENTER, 44, -66);   // outside the geofence circle (distance ~54 px > 42 px)
-
-    alm_lbl_title = lv_label_create(ovl_alarm);
-    lv_label_set_text(alm_lbl_title, "DRAG ALARM!");
-    lv_obj_set_style_text_font(alm_lbl_title, &lv_font_montserrat_28, 0);
-    lv_obj_set_style_text_color(alm_lbl_title, COL_RED, 0);
-    lv_obj_align(alm_lbl_title, LV_ALIGN_CENTER, 0, 40);
-
-    alm_lbl_dist = lv_label_create(ovl_alarm);
-    lv_label_set_text(alm_lbl_dist, "");
-    lv_obj_set_style_text_font(alm_lbl_dist, &lv_font_montserrat_14, 0);
-    lv_obj_align(alm_lbl_dist, LV_ALIGN_CENTER, 0, 64);
-
-    alm_lbl_ack = lv_label_create(ovl_alarm);
-    lv_label_set_text(alm_lbl_ack, "PRESS TO ACKNOWLEDGE");
-    lv_obj_set_style_text_font(alm_lbl_ack, &lv_font_montserrat_12, 0);
-    lv_obj_align(alm_lbl_ack, LV_ALIGN_CENTER, 0, 82);
-
-    alm_lbl_telem = anc_make_label(ovl_alarm, &lv_font_montserrat_12, 100);
-    lv_label_set_long_mode(alm_lbl_telem, LV_LABEL_LONG_MODE_DOTS);   // about 120 px at y 220
-    lv_obj_set_width(alm_lbl_telem, 120);
-    lv_obj_set_style_text_align(alm_lbl_telem, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_align(alm_lbl_telem, LV_ALIGN_CENTER, 0, 100);
-
-    // Top status line straight in 20 px like the anchor screen's (owner, 2026-11-23), short enough for the round edge.
-    alm_lbl_state = lv_label_create(ovl_alarm);
-    lv_label_set_text(alm_lbl_state, "");
-    lv_obj_set_style_text_font(alm_lbl_state, &lv_font_montserrat_20, 0);
-    lv_obj_align(alm_lbl_state, LV_ALIGN_CENTER, 0, -90);
+    alm_lbl_title = anc_make_label(ovl_alarm, &lv_font_montserrat_20, -74);
+    alm_icon = anc_make_label(ovl_alarm, &knob_icon_96, -6);
+    alm_lbl_dist = anc_make_label(ovl_alarm, &lv_font_montserrat_20, 58);
+    alm_lbl_ack = anc_make_label(ovl_alarm, &lv_font_montserrat_14, 83);
 
     // 2b. Persistent Acknowledged Alarm Ring & Label (when alarm_ack_return_with_badge == true)
     ovl_alarm_ack_ring = lv_obj_create(lv_layer_top());
@@ -3226,6 +3177,23 @@ static void ack_ring_anim_cb(void *var, int32_t v) {
     lv_obj_set_style_border_opa((lv_obj_t *)var, opa, 0);
 }
 
+// The alarm icon fades between full and a quarter, once a second.
+static void alarm_pulse_cb(void *o, int32_t v) { lv_obj_set_style_text_opa(o, (lv_opa_t)v, 0); }
+static void alarm_pulse(bool on) {
+    if (on == alm_pulsing) return;
+    alm_pulsing = on;
+    if (!on) { lv_anim_delete(alm_icon, alarm_pulse_cb); return; }
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, alm_icon);
+    lv_anim_set_exec_cb(&a, alarm_pulse_cb);
+    lv_anim_set_values(&a, LV_OPA_COVER, 64);
+    lv_anim_set_duration(&a, 500);
+    lv_anim_set_reverse_duration(&a, 500);
+    lv_anim_set_repeat_count(&a, LV_ANIM_REPEAT_INFINITE);
+    lv_anim_start(&a);
+}
+
 static void set_ack_indicator(bool on) {
     if (on) {
         lv_obj_remove_flag(ovl_alarm_ack_ring, LV_OBJ_FLAG_HIDDEN);
@@ -3441,6 +3409,8 @@ void marine_ui_init(marine_ui_action_cb_t action_cb, void *user_ctx) {
     lv_obj_set_style_text_font(ovl_motor_tag, &lv_font_montserrat_14, 0);
     lv_obj_align(ovl_motor_tag, LV_ALIGN_CENTER, 0, 95);   // above the DEMO tag
     lv_obj_add_flag(ovl_motor_tag, LV_OBJ_FLAG_HIDDEN);
+    // Above every dialog and tag, below the DEMO tag (the alarm is created early, the dialogs after it).
+    lv_obj_move_to_index(ovl_alarm, lv_obj_get_index(ovl_demo_tag) - 1);
     dfx_create();   // last: the demo overlay sits above everything else on the top layer
     lv_screen_load(scr_modes[active_mode]);
     mode_registry[active_mode].refresh();
@@ -3874,32 +3844,21 @@ void marine_ui_apply_snapshot(const marine_ui_snapshot_t *snapshot) {
         lv_obj_remove_flag(ovl_alarm, LV_OBJ_FLAG_HIDDEN);
         set_ack_indicator(false);
 
-        lv_color_t alarm_col = c_red();
-        icon_recolor(alm_icon_anchor, ICON_ANCHOR, 48, alarm_col, &alm_icon_col);
-        static uint32_t warn_col_cache = 0xFFFFFFFFu;
-        icon_recolor(alm_icon_warn, ICON_WARN, 22, alarm_col, &warn_col_cache);
-
         bool is_drag = (snap.active_alarm == MARINE_ALARM_ANCHOR_DRAG);
-        lv_label_set_text(alm_lbl_title, is_drag ? "DRAG ALARM!" : "GPS LOST!");
-        lv_label_set_text(alm_lbl_ack, snap.alarm_acknowledged ? "ACKNOWLEDGED" : "PRESS TO ACKNOWLEDGE");
-        lv_obj_set_style_text_color(alm_lbl_ack, snap.alarm_acknowledged ? c_amber() : c_text(), 0);
-        if (is_drag) lv_obj_remove_flag(alm_boat_dot, LV_OBJ_FLAG_HIDDEN);
-        else lv_obj_add_flag(alm_boat_dot, LV_OBJ_FLAG_HIDDEN);
-
-        char dist_b[32], bot_b[48];
-        lv_label_set_text(alm_lbl_state, is_drag ? "DRAGGING" : "FIX LOST");
-        lv_obj_set_style_text_color(alm_lbl_state, c_red(), 0);
+        char dist_b[32];
         if (is_drag) snprintf(dist_b, sizeof(dist_b), "%d m OF %u m", (int)roundf(snap.anchor_dist_m), snap.anchor_radius_m);
-        else dist_b[0] = '\0';
-        if (strcmp(lv_label_get_text(alm_lbl_dist), dist_b) != 0) lv_label_set_text(alm_lbl_dist, dist_b);
-        lv_obj_set_style_text_color(alm_lbl_dist, c_text(), 0);
-        anchor_telemetry(bot_b, sizeof(bot_b), display_stale_bits());   // only what the boat publishes, like the anchor screen
-        if (!is_drag) snprintf(bot_b, sizeof(bot_b), "NO GPS FIX");
-        anc_set_line(alm_lbl_telem, bot_b, is_drag ? c_muted() : c_red());
+        else snprintf(dist_b, sizeof(dist_b), "NO GPS FIX");
+        lv_obj_set_style_border_color(ovl_alarm, c_red(), 0);
+        anc_set_line(alm_lbl_title, is_drag ? "DRAG ALARM" : "GPS LOST", c_red());
+        anc_set_line(alm_icon, is_drag ? LV_SYMBOL_WARNING : LV_SYMBOL_GPS, c_red());
+        anc_set_line(alm_lbl_dist, dist_b, c_text());
+        anc_set_line(alm_lbl_ack, snap.alarm_acknowledged ? "ACKNOWLEDGED" : "PRESS TO ACK", snap.alarm_acknowledged ? c_amber() : c_muted());
+        alarm_pulse(true);
         update_stale_overlay();   // hides the stale overlay behind the full-screen alarm
         return;
     }
     lv_obj_add_flag(ovl_alarm, LV_OBJ_FLAG_HIDDEN);
+    alarm_pulse(false);
 
     if (ack_state) {
         lv_label_set_text(ovl_alarm_ack_lbl, snap.active_alarm == MARINE_ALARM_ANCHOR_DRAG ? "DRAG ALARM" : "GPS LOST");

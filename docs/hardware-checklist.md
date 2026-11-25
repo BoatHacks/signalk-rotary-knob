@@ -206,6 +206,7 @@ First in demo mode (a simulated motor), then against a test plugin, then with th
 | Raise anchor | open | | 998cf0f | |
 | Radius change while dropped goes to the server | open | | 998cf0f | |
 | State line (20 px) and telemetry line (14 px) straight and readable, inside the round edge | ok | 2026-11-23 | e55de32 | were curved 12 px, 14 px state looked too small |
+| New alarm screen: opaque over every screen and dialog, one pulsing symbol, all text inside the edge, at day and night | open | | | changed 2026-11-25 |
 | Alarm screen: `DRAGGING` / `FIX LOST` straight on top, `14 m OF 35 m` under the headline, nothing clipped | ok | 2026-11-23 | e55de32 | bench alarms `a` and `g` |
 | Boot and setup screens: straight top line (`HELM DIAL`, `JOIN WI-FI`, `CONNECTING`, `NO SERVER`, `RESET`) inside the edge | open | | | `CONNECTING` is the widest |
 | Drag alarm takes over the screen, LEDs flash, press acknowledges | open | | | bench alarm (`a`) ok on an earlier build, real alarm open |

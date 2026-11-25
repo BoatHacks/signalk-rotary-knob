@@ -35,3 +35,17 @@ for size in 14 20 32; do
         -o "$out/knob_font_$size.c"
     echo "wrote $out/knob_font_$size.c"
 done
+
+# The alarm screen's big icons: only the warning triangle and the position symbol.
+# shellcheck disable=SC2086
+$conv --bpp 4 --size 96 --font "$src/FontAwesome5-Solid+Brands+Regular.woff" -r 61553,61732 \
+    --format lvgl --lv-include lvgl.h --lv-font-name knob_icon_96 -o "$out/knob_icon_96.c"
+echo "wrote $out/knob_icon_96.c"
+
+# The mode ring's icons: ship's wheel, anchor, light bulb, music, USB, gear, and the propeller traced from the splash
+# picture (assets/icons/propeller.otf, one glyph at U+F863, its outline is in propeller.json).
+# shellcheck disable=SC2086
+$conv --bpp 4 --size 28 --font "$src/FontAwesome5-Solid+Brands+Regular.woff" -r 0xf655,0xf13d,0xf0eb,0xf001,0xf287,0xf013 \
+    --font assets/icons/propeller.otf -r 0xf863 \
+    --format lvgl --lv-include lvgl.h --lv-font-name knob_icon_28 -o "$out/knob_icon_28.c"
+echo "wrote $out/knob_icon_28.c"

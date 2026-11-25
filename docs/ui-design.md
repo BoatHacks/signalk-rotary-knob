@@ -39,7 +39,8 @@ The order, clockwise (owner, 2026-11-24): MOTOR, AUTO, ANCHOR, LIGHTS, MUSIC, US
 left of it. A mode switched off (MODES page, section 3.5) is left out and the others keep their order; with AUTO off, the next
 visible mode after it takes 12 o'clock. MOTOR is off by default (section 3.7). The last slot is **Settings** (gear icon, label `SETUP` because `SETTINGS` does not fit the 54 px slot, section 3.5), hidden
 while an alarm is active. Agreed 2026-11-23 from a mockup: the visible slots are spaced evenly at r 86
-(5 with a USB host, 4 without). The centre shows the mode you are in.
+(5 with a USB host, 4 without). The centre shows the mode you are in. The icons are the font knob_icon_28: the propeller of the splash picture, ship's
+wheel, anchor, light bulb, music notes, USB and gear (owner, 2026-11-25).
 
 ## 3. Modes
 
@@ -391,9 +392,9 @@ palette.
   the server clears the alarm. If the alarm state changes or a new alarm starts, the full-screen takeover returns and needs
   another acknowledge.
 - Other alarm types, if added later, use the same takeover until a lighter treatment is agreed.
-- Takeover layout: `DRAGGING` or `FIX LOST` straight on top (20 px, red), the geofence with the anchor and the boat dot, the
-  warning mark, `DRAG ALARM!` or `GPS LOST!` (28 px), the distance and radius under it for a drag alarm (`14 m OF 35 m`, 14 px),
-  `PRESS TO ACKNOWLEDGE`, and the telemetry line at the bottom (only what the boat publishes, `NO GPS FIX` for GPS lost).
+- Takeover layout (owner, 2026-11-25): opaque, above every dialog and tag except DEMO, nothing but `DRAG ALARM` or `GPS LOST` above
+  (20 px, red), one big pulsing symbol in the middle (96 px, red: warning triangle or position), and below it the distance and
+  radius (`24 m OF 20 m`) or `NO GPS FIX` (20 px) and `PRESS TO ACK` (14 px). Red rim.
 
 ## 6. Power, dimming and wake
 
