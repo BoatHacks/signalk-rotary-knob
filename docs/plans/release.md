@@ -104,7 +104,7 @@ do not write an OTA manifest, so that job stays ours (8relay's `update_ota_manif
 - [x] 2026-11-25: `cut-release.yml` checks `version.txt` against the version (the image reports that file, not the tag). README
       status corrected, it claimed bench tests that have not been done. Changelog brought up to date.
 - [x] `assets/splash.png` was made by the owner (2026-11-25), recorded in NOTICE.
-- [ ] GitHub support: purge the unreferenced commits and the PR #1 ref, before the repo goes public.
+- [x] Old commits still reachable on GitHub by hash and through PR #1: accepted by the owner (2026-11-25), no purge.
 - [ ] After the repo is public: request a USB PID at pid.codes. Until then Espressif's test ID stays (owner, 2026-11-25).
 - [ ] Repo public (owner), branch protection with the oss-branch-protection template.
 - [ ] Cut `v0.1.0` as a pre-release (owner says when). Bench checks: USB flash, OTA, bad signature, rollback.
