@@ -10,6 +10,9 @@ To release, set `version.txt` to the version, rename `[Unreleased]` to the versi
 ## [Unreleased]
 A calmer alarm screen and new icons on the mode ring.
 
+### Fixed
+- Mode ring: `ANCHOR` was cut at its edge, and the colours did not follow day and night while it was open.
+
 ### Changed
 - New mode ring icons.
 - The alarm screen is opaque and shows one big pulsing symbol with the alarm above and the details below.

@@ -220,6 +220,7 @@ static lv_obj_t *hid_lbl_hint;
 static lv_obj_t *ring_slot_boxes[MARINE_MODE_COUNT];
 static lv_obj_t *ring_slot_labels[MARINE_MODE_COUNT];
 static lv_obj_t *ring_slot_icons[MARINE_MODE_COUNT];
+static lv_obj_t *ring_center_cut;
 static lv_obj_t *ring_center_top;
 static lv_obj_t *ring_center_mid;
 static lv_obj_t *ring_center_bot;
@@ -736,6 +737,8 @@ static bool ring_slot_visible(int s) {
 }
 
 static void refresh_mode_ring(void) {
+    lv_obj_set_style_border_color(ovl_mode_ring, snap.night_palette ? COL_NIGHT_DIM : lv_color_hex(0x6E86A6), 0);
+    lv_obj_set_style_border_color(ring_center_cut, snap.night_palette ? COL_NIGHT_DIM : lv_color_hex(0x3D5270), 0);
     refresh_mode_ring_center_preview();
     int n = 0;
     for (int s = 0; s < MARINE_MODE_COUNT; s++) if (ring_slot_visible(s)) n++;
@@ -1767,7 +1770,7 @@ static void build_overlays_and_system(void) {
     lv_obj_remove_flag(ovl_mode_ring, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_add_flag(ovl_mode_ring, LV_OBJ_FLAG_HIDDEN);
 
-    lv_obj_t *center_cut = lv_obj_create(ovl_mode_ring);
+    lv_obj_t *center_cut = ring_center_cut = lv_obj_create(ovl_mode_ring);
     lv_obj_set_size(center_cut, 112, 112);
     lv_obj_center(center_cut);
     lv_obj_set_style_radius(center_cut, LV_RADIUS_CIRCLE, 0);
@@ -1790,7 +1793,7 @@ static void build_overlays_and_system(void) {
 
     for (int s = 0; s < MARINE_MODE_COUNT; s++) {   // positions are set by refresh_mode_ring() from the visible slots
         ring_slot_boxes[s] = lv_obj_create(ovl_mode_ring);
-        lv_obj_set_size(ring_slot_boxes[s], 54, 48);          // icon (knob_icon_28) above the label
+        lv_obj_set_size(ring_slot_boxes[s], 62, 48);          // icon (knob_icon_28) above the label
         lv_obj_set_style_radius(ring_slot_boxes[s], 6, 0);
         lv_obj_set_style_pad_all(ring_slot_boxes[s], 0, 0);
         lv_obj_align(ring_slot_boxes[s], LV_ALIGN_CENTER, 0, -86);
@@ -3811,6 +3814,10 @@ void marine_ui_apply_snapshot(const marine_ui_snapshot_t *snapshot) {
     }
 
     motor_tag_update();
+
+    static bool ring_night;
+    if (mode_ring_open && ring_night != snap.night_palette) refresh_mode_ring();   // the palette changed under the open ring
+    ring_night = snap.night_palette;
 
     if (snap.control_on_seq != ctl_last_seq) {
         ctl_last_seq = snap.control_on_seq;

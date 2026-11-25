@@ -61,6 +61,7 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 | Item | Status | Date | Commit | Notes |
 |---|---|---|---|---|
 | Mode ring: slots evenly spaced, gear `SETUP` last, 5 with a USB host, 4 without, hidden during an alarm | open | | | |
+| Mode ring: no label cut off, colours follow day and night while it is open | open | | | changed 2026-11-25 |
 | MODES page: pills readable at day and night, a press switches the mode and the ring follows, the last one on refuses with `ONE MODE STAYS ON`, the web page shows the same | open | | | |
 | A mode switched off while on screen (web page) goes to the first one on, a boot into a switched-off mode too | open | | | |
 | List: turn moves and wraps, prev and next items above and below, `SETTINGS 3/14` | open | | | |
@@ -207,7 +208,7 @@ First in demo mode (a simulated motor), then against a test plugin, then with th
 | Radius change while dropped goes to the server | open | | 998cf0f | |
 | State line (20 px) and telemetry line (14 px) straight and readable, inside the round edge | ok | 2026-11-23 | e55de32 | were curved 12 px, 14 px state looked too small |
 | New alarm screen: opaque over every screen and dialog, one pulsing symbol, all text inside the edge, at day and night | open | | | changed 2026-11-25 |
-| Alarm screen: `DRAGGING` / `FIX LOST` straight on top, `14 m OF 35 m` under the headline, nothing clipped | ok | 2026-11-23 | e55de32 | bench alarms `a` and `g` |
+| Alarm screen: `DRAGGING` / `FIX LOST` straight on top, `14 m OF 35 m` under the headline, nothing clipped | ok | 2026-11-23 | e55de32 | replaced by the new alarm screen 2026-11-25 (the old one was cut off with the telemetry shown) |
 | Boot and setup screens: straight top line (`HELM DIAL`, `JOIN WI-FI`, `CONNECTING`, `NO SERVER`, `RESET`) inside the edge | open | | | `CONNECTING` is the widest |
 | Drag alarm takes over the screen, LEDs flash, press acknowledges | open | | | bench alarm (`a`) ok on an earlier build, real alarm open |
 | Acknowledge reaches the server's Notifications API | open | | | |

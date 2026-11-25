@@ -37,7 +37,7 @@ The HID mode is listed only while a USB host has enumerated the knob (section 3.
 
 The order, clockwise (owner, 2026-11-24): MOTOR, AUTO, ANCHOR, LIGHTS, MUSIC, USB, SETUP, with AUTO at 12 o'clock and MOTOR just
 left of it. A mode switched off (MODES page, section 3.5) is left out and the others keep their order; with AUTO off, the next
-visible mode after it takes 12 o'clock. MOTOR is off by default (section 3.7). The last slot is **Settings** (gear icon, label `SETUP` because `SETTINGS` does not fit the 54 px slot, section 3.5), hidden
+visible mode after it takes 12 o'clock. MOTOR is off by default (section 3.7). The last slot is **Settings** (gear icon, label `SETUP` because `SETTINGS` does not fit the 62 px slot, section 3.5), hidden
 while an alarm is active. Agreed 2026-11-23 from a mockup: the visible slots are spaced evenly at r 86
 (5 with a USB host, 4 without). The centre shows the mode you are in. The icons are the font knob_icon_28: the propeller of the splash picture, ship's
 wheel, anchor, light bulb, music notes, USB and gear (owner, 2026-11-25).
