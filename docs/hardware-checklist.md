@@ -178,7 +178,7 @@ First in demo mode (a simulated motor), then against a test plugin, then with th
 |---|---|---|---|---|
 | Heading shown without stale errors | ok | 2026-11-23 | 2832472 | after the delta squelch override on the server |
 | Heading reference label (T or M) | open | | | |
-| With live control off an engage is refused and logged | ok | 2026-11-23 | 2832472 | log only, no screen feedback yet |
+| With allow control off (then live control) an engage is refused and logged | ok | 2026-11-23 | 2832472 | log only on that build, the refusal screen came later and is a row of its own (REST API) |
 | Engage: long press plus confirm turn | open | | | |
 | Target change, 1 and 10 degree steps, 0.4 s commit | open | | | |
 | Standby: long press opens the pilot dialog, one press on STANDBY | open | | | changed with #7 |
@@ -200,7 +200,7 @@ First in demo mode (a simulated motor), then against a test plugin, then with th
 | Raised screen: grey ring, boat in the centre, hints | open | | 998cf0f | |
 | Radius preview: amber ring, number, press applies | open | | 998cf0f | |
 | Long press dialog shows its items and the highlight | open | | 998cf0f | |
-| Live control off: red NOT SENT screen with the reason | open | | 998cf0f | |
+| Allow control off: red NOT SENT screen with the reason | open | | 998cf0f | |
 | Drop here: spinner, then the dropped screen | open | | 998cf0f | |
 | Dropped screen: dot, trail, distance label placement | open | | 998cf0f | |
 | Move drop point here | open | | 998cf0f | |
