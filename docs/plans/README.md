@@ -14,12 +14,12 @@ Name files `issue-<n>-<short-name>.md` for a GitHub issue, `<short-name>.md` oth
 | [live-control-trials.md](live-control-trials.md) | none | Autopilot and anchor have never run against the real boat. Needs the owner at the boat |
 | [boot-to-last-screen.md](boot-to-last-screen.md) | none | Built and checked 2026-11-23. Left: anchor and USB-HID restore checks |
 | [hardening.md](hardening.md) | none | Required before the knob runs unattended or the repo goes public |
-| [issue-3-rest-api.md](issue-3-rest-api.md) | #3 | The settings screen and demo mode both want the same config interface |
-| [issue-5-settings-screen.md](issue-5-settings-screen.md) | #5 | Design agreed. Builds on #3's config reload and the allow control key |
-| [issue-4-demo-mode.md](issue-4-demo-mode.md) | #4 | Useful for the manual's screenshots |
-| [issue-6-volume-mode.md](issue-6-volume-mode.md) | #6 | A new mode on signalk-jukebox, survey and design done |
+| [issue-3-rest-api.md](issue-3-rest-api.md) | #3 | Built, issue closed 2026-11-25. Its checks are in #11 |
+| [issue-5-settings-screen.md](issue-5-settings-screen.md) | #5 | Built, issue closed 2026-11-25. Its checks are in #11 |
+| [issue-4-demo-mode.md](issue-4-demo-mode.md) | #4 | Built, issue closed 2026-11-25. Its checks are in #11 |
+| [issue-6-volume-mode.md](issue-6-volume-mode.md) | #6 | Built, issue closed 2026-11-25. Its checks are in #11 |
 | [issue-7-autopilot-modes.md](issue-7-autopilot-modes.md) | #7 | Needs the SeaTalk pilot wired to the server, compass mode proven on the boat, and an upstream fix for wind targets |
-| [issue-9-led-levels.md](issue-9-led-levels.md) | #9 | Small, knob_power only. Its level fill is reused by #8
+| [issue-9-led-levels.md](issue-9-led-levels.md) | #9 | Built, issue closed 2026-11-25. Its checks are in #11 |
 | [issue-8-motor-mode.md](issue-8-motor-mode.md) | #8 | Starts with the encoder timing spike. The motor side (plugin and path) is not decided, so the knob is built against configurable defaults and the demo
 | [issue-10-auto-demo.md](issue-10-auto-demo.md) | #10 | Builds on #4 and #6. Its Latin-1 fonts also fix real track names. Owner questions first |
 | [issue-2-user-manual.md](issue-2-user-manual.md) | #2 | Follows the behaviour, so it finishes last |
