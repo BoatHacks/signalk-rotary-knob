@@ -21,6 +21,7 @@ typedef struct {
     bool anchor_down;
     float radius_m;            /* watch circle */
     float anchor_dist_m;       /* boat from the anchor */
+    bool dragging;             /* the drag alarm, latched (knob_demo_dragging) */
     float anchor_bearing_deg;  /* boat from the anchor */
     float swing_m;             /* how far the boat swings out from the anchor */
     float swing_target_m;      /* the swing moves towards it at 1 m a second (knob_demo_set_swing) */
@@ -46,8 +47,8 @@ void knob_demo_set_level(knob_demo_t *d, int index, int pct);  /* 0 switches it 
 /* How far the boat swings out: it moves there at 1 m a second. The automatic demo (#10) widens it to raise the drag alarm. */
 void knob_demo_set_swing(knob_demo_t *d, float m);
 
-/* The drag alarm: the boat is outside the watch circle. Setting a radius below the swing raises it, which is how the demo
- * shows a drag. */
+/* The drag alarm: raised when the boat leaves the watch circle, then kept although the distance breathes in and out, until
+ * the radius is set to one the boat is inside of, or the anchor is moved or raised. */
 bool knob_demo_dragging(const knob_demo_t *d);
 
 #ifdef __cplusplus

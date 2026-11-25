@@ -58,6 +58,7 @@ void knob_demo_step(knob_demo_t *d, uint32_t now_ms)
     if (d->anchor_down) {
         d->anchor_bearing_deg = wrap360(200.0f + 40.0f * sinf(t * 2.0f * DEMO_PI / 60.0f));
         d->anchor_dist_m = d->swing_m * (0.85f + 0.15f * sinf(t * 2.0f * DEMO_PI / 23.0f));
+        if (d->anchor_dist_m > d->radius_m) d->dragging = true;
     }
 
     d->depth_m = 6.4f + 0.3f * sinf(t * 0.11f);
@@ -77,17 +78,21 @@ void knob_demo_drop(knob_demo_t *d, uint16_t radius_m)
     d->anchor_down = true;
     if (radius_m) d->radius_m = radius_m;
     d->anchor_dist_m = 0.0f;
+    d->dragging = false;
 }
 
 void knob_demo_raise(knob_demo_t *d)
 {
     d->anchor_down = false;
     d->anchor_dist_m = 0.0f;
+    d->dragging = false;
 }
 
 void knob_demo_set_radius(knob_demo_t *d, uint16_t radius_m)
 {
-    if (radius_m) d->radius_m = radius_m;
+    if (!radius_m) return;
+    d->radius_m = radius_m;
+    d->dragging = d->anchor_down && d->anchor_dist_m > d->radius_m;
 }
 
 void knob_demo_set_light(knob_demo_t *d, int index, bool on)
@@ -109,5 +114,5 @@ void knob_demo_set_swing(knob_demo_t *d, float m) { d->swing_target_m = m > 1.0f
 
 bool knob_demo_dragging(const knob_demo_t *d)
 {
-    return d->anchor_down && d->anchor_dist_m > d->radius_m;
+    return d->dragging;
 }

@@ -355,6 +355,29 @@ static void test_demo_anchor(void)
     TEST_ASSERT_TRUE(d.depth_m > 5.9f && d.depth_m < 6.9f);
 }
 
+/* The automatic demo's drag: one alarm that holds while the distance swings back inside the circle, cleared by 30 m. */
+static void test_demo_drag_latch(void)
+{
+    knob_demo_t d;
+    knob_demo_init(&d, 0, 20);
+    d.swing_m = 17.0f;
+    knob_demo_set_swing(&d, 17.0f);
+    knob_demo_drop(&d, 20);
+    for (uint32_t t = 100; t < 60000; t += 100) { knob_demo_step(&d, t); TEST_ASSERT_FALSE(knob_demo_dragging(&d)); }
+    knob_demo_set_swing(&d, 26.0f);
+    bool seen = false, inside = false;
+    for (uint32_t t = 60000; t < 180000; t += 100) {
+        knob_demo_step(&d, t);
+        if (knob_demo_dragging(&d)) seen = true;
+        else TEST_ASSERT_FALSE(seen);                               /* never off again by itself */
+        if (seen && d.anchor_dist_m < d.radius_m) inside = true;
+    }
+    TEST_ASSERT_TRUE(seen && inside);                               /* it did swing back inside, the old cause of the flapping */
+    knob_demo_set_radius(&d, 30);
+    TEST_ASSERT_FALSE(knob_demo_dragging(&d));
+    for (uint32_t t = 180000; t < 300000; t += 100) { knob_demo_step(&d, t); TEST_ASSERT_FALSE(knob_demo_dragging(&d)); }
+}
+
 /* ---- Music mode ---- */
 
 static void test_music(void)
@@ -1045,6 +1068,7 @@ int main(void)
     RUN_TEST(test_confirm_turn);
     RUN_TEST(test_demo_autopilot);
     RUN_TEST(test_demo_anchor);
+    RUN_TEST(test_demo_drag_latch);
     RUN_TEST(test_music);
     RUN_TEST(test_ap_states);
     RUN_TEST(test_pilot_lines);
