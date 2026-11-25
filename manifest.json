@@ -5,6 +5,15 @@
     {
       "target": "esp32s3",
       "channel": "beta",
+      "version": "v0.1.1",
+      "url": "https://github.com/BoatHacks/signalk-rotary-knob/releases/download/v0.1.1/signalk-rotary-knob-esp32s3-v0.1.1-ota.bin",
+      "size": 2232320,
+      "sha256": "8b411f7294dfa019842de27b23709d1ad41b6c325ae54c00953a3ccb11c97271",
+      "notes": "The knob's settings are easier to use: live brightness and pill menus."
+    },
+    {
+      "target": "esp32s3",
+      "channel": "beta",
       "version": "v0.1.0",
       "url": "https://github.com/BoatHacks/signalk-rotary-knob/releases/download/v0.1.0/signalk-rotary-knob-esp32s3-v0.1.0-ota.bin",
       "size": 2232320,
