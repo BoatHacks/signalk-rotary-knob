@@ -132,10 +132,10 @@ Status: **ok** checked and works, **fail** checked and broken, **open** not chec
 |---|---|---|---|---|
 | A release's `-merged.bin` written at 0 on an erased board boots to the setup portal, web UI served | open | | | |
 | First boot writes the project manifest URL into `ota.manifest_url`, an emptied URL stays empty after a restart | open | | | |
-| A knob on the beta channel is offered the next pre-release and installs it, settings and token kept | open | | | |
+| A knob on the beta channel is offered the next pre-release and installs it, settings and token kept | open | 2026-11-25 | 86dc04a | 0.1.0 to 0.1.1 over the air in about 1 min, confirmed after the restart, all settings unchanged. The token was not checked (demo mode) |
 | An image signed with another key is refused, the knob keeps running | open | | | |
 | An image that crashes before it reaches the network rolls back to the previous one | open | | | |
-| `GET /api/v1/system/ping` reports app `signalk-rotary-knob` and the release version | open | | | |
+| `GET /api/v1/system/ping` reports app `signalk-rotary-knob` and the release version | ok | 2026-11-25 | 86dc04a | 0.1.0 and 0.1.1 |
 
 ## Motor (#8)
 

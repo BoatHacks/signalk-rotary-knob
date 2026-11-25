@@ -108,7 +108,8 @@ do not write an OTA manifest, so that job stays ours (8relay's `update_ota_manif
 - [x] USB ID: Espressif's ready-made TinyUSB ID for a HID-only device, 303A:4004 (owner, 2026-11-25). The 4F22 used before was
       no test ID. The pid.codes draft in docs/pid-request/ is not sent.
 - [x] Repo public (owner, 2026-11-25), branch protection, read-only workflow token, secret scanning.
-- [ ] Cut `v0.1.0` as a pre-release (owner says when). Bench checks: USB flash, OTA, bad signature, rollback.
+- [x] `v0.1.0` and `v0.1.1` cut as pre-releases (2026-11-25), the update between them installed over the air.
+- [ ] Left of the release checks: merged image on an erased board, bad signature, rollback, the token after an update.
 - [ ] Registry: board file and project entry, validate, pull request (owner approves posting).
 - [ ] Pre-1.0 review, live control trials, then `v1.0.0`.
 
