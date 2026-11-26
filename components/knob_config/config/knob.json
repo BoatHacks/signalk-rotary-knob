@@ -40,7 +40,7 @@
    "default": "raymarineST",
    "maxLength": 31,
    "title": "Autopilot id",
-   "description": "The autopilot in the SignalK v2 autopilot API, the id after /autopilots/ (not _default on this boat).",
+   "description": "The autopilot in the SignalK v2 autopilot API, the id after /autopilots/, for example raymarineST. The server lists them at /signalk/v2/api/vessels/self/autopilots.",
    "restart_required": false
   },
   {
