@@ -8,6 +8,7 @@
 #include <stdint.h>
 
 #define KNOB_CFG_MAX_LIGHTS 6
+#define KNOB_CFG_MAX_GAUGES 4
 
 typedef struct {
     char name[16];
@@ -39,6 +40,12 @@ typedef struct {
     uint8_t motor_max_ahead_pct;
     uint8_t motor_max_astern_pct;
     uint16_t motor_idle_s;   /* 0 never, else 10..300 */
+    bool gauge_mode;         /* the GAUGE mode is on the ring (#16), on by default */
+    int n_gauges;            /* gauge pages with a non-empty path, compacted to the front of gauges[] */
+    struct {
+        char path[128];
+        char name[16];       /* "" = from the path's meta or the path */
+    } gauges[KNOB_CFG_MAX_GAUGES];
     int n_lights;            /* channels with a non-empty path, compacted to the front of lights[] */
     knob_cfg_light_t lights[KNOB_CFG_MAX_LIGHTS];
 } knob_cfg_t;

@@ -30,6 +30,7 @@
 #include "knob_autodemo.h"
 #include "input.h"
 #include "knob_motor.h"
+#include "knob_gauge.h"
 #include "knob_net.h"
 #include "knob_power.h"
 #include "lv_port.h"
@@ -123,6 +124,31 @@ static model_t s_m;
 static char s_mp_gear[64], s_mp_rpm[64], s_mp_torque[64], s_mp_thr[64], s_mp_power[128];
 static knob_motor_t s_motor;
 static TaskHandle_t s_model_task;
+
+/* Gauges (#16): the value and meta of each configured path. Written by the stream task only (value and meta items), copied
+ * out under s_mux by the model task. */
+static knob_gauge_src_t s_gauge[KNOB_GAUGE_MAX];
+static knob_gauge_src_t s_gauge_tmp;   /* the stream task's working copy */
+
+/* A value or meta item for a gauge path: true when it was one. Stream task. */
+static bool gauge_update(const espos_sk_update_t *u)
+{
+    bool any = false;
+    for (int i = 0; i < s_cfg.n_gauges && i < KNOB_GAUGE_MAX; i++) {
+        if (strcmp(u->path, s_cfg.gauges[i].path) != 0) continue;
+        double d;
+        s_gauge_tmp = s_gauge[i];   /* this task is the only writer: reading without the lock is safe */
+        if (u->meta_json) knob_gauge_meta(&s_gauge_tmp, u->meta_json);
+        else if (u->value_json && knob_parse_num(u->value_json, &d)) knob_gauge_value(&s_gauge_tmp, d, (uint32_t)(esp_timer_get_time() / 1000));
+        else continue;
+        portENTER_CRITICAL(&s_mux);
+        s_gauge[i] = s_gauge_tmp;
+        portEXIT_CRITICAL(&s_mux);
+        if (u->meta_json) ESP_LOGI(TAG, "gauge %d %s: units '%s', %u zone(s)", i + 1, u->path, s_gauge_tmp.units, (unsigned)s_gauge_tmp.n_zones);
+        any = true;
+    }
+    return any;
+}
 
 static volatile bool s_heading_frozen;
 static volatile bool s_bypass_net;
@@ -241,6 +267,7 @@ static void on_update(const espos_sk_update_t *u, void *arg)
 {
     (void)arg;
     if (!u->path) return;
+    if (gauge_update(u) && u->meta_json) return;
     if (u->meta_json) { /* a meta item: only the timeout is used */
         double t;
         if (obj_num(u->meta_json, "timeout", &t) && t >= 0) {
@@ -412,6 +439,11 @@ static void subscribe_all(void)
     }
     for (int i = 0; i < N_LIGHTS; i++) {
         if (espos_sk_subscribe(s_lights[i].path, 0, on_update, NULL) <= 0) ESP_LOGW(TAG, "subscribe %s failed", s_lights[i].path);
+    }
+    /* Gauges (#16): always subscribed, like the motor, so switching the mode on needs no restart. The meta (units, zones) comes
+     * with the stream (sendMeta). A path that is also subscribed elsewhere may reach on_update twice, which does no harm. */
+    for (int i = 0; i < s_cfg.n_gauges; i++) {
+        if (espos_sk_subscribe(s_cfg.gauges[i].path, 1000, on_update, NULL) <= 0) ESP_LOGW(TAG, "subscribe %s failed", s_cfg.gauges[i].path);
     }
     /* Motor (#8): always subscribed, so switching the mode on needs no restart; a boat without the paths just sends nothing. */
     snprintf(s_mp_gear, sizeof(s_mp_gear), "propulsion.%s.transmission.gear", s_cfg.motor_id);
@@ -849,6 +881,23 @@ static void build_snapshot(marine_ui_snapshot_t *s, uint32_t now)
     s->vol_target_count = (uint8_t)nt;
     s->play_state = m.play_state;
 
+    /* Gauges (#16): the demo simulates its four pages, whatever paths are set */
+    s->gauge_mode = s_cfg.gauge_mode;
+    s->gauge_count = (uint8_t)(s_demo ? KNOB_GAUGE_MAX : (s_cfg.n_gauges < KNOB_GAUGE_MAX ? s_cfg.n_gauges : KNOB_GAUGE_MAX));
+    for (int i = 0; i < s->gauge_count; i++) {
+        static knob_gauge_src_t g;   /* model task only, off its stack */
+        if (s_demo) {
+            knob_gauge_demo(&s_gauge[i], i, now);
+            g = s_gauge[i];
+        } else {
+            portENTER_CRITICAL(&s_mux);
+            g = s_gauge[i];
+            portEXIT_CRITICAL(&s_mux);
+        }
+        knob_gauge_view(&g, s_demo ? knob_gauge_demo_path(i) : s_cfg.gauges[i].path, s_demo ? "" : s_cfg.gauges[i].name, now,
+                        &s->gauges[i]);
+    }
+
     /* Motor (#8) */
     s->motor_mode = s_cfg.motor_mode;
     s->motor_state = (uint8_t)mo.state;
@@ -1106,7 +1155,7 @@ static void setting_write_async(void *arg)
     case KNOB_SET_MODES: {
         /* MODES page: the item in the high byte (knob_modes_page order), on or off in the low one */
         static const char *const keys[KNOB_MODES_PAGE_COUNT] = { "ap_mode", "lights_mode", "anchor_mode", "music_mode",
-                                                                 "motor_mode", "usb_mode" };
+                                                                 "motor_mode", "usb_mode", "gauge_mode" };
         int i = (v >> 8) & 0xFF;
         if (i < KNOB_MODES_PAGE_COUNT) knob_config_set_bool(keys[i], (v & 1) != 0);
         break;
@@ -1203,6 +1252,7 @@ bool knob_model_mode_enabled(int mode)
     case MARINE_MODE_USB_HID: return s_cfg.usb_mode;
     case MARINE_MODE_MUSIC: return s_cfg.music_mode;
     case MARINE_MODE_MOTOR: return s_cfg.motor_mode;
+    case MARINE_MODE_GAUGE: return s_cfg.gauge_mode;
     default: return true;   /* settings */
     }
 }
@@ -1242,6 +1292,7 @@ void knob_model_restore_mode(void)
         portENTER_CRITICAL(&s_mux);
         s_cfg.ap_mode = c.ap_mode; s_cfg.lights_mode = c.lights_mode; s_cfg.anchor_mode = c.anchor_mode;
         s_cfg.usb_mode = c.usb_mode; s_cfg.music_mode = c.music_mode; s_cfg.motor_mode = c.motor_mode;
+        s_cfg.gauge_mode = c.gauge_mode;
         portEXIT_CRITICAL(&s_mux);
         if (!knob_model_mode_enabled(s_boot_mode)) s_boot_mode = first_enabled_mode();
     }    ESP_LOGI(TAG, "boot mode %d (stored %d, USB-HID last %d)", (int)s_boot_mode, stored, (int)knob_config_last_hid());
@@ -1432,7 +1483,7 @@ void knob_model_start(void)
     strcpy(s_cfg.autopilot_id, "raymarineST"); /* defaults until knob_model_subscribe() loads the settings */
     s_cfg.heading_true = true;
     s_cfg.anchor_radius_m = 35;
-    s_cfg.ap_mode = s_cfg.lights_mode = s_cfg.anchor_mode = s_cfg.usb_mode = s_cfg.music_mode = true;
+    s_cfg.ap_mode = s_cfg.lights_mode = s_cfg.anchor_mode = s_cfg.usb_mode = s_cfg.music_mode = s_cfg.gauge_mode = true;
     knob_motor_init(&s_motor);
     knob_ad_init(&s_ad, knob_ad_script);
     input_set_hook(autodemo_hook);
@@ -1504,6 +1555,7 @@ static void on_config_key(const char *key)
     s_cfg.anchor_mode = cfg.anchor_mode;
     s_cfg.usb_mode = cfg.usb_mode;
     s_cfg.motor_mode = cfg.motor_mode;
+    s_cfg.gauge_mode = cfg.gauge_mode;
     s_cfg.motor_curve = cfg.motor_curve;
     s_cfg.motor_max_ahead_pct = cfg.motor_max_ahead_pct;
     s_cfg.motor_max_astern_pct = cfg.motor_max_astern_pct;

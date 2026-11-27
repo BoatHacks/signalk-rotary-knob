@@ -8,9 +8,10 @@ To release, set `version.txt` to the version, rename `[Unreleased]` to the versi
 `## [0.1.0] - 2026-11-30`, and run the "Cut release" workflow (CONTRIBUTING.md).
 
 ## [Unreleased]
-Readable setup screens, updates that need less internal memory, dimmer levels.
+Gauge mode with SignalK zones, readable setup screens, updates that need less memory, dimmer levels.
 
 ### Added
+- GAUGE mode: up to four SignalK values as gauges, coloured by the zones set on the server. Read only.
 - `UPDATING FIRMWARE` on the screen while an update is installed.
 
 ### Fixed

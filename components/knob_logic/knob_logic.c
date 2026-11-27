@@ -102,7 +102,7 @@ bool knob_boot_hid(bool hid_last, bool host_present, uint32_t now_ms, uint32_t w
     return hid_last && host_present && now_ms < window_ms && !user_changed_mode;
 }
 
-static const char *const s_mode_names[KNOB_MODE_COUNT] = { "autopilot", "lights", "anchor", "hid", "settings", "music", "motor" };
+static const char *const s_mode_names[KNOB_MODE_COUNT] = { "autopilot", "lights", "anchor", "hid", "settings", "music", "motor", "gauge" };
 
 int knob_mode_from_name(const char *name)
 {
@@ -142,8 +142,8 @@ static const char *const s_night_w[] = { "SERVER", "DAY", "NIGHT" };
 static const char *const s_onoff_w[] = { "OFF", "ON" };
 static const char *const s_demo_w[] = { "OFF", "ON", "AUTO", "QUIET" };
 
-const int knob_modes_page[KNOB_MODES_PAGE_COUNT] = { 0, 1, 2, KNOB_MODE_MUSIC, KNOB_MODE_MOTOR, KNOB_MODE_HID };
-const char *const knob_modes_page_name[KNOB_MODES_PAGE_COUNT] = { "AUTO", "LIGHTS", "ANCHOR", "MUSIC", "MOTOR", "USB" };
+const int knob_modes_page[KNOB_MODES_PAGE_COUNT] = { 0, 1, 2, KNOB_MODE_MUSIC, KNOB_MODE_MOTOR, KNOB_MODE_HID, KNOB_MODE_GAUGE };
+const char *const knob_modes_page_name[KNOB_MODES_PAGE_COUNT] = { "AUTO", "LIGHTS", "ANCHOR", "MUSIC", "MOTOR", "USB", "GAUGE" };
 
 int knob_modes_count(uint8_t mask)
 {

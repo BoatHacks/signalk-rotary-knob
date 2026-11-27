@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include "lvgl.h"
+#include "knob_gauge.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -20,6 +21,7 @@ typedef enum {
     MARINE_MODE_SETTINGS,
     MARINE_MODE_MUSIC,          // appended: the numbers are stored as the last mode. On the ring it sits after ANCHOR.
     MARINE_MODE_MOTOR,          // appended (#8). On the ring it sits after AUTO.
+    MARINE_MODE_GAUGE,          // appended (#16). On the ring it sits after MUSIC.
     MARINE_MODE_COUNT
 } marine_ui_mode_t;
 
@@ -297,6 +299,12 @@ typedef struct {
     char track[40];
     char artist[32];
     int32_t track_pos_s;           // playback position in seconds, -1 unknown (shown as 0:53 under the volume while known)
+
+    // Gauges (#16): one page per configured path, read only. The firmware turns the value and the path's meta (units,
+    // displayScale, zones) into what the screen shows (knob_gauge_view in knob_logic).
+    bool gauge_mode;               // the GAUGE slot is on the ring (knob.gauge_mode)
+    uint8_t gauge_count;           // pages, 0 = no path configured
+    knob_gauge_view_t gauges[KNOB_GAUGE_MAX];
 } marine_ui_snapshot_t;
 
 /**
@@ -345,6 +353,7 @@ marine_ui_mode_t marine_ui_get_active_mode(void);
  */
 uint8_t marine_ui_get_selected_light(void);
 uint8_t marine_ui_get_selected_vol_target(void);
+uint8_t marine_ui_get_gauge_page(void);   // the gauge page shown (#16)
 
 /**
  * @brief Opens a mode without the mode ring and without emitting MARINE_ACT_MODE_CHANGED, for the boot restore. A system

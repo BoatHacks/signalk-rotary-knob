@@ -35,12 +35,12 @@ switcher, scaled to the number of visible modes (and the position text, for exam
 
 The HID mode is listed only while a USB host has enumerated the knob (section 3.4). Without a host it is hidden from the ring.
 
-The order, clockwise (owner, 2026-11-24): MOTOR, AUTO, ANCHOR, LIGHTS, MUSIC, USB, SETUP, with AUTO at 12 o'clock and MOTOR just
-left of it. A mode switched off (MODES page, section 3.5) is left out and the others keep their order; with AUTO off, the next
-visible mode after it takes 12 o'clock. MOTOR is off by default (section 3.7). The last slot is **Settings** (gear icon, label `SETUP` because `SETTINGS` does not fit the 62 px slot, section 3.5), hidden
+The order, clockwise (owner, 2026-11-24): MOTOR, AUTO, ANCHOR, LIGHTS, MUSIC, GAUGE (#16, 2026-11-27), USB, SETUP, with AUTO at
+12 o'clock and MOTOR just left of it. A mode switched off (MODES page, section 3.5) is left out and the others keep their order; with AUTO off, the next
+visible mode after it takes 12 o'clock. MOTOR is off by default (section 3.7). The last slot is **Settings** (gear icon, label `SETUP` because `SETTINGS` does not fit the slot, section 3.5), hidden
 while an alarm is active. Agreed 2026-11-23 from a mockup: the visible slots are spaced evenly at r 86
-(5 with a USB host, 4 without). The centre shows the mode you are in. The icons are the font knob_icon_28: the propeller of the splash picture, ship's
-wheel, anchor, light bulb, music notes, USB and gear (owner, 2026-11-25).
+(up to eight with a USB host; the slots are 58 by 46 px so that eight fit). The centre shows the mode you are in. The icons are the font knob_icon_28: the propeller of the splash picture, ship's
+wheel, anchor, light bulb, music notes, gauge (#16), USB and gear (owner, 2026-11-25).
 
 ## 3. Modes
 
@@ -184,11 +184,11 @@ Look:
   usual and comes back to the sub-list, a double press goes back to the main list on `MOTOR LIMITS`. Opening the settings
   always starts in the main list. `THROTTLE STEPS` and `MOTOR LIMITS` are only in the list while the MOTOR mode is on
   (owner, 2026-11-24).
-- **MODES page** (built 2026-11-24, owner's request): six pills in two columns and three rows, `AUTO`, `LIGHTS`, `ANCHOR`,
-  `MUSIC`, `MOTOR`, `USB`. A filled pill (primary colour, dark text) is a mode on the ring, an outlined one is off. Turn moves
+- **MODES page** (built 2026-11-24, owner's request): seven pills in rows of two, three and two (since #16), `AUTO`, `LIGHTS`,
+  `ANCHOR`, `MUSIC`, `MOTOR`, `USB`, `GAUGE`. A filled pill (primary colour, dark text) is a mode on the ring, an outlined one is off. Turn moves
   the focus (a thicker border), a press switches the focused mode, a double press goes back to the list. The last mode that
   is on stays on: the bottom line says `ONE MODE STAYS ON` for 2 s. Settings is always on the ring. The list shows
-  `5 OF 6 ON`. Stored as `knob.ap_mode`, `lights_mode`, `anchor_mode`, `music_mode`, `motor_mode` and `usb_mode` (also on the
+  `6 OF 7 ON`. Stored as `knob.ap_mode`, `lights_mode`, `anchor_mode`, `music_mode`, `motor_mode`, `usb_mode` and `gauge_mode` (also on the
   web settings page). A mode switched off while it is on screen hands over to the first one that is on, and so does a boot
   into it. USB still needs a USB host on the cable to show.
 - **Confirm turn** (allow control, off to on): cyan countdown arc, `Autopilot and anchor`, `TURN RIGHT`, `to allow`,
@@ -280,6 +280,35 @@ stays until the next arm. Bottom line: `HOLD: ARM`, `TURN RIGHT TO ARM`, `HOLD: 
   screen, also at night.
 - The motor's inputs skip the stale gate: knob_motor refuses or falls back by itself, and a long press for neutral is never
   swallowed. A stale link still shows the stale overlay.
+
+### 3.8 Gauges
+
+Built 2026-11-27 (#16, docs/plans/issue-16-gauge-mode.md), on a specification the owner left to the build. Read only: nothing
+leaves the knob, allow control does not matter. Not verified on the hardware yet.
+
+| Input | Action |
+|---|---|
+| Turn | Next or previous page, wrapping |
+| Single press, long press | Nothing |
+| Double press | Mode ring |
+
+One SignalK value per page, up to four (`knob.gauge1_path` .. `gauge4_path`, defaults depth, SOG, apparent wind speed, house
+battery voltage). Look: a 270 degree arc from 7:30 to 4:30 (track 206 px, 10 px wide), filled from its start (or from zero on
+a range across it) to the value, a white dot at the value. Outside the track a 6 px band shows the path's `meta.zones`: green
+for normal and nominal, amber for alert and warn, red for alarm and emergency. The fill, the number (44 px) and the zone's
+message (14 px, under the unit) take the colour of the zone the value is in; in a normal zone the number is white. Above
+the number the name (20 px, 14 px over ten characters), under it the unit (20 px). The ends of the range (12 px) sit inside the
+arc's two ends, the page dots below them. Stale or missing: `---`, `NO DATA`, no fill or dot.
+
+- Unit, range, zones, timeout and name come from the path's meta (sendMeta on the stream). Units are fixed marine display
+  units (knots, °C, %, degrees, hPa, rpm, Ah, Wh, litres), others are shown as they are. The range is `displayScale`, else a
+  default for the unit and path, else around the zones, else the values seen (the plan has the table).
+- No stale overlay for a gauge (display only), the link overlay as in every mode. A zone in alarm does not take over the
+  screen: alarms from zones are the server's notifications.
+- The ring's centre while GAUGE is active: the name, the value with its unit, `PAGE 2/4`.
+- LEDs (section 7): where the value is on the arc, on the four rim LEDs, blue while normal, amber in a warning zone, red in
+  an alarm zone. Dark at night.
+- Demo mode: four simulated pages with zones.
 
 ## 4. Link state and stale handling
 
@@ -438,6 +467,8 @@ turns every LED off, the alarm included.
   - Stale data (`ZONE OFFLINE`, a channel without a value): all dark.
   - Brightness follows the brightness setting and the screen's idle dim, off with the screen. Night mode: all dark.
   - The fill is `knob_led_fill` in knob_logic, the motor mode (#8) uses it for the throttle.
+  - Gauges (#16): the value's place on its arc on the four rim LEDs, blue while normal, amber in a warning zone, red in an alarm
+    zone, the bottom LED off. Stale: all dark. Dark at night.
 
 ## 8. Visual language
 

@@ -193,6 +193,86 @@
    "restart_required": false
   },
   {
+   "name": "gauge_mode",
+   "type": "bool",
+   "default": true,
+   "title": "GAUGE mode",
+   "description": "Show the GAUGE mode on the mode ring: up to four SignalK values as gauges, coloured by the zones set on the server. Read only, nothing is sent.",
+   "restart_required": false
+  },
+  {
+   "name": "gauge1_path",
+   "type": "string",
+   "default": "environment.depth.belowTransducer",
+   "maxLength": 127,
+   "title": "Gauge 1 path",
+   "description": "A SignalK path shown on GAUGE page 1. Unit, range and the coloured zones come from the path's meta on the server (units, displayScale, zones). Empty: no page 1. Applies after a restart.",
+   "restart_required": true
+  },
+  {
+   "name": "gauge1_name",
+   "type": "string",
+   "default": "",
+   "maxLength": 15,
+   "title": "Gauge 1 name",
+   "description": "The name above the number. Empty: the path's shortName from the server, or a name made from the path.",
+   "restart_required": true
+  },
+  {
+   "name": "gauge2_path",
+   "type": "string",
+   "default": "navigation.speedOverGround",
+   "maxLength": 127,
+   "title": "Gauge 2 path",
+   "description": "A SignalK path shown on GAUGE page 2. Unit, range and the coloured zones come from the path's meta on the server (units, displayScale, zones). Empty: no page 2. Applies after a restart.",
+   "restart_required": true
+  },
+  {
+   "name": "gauge2_name",
+   "type": "string",
+   "default": "",
+   "maxLength": 15,
+   "title": "Gauge 2 name",
+   "description": "The name above the number. Empty: the path's shortName from the server, or a name made from the path.",
+   "restart_required": true
+  },
+  {
+   "name": "gauge3_path",
+   "type": "string",
+   "default": "environment.wind.speedApparent",
+   "maxLength": 127,
+   "title": "Gauge 3 path",
+   "description": "A SignalK path shown on GAUGE page 3. Unit, range and the coloured zones come from the path's meta on the server (units, displayScale, zones). Empty: no page 3. Applies after a restart.",
+   "restart_required": true
+  },
+  {
+   "name": "gauge3_name",
+   "type": "string",
+   "default": "",
+   "maxLength": 15,
+   "title": "Gauge 3 name",
+   "description": "The name above the number. Empty: the path's shortName from the server, or a name made from the path.",
+   "restart_required": true
+  },
+  {
+   "name": "gauge4_path",
+   "type": "string",
+   "default": "electrical.batteries.house.voltage",
+   "maxLength": 127,
+   "title": "Gauge 4 path",
+   "description": "A SignalK path shown on GAUGE page 4. Unit, range and the coloured zones come from the path's meta on the server (units, displayScale, zones). Empty: no page 4. Applies after a restart.",
+   "restart_required": true
+  },
+  {
+   "name": "gauge4_name",
+   "type": "string",
+   "default": "",
+   "maxLength": 15,
+   "title": "Gauge 4 name",
+   "description": "The name above the number. Empty: the path's shortName from the server, or a name made from the path.",
+   "restart_required": true
+  },
+  {
    "name": "motor_id",
    "type": "string",
    "default": "main",

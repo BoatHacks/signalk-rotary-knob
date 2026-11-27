@@ -63,11 +63,12 @@ bool knob_boot_hid(bool hid_last, bool host_present, uint32_t now_ms, uint32_t w
 
 /* Mode numbers follow marine_ui_mode_t: 0 autopilot, 1 lights, 2 anchor, 3 hid, 4 settings, 5 music. The names are the
  * API's. The numbers are stored (last mode), so new modes are appended. */
-#define KNOB_MODE_COUNT 7
+#define KNOB_MODE_COUNT 8
 #define KNOB_MODE_HID 3
 #define KNOB_MODE_SETTINGS 4
 #define KNOB_MODE_MUSIC 5
 #define KNOB_MODE_MOTOR 6
+#define KNOB_MODE_GAUGE 7
 /* "autopilot", "lights", "anchor", "hid", "settings" or "music" to 0..5, -1 for anything else (case sensitive). */
 int knob_mode_from_name(const char *name);
 /* 0..3 to its API name, "unknown" otherwise. */
@@ -139,7 +140,7 @@ typedef enum {
     KNOB_SET_MOTOR_AHEAD,    /* %, the soft limit ahead */
     KNOB_SET_MOTOR_ASTERN,   /* %, the soft limit astern */
     KNOB_SET_MOTOR_IDLE,     /* s, disarm armed in neutral without input, 0 = never */
-    KNOB_SET_MODES,          /* page: switch each mode on or off (pills), value = page index << 8 | on */
+    KNOB_SET_MODES,          /* page: switch each mode on or off (pills, rows of 2, 3 and 2), value = page index << 8 | on */
     KNOB_SET_SETUP_AP,       /* action: open or close the setup access point */
     KNOB_SET_DEVICE_INFO,    /* read-only page */
     KNOB_SET_SIGNALK,        /* read-only page */
@@ -149,10 +150,10 @@ typedef enum {
 
 typedef enum { KNOB_KIND_NUMBER = 0, KNOB_KIND_CHOICE, KNOB_KIND_ACTION, KNOB_KIND_PAGE } knob_setting_kind_t;
 
-/* The MODES page: the modes that can be switched off, in the page's order (two columns, three rows). Settings stays on the
+/* The MODES page: the modes that can be switched off, in the page's order (rows of two, three and two). Settings stays on the
  * ring always. A mask has bit i set when knob_modes_page[i] is on. */
-#define KNOB_MODES_PAGE_COUNT 6
-extern const int knob_modes_page[KNOB_MODES_PAGE_COUNT];          /* mode numbers: autopilot, lights, anchor, music, motor, USB */
+#define KNOB_MODES_PAGE_COUNT 7
+extern const int knob_modes_page[KNOB_MODES_PAGE_COUNT];          /* mode numbers: autopilot, lights, anchor, music, motor, USB, gauge */
 extern const char *const knob_modes_page_name[KNOB_MODES_PAGE_COUNT];
 /* false when switching page item i would leave no mode on (the last one stays on) */
 bool knob_modes_toggle_ok(uint8_t mask, int i);

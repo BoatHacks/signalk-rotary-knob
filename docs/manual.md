@@ -57,7 +57,7 @@ Motor).
 
 ### The mode ring
 A double press opens it. Turn to a mode, press to switch. Another double press closes it. Clockwise the order is `MOTOR`, `AUTO`
-(at 12 o'clock), `ANCHOR`, `LIGHTS`, `MUSIC`, `USB`, `SETUP`. A mode that is switched off is left out and the others keep their
+(at 12 o'clock), `ANCHOR`, `LIGHTS`, `MUSIC`, `GAUGE`, `USB`, `SETUP`. A mode that is switched off is left out and the others keep their
 order. `USB` only shows while a computer is connected, and `SETUP` is hidden during an alarm.
 
 **Choosing the modes.** Open the settings on the knob and choose *MODES*: one pill per mode. A filled pill is on the ring. Turn to
@@ -177,6 +177,28 @@ have one, *Motor power path*. The mode then sits just left of AUTO on the ring. 
 | <img src="img/manual/motor-tag.png" width="170" alt="The throttle on another screen"> |
 |:---:|
 | The throttle on another screen |
+
+### Gauges
+**(not verified on the hardware yet)** Up to four values from SignalK as gauges, one per page. Turn to step through them. The
+knob only reads: nothing is sent, allow control does not matter.
+
+Set the pages on the settings page: *Gauge 1 path* to *Gauge 4 path*, any SignalK path with a number. On a new knob they are
+depth, speed over ground, apparent wind speed and the house battery's voltage. An empty path removes the page. *Gauge N name*
+replaces the name shown. Changes apply after a restart.
+
+The knob takes everything else from the server: the unit, the range of the arc (*displayScale*) and the **zones**. Set the
+zones of a path once on the server (in the SignalK admin UI under *Server, Data Browser*, the path's meta) and the knob colours
+its gauge the same way as any other display: a thin band around the arc shows the zones, green for normal, amber for a warning,
+red for an alarm. When the value is in a warning or alarm zone, the number and the arc turn amber or red and the zone's
+message shows under the unit. Without zones the gauge is blue and white.
+
+Speeds are shown in knots, temperatures in °C, ratios in percent, angles in degrees, pressure in hPa. A value that has not
+arrived or is too old shows `---` and `NO DATA`. The LEDs around the base show where the value is on its arc, in the colour of
+its zone. They stay dark at night.
+
+| <img src="img/manual/gauge-depth.png" width="170" alt="Depth in a warning zone"> | <img src="img/manual/gauge-depth-alarm.png" width="170" alt="Depth in an alarm zone"> | <img src="img/manual/gauge-wind.png" width="170" alt="Wind in a warning zone"> | <img src="img/manual/gauge-battery.png" width="170" alt="A battery, normal"> |
+|:---:|:---:|:---:|:---:|
+| Depth, warning zone | Depth, alarm zone | Wind, warning zone | Battery, normal |
 
 ### USB-HID
 Listed in the mode ring only while a computer has recognised the knob over USB. The knob shows up as a USB input device only

@@ -75,6 +75,21 @@ void knob_config_load(knob_cfg_t *c)
     if (espos_config_get_i32(NS, "motor_ahead", &v) == ESP_OK && v >= 10 && v <= 100) c->motor_max_ahead_pct = (uint8_t)v;
     if (espos_config_get_i32(NS, "motor_astern", &v) == ESP_OK && v >= 10 && v <= 100) c->motor_max_astern_pct = (uint8_t)v;
     if (espos_config_get_i32(NS, "motor_idle_s", &v) == ESP_OK && v >= 0 && v <= 300) c->motor_idle_s = (uint16_t)(v && v < 10 ? 10 : v);
+    c->gauge_mode = true;
+    if (espos_config_get_bool(NS, "gauge_mode", &on) == ESP_OK) c->gauge_mode = on;
+    static const char *const gauge_default[KNOB_CFG_MAX_GAUGES] = { "environment.depth.belowTransducer", "navigation.speedOverGround",
+                                                                    "environment.wind.speedApparent", "electrical.batteries.house.voltage" };
+    for (int i = 1; i <= KNOB_CFG_MAX_GAUGES; i++) {
+        char key[20], path[128];
+        snprintf(path, sizeof(path), "%s", gauge_default[i - 1]);
+        snprintf(key, sizeof(key), "gauge%d_path", i);
+        espos_config_get_str(NS, key, path, sizeof(path), NULL);   /* a stored empty path switches the page off */
+        if (!path[0]) continue;
+        snprintf(c->gauges[c->n_gauges].path, sizeof(c->gauges[0].path), "%s", path);
+        snprintf(key, sizeof(key), "gauge%d_name", i);
+        espos_config_get_str(NS, key, c->gauges[c->n_gauges].name, sizeof(c->gauges[0].name), NULL);
+        c->n_gauges++;
+    }
     char hp[16] = "chartplotter";
     espos_config_get_str(NS, "hid_profile", hp, sizeof(hp), NULL);
     c->hid_profile = !strcmp(hp, "media") ? 1 : !strcmp(hp, "nav") ? 2 : 0;

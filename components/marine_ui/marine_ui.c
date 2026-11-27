@@ -49,7 +49,8 @@ typedef struct {
     void (*refresh)(void);
 } marine_mode_desc_t;
 
-// Mode ring slots in ring order, clockwise (owner, 2026-11-24): motor, autopilot, anchor, lights, music, USB, setup. The
+// Mode ring slots in ring order, clockwise (owner, 2026-11-24): motor, autopilot, anchor, lights, music, gauges (#16, after
+// music), USB, setup. The
 // visible ones are spaced evenly with AUTO at 12 o'clock, so MOTOR sits just left of it. A switched-off mode is left out and
 // the order of the others stays (ui-design section 2).
 static const marine_ui_mode_t ring_slot_modes[MARINE_MODE_COUNT] = {
@@ -58,6 +59,7 @@ static const marine_ui_mode_t ring_slot_modes[MARINE_MODE_COUNT] = {
     MARINE_MODE_ANCHOR_WATCH,
     MARINE_MODE_DIMMER,
     MARINE_MODE_MUSIC,
+    MARINE_MODE_GAUGE,
     MARINE_MODE_USB_HID,
     MARINE_MODE_SETTINGS
 };
@@ -73,6 +75,8 @@ static const uint32_t rgbw_preset_hex[MARINE_RGBW_PRESET_COUNT] = {
 // --- Internal UI State (Zero authoritative server state ownership) ---
 static marine_ui_snapshot_t snap;
 static marine_ui_action_cb_t s_action_cb = NULL;
+static uint8_t gau_page = 0;   // the gauge page shown (#16)
+static uint8_t gau_page_peek(void) { return gau_page < snap.gauge_count ? gau_page : 0; }
 static void *s_action_ctx = NULL;
 static marine_ui_mode_t active_mode = MARINE_MODE_AUTOPILOT;
 static marine_alarm_type_t prev_alarm_state = MARINE_ALARM_NONE;
@@ -321,6 +325,9 @@ static void music_touch(int16_t x, int16_t y);
 static lv_obj_t* build_motor_screen(void);
 static void motor_on_input(marine_semantic_input_t ev, int32_t val);
 static void motor_refresh(void);
+static lv_obj_t* build_gauge_screen(void);
+static void gauge_on_input(marine_semantic_input_t ev, int32_t val);
+static void gauge_refresh(void);
 static bool settings_takes_double(void);
 static void settings_tick(void);
 static void settings_enter(void);
@@ -332,7 +339,8 @@ static const marine_mode_desc_t mode_registry[MARINE_MODE_COUNT] = {
     [MARINE_MODE_USB_HID]      = { MARINE_MODE_USB_HID,      "USB",    build_hid_screen,    hid_on_input,    hid_refresh },
     [MARINE_MODE_SETTINGS]     = { MARINE_MODE_SETTINGS,     "SETUP",  build_settings_screen, settings_on_input, settings_refresh },
     [MARINE_MODE_MUSIC]       = { MARINE_MODE_MUSIC,       "MUSIC", build_music_screen, music_on_input, music_refresh },
-    [MARINE_MODE_MOTOR]       = { MARINE_MODE_MOTOR,       "MOTOR", build_motor_screen, motor_on_input, motor_refresh }
+    [MARINE_MODE_MOTOR]       = { MARINE_MODE_MOTOR,       "MOTOR", build_motor_screen, motor_on_input, motor_refresh },
+    [MARINE_MODE_GAUGE]       = { MARINE_MODE_GAUGE,       "GAUGE", build_gauge_screen, gauge_on_input, gauge_refresh }
 };
 
 static void emit_action(marine_ui_mode_t mode, marine_ui_action_type_t act, int32_t val, int32_t meta) {
@@ -705,6 +713,12 @@ static void refresh_mode_ring_center_preview(void) {
         snprintf(top_b, sizeof(top_b), "%s", t->name);
         snprintf(mid_b, sizeof(mid_b), "%u%%", (unsigned)t->pct);
         snprintf(bot_b, sizeof(bot_b), "%s", snap.play_state == MARINE_PLAY_PLAYING ? "PLAYING" : "PAUSED");
+    } else if (active_mode == MARINE_MODE_GAUGE && snap.gauge_count) {
+        uint8_t p = gau_page_peek();
+        const knob_gauge_view_t *g = &snap.gauges[p];
+        snprintf(top_b, sizeof(top_b), "%s", g->name);
+        snprintf(mid_b, sizeof(mid_b), "%s %s", g->text, g->valid ? g->unit : "");
+        snprintf(bot_b, sizeof(bot_b), "PAGE %u/%u", (unsigned)(p + 1), (unsigned)snap.gauge_count);
     } else if (active_mode == MARINE_MODE_SETTINGS) {
         snprintf(top_b, sizeof(top_b), "SETTINGS");
         snprintf(mid_b, sizeof(mid_b), "%d ITEMS", (int)KNOB_SET_COUNT);
@@ -733,6 +747,7 @@ static bool ring_slot_visible(int s) {
     if (m == MARINE_MODE_SETTINGS) return snap.active_alarm == MARINE_ALARM_NONE;
     if (m == MARINE_MODE_MUSIC) return snap.music_mode;
     if (m == MARINE_MODE_MOTOR) return snap.motor_mode;
+    if (m == MARINE_MODE_GAUGE) return snap.gauge_mode;
     return true;
 }
 
@@ -1793,15 +1808,15 @@ static void build_overlays_and_system(void) {
 
     for (int s = 0; s < MARINE_MODE_COUNT; s++) {   // positions are set by refresh_mode_ring() from the visible slots
         ring_slot_boxes[s] = lv_obj_create(ovl_mode_ring);
-        lv_obj_set_size(ring_slot_boxes[s], 62, 48);          // icon (knob_icon_28) above the label
+        lv_obj_set_size(ring_slot_boxes[s], 58, 46);          // icon (knob_icon_28) above the label; eight fit at 86 px
         lv_obj_set_style_radius(ring_slot_boxes[s], 6, 0);
         lv_obj_set_style_pad_all(ring_slot_boxes[s], 0, 0);
         lv_obj_align(ring_slot_boxes[s], LV_ALIGN_CENTER, 0, -86);
         lv_obj_remove_flag(ring_slot_boxes[s], LV_OBJ_FLAG_SCROLLABLE);
 
-        // In ring order: propeller, ship's wheel, anchor, light bulb, music notes, USB, gear.
+        // In ring order: propeller, ship's wheel, anchor, light bulb, music notes, gauge, USB, gear.
         static const char *const slot_icons[MARINE_MODE_COUNT] = { "\xEF\xA1\xA3", "\xEF\x99\x95", "\xEF\x84\xBD", "\xEF\x83\xAB",
-                                                                   "\xEF\x80\x81", "\xEF\x8A\x87", "\xEF\x80\x93" };
+                                                                   "\xEF\x80\x81", "\xEF\x8F\xBD", "\xEF\x8A\x87", "\xEF\x80\x93" };
         ring_slot_icons[s] = lv_label_create(ring_slot_boxes[s]);
         lv_obj_set_style_text_font(ring_slot_icons[s], &knob_icon_28, 0);
         lv_label_set_text(ring_slot_icons[s], slot_icons[s]);
@@ -2350,11 +2365,13 @@ static lv_obj_t* build_settings_screen(void) {
         lv_obj_add_flag(set_menu_items[i], LV_OBJ_FLAG_HIDDEN);
     }
 
-    // MODES page: two columns, three rows of pills, filled while the mode is on.
+    // MODES page: pills in rows of two, three and two, in the page's order, filled while the mode is on.
+    static const int8_t mode_pill_xy[KNOB_MODES_PAGE_COUNT][2] = { { -42, -44 }, { 42, -44 }, { -78, 0 }, { 0, 0 }, { 78, 0 },
+                                                                   { -42, 44 }, { 42, 44 } };
     for (int i = 0; i < KNOB_MODES_PAGE_COUNT; i++) {
         lv_obj_t *p = lv_obj_create(scr);
-        lv_obj_set_size(p, 92, 36);
-        lv_obj_align(p, LV_ALIGN_CENTER, (i % 2) ? 50 : -50, -44 + (i / 2) * 44);
+        lv_obj_set_size(p, 74, 36);
+        lv_obj_align(p, LV_ALIGN_CENTER, mode_pill_xy[i][0], mode_pill_xy[i][1]);
         lv_obj_set_style_radius(p, 18, 0);
         lv_obj_set_style_pad_all(p, 0, 0);
         lv_obj_remove_flag(p, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
@@ -2378,7 +2395,7 @@ static uint32_t set_hidden(void) { return snap.motor_mode ? 0 : KNOB_SET_MOTOR_H
 // The MODES page's state from the snapshot: bit i for knob_modes_page[i].
 static uint8_t set_modes_mask(void) {
     bool on[KNOB_MODES_PAGE_COUNT] = { snap.ap_mode, snap.lights_mode, snap.anchor_mode, snap.music_mode, snap.motor_mode,
-                                       snap.usb_mode };
+                                       snap.usb_mode, snap.gauge_mode };
     uint8_t m = 0;
     for (int i = 0; i < KNOB_MODES_PAGE_COUNT; i++) if (on[i]) m |= (uint8_t)(1u << i);
     return m;
@@ -3052,6 +3069,140 @@ static void motor_tag_update(void) {
     anc_set_line(ovl_motor_tag, b, set > 0 ? c_green() : c_amber());
     lv_obj_remove_flag(ovl_motor_tag, LV_OBJ_FLAG_HIDDEN);
     lv_obj_move_foreground(ovl_motor_tag);
+}
+
+// --- Gauges (#16, docs/plans/issue-16-gauge-mode.md): one SignalK value per page, read only. The firmware has turned the value
+// and the path's meta into a knob_gauge_view_t: the number, the unit, the arc's range and the zones as fractions of the arc.
+// The arc runs 270 degrees clockwise from 7:30 to 4:30. The zones are a thin band outside it in green, amber and red, the fill
+// and the number take the colour of the zone the value is in. Turn: the next page. ---
+#define GAUGE_A0 135          // where the arc starts, LVGL degrees (0 = 3 o'clock, clockwise)
+#define GAUGE_SWEEP 270
+static lv_obj_t *gau_track, *gau_zone[KNOB_GAUGE_MAX_ZONES], *gau_dot, *gau_page_dot[KNOB_GAUGE_MAX];
+static lv_obj_t *gau_lbl_name, *gau_lbl_val, *gau_lbl_unit, *gau_lbl_msg, *gau_lbl_lo, *gau_lbl_hi;
+
+static int gau_angle(float f) { return (GAUGE_A0 + (int)lroundf(f * GAUGE_SWEEP)) % 360; }
+
+// The colour of a zone state: normal in the primary colour, a warning in amber, an alarm in red.
+static lv_color_t gau_col(uint8_t state) {
+    int l = knob_zone_level((knob_zone_t)state);
+    return l == 2 ? c_red() : l == 1 ? c_amber() : c_primary();
+}
+
+static lv_obj_t* build_gauge_screen(void) {
+    lv_obj_t *scr = lv_obj_create(NULL);
+    lv_obj_set_size(scr, 240, 240);
+    lv_obj_set_style_bg_color(scr, COL_BG, 0);
+    lv_obj_remove_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
+
+    for (int i = 0; i < KNOB_GAUGE_MAX_ZONES; i++) {   // the zone band, outside the track
+        lv_obj_t *a = lv_arc_create(scr);
+        lv_obj_set_size(a, 228, 228);
+        lv_obj_center(a);
+        lv_obj_set_style_arc_width(a, 6, LV_PART_MAIN);
+        lv_obj_set_style_arc_rounded(a, false, LV_PART_MAIN);
+        lv_obj_set_style_arc_opa(a, LV_OPA_TRANSP, LV_PART_INDICATOR);
+        lv_obj_remove_style(a, NULL, LV_PART_KNOB);
+        lv_obj_remove_flag(a, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_add_flag(a, LV_OBJ_FLAG_HIDDEN);
+        gau_zone[i] = a;
+    }
+    gau_track = lv_arc_create(scr);
+    lv_obj_set_size(gau_track, 206, 206);
+    lv_obj_center(gau_track);
+    lv_arc_set_bg_angles(gau_track, GAUGE_A0, (GAUGE_A0 + GAUGE_SWEEP) % 360);
+    lv_obj_set_style_arc_width(gau_track, 10, LV_PART_MAIN);
+    lv_obj_set_style_arc_width(gau_track, 10, LV_PART_INDICATOR);
+    lv_obj_set_style_arc_color(gau_track, lv_color_hex(0x16263E), LV_PART_MAIN);
+    lv_obj_set_style_arc_rounded(gau_track, false, LV_PART_MAIN);
+    lv_obj_set_style_arc_rounded(gau_track, false, LV_PART_INDICATOR);
+    lv_obj_remove_style(gau_track, NULL, LV_PART_KNOB);
+    lv_obj_remove_flag(gau_track, LV_OBJ_FLAG_CLICKABLE);
+    gau_dot = mot_make_dot(scr, 12);
+
+    gau_lbl_name = anc_make_label(scr, &knob_font_20, -60);
+    lv_label_set_long_mode(gau_lbl_name, LV_LABEL_LONG_MODE_DOTS);   // one line inside the track: about 140 px at y 60
+    lv_obj_set_size(gau_lbl_name, 140, 24);
+    lv_obj_set_style_text_align(gau_lbl_name, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_align(gau_lbl_name, LV_ALIGN_CENTER, 0, -60);
+    gau_lbl_val = anc_make_label(scr, &lv_font_montserrat_44, -12);
+    gau_lbl_unit = anc_make_label(scr, &lv_font_montserrat_20, 26);
+    gau_lbl_msg = anc_make_label(scr, &knob_font_14, 50);
+    lv_label_set_long_mode(gau_lbl_msg, LV_LABEL_LONG_MODE_DOTS);
+    lv_obj_set_size(gau_lbl_msg, 150, 18);
+    lv_obj_set_style_text_align(gau_lbl_msg, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_align(gau_lbl_msg, LV_ALIGN_CENTER, 0, 50);
+    gau_lbl_lo = anc_make_label(scr, &lv_font_montserrat_12, 0);
+    lv_obj_align(gau_lbl_lo, LV_ALIGN_CENTER, -58, 78);              // inside the arc's two ends
+    gau_lbl_hi = anc_make_label(scr, &lv_font_montserrat_12, 0);
+    lv_obj_align(gau_lbl_hi, LV_ALIGN_CENTER, 58, 78);
+    for (int i = 0; i < KNOB_GAUGE_MAX; i++) gau_page_dot[i] = mot_make_dot(scr, 6);
+    return scr;
+}
+
+static void gauge_refresh(void) {
+    if (!gau_track) return;
+    int n = snap.gauge_count;
+    for (int i = 0; i < KNOB_GAUGE_MAX; i++) {
+        anc_show(gau_page_dot[i], n > 1 && i < n);
+        if (n > 1 && i < n) {
+            lv_obj_set_pos(gau_page_dot[i], 120 - n * 6 + i * 12 + 3, 120 + 96 - 3);
+            lv_obj_set_style_bg_color(gau_page_dot[i], i == gau_page_peek() ? c_text() : c_muted(), 0);
+        }
+    }
+    if (n == 0) {
+        for (int i = 0; i < KNOB_GAUGE_MAX_ZONES; i++) anc_show(gau_zone[i], false);
+        lv_obj_set_style_arc_opa(gau_track, LV_OPA_TRANSP, LV_PART_INDICATOR);
+        anc_show(gau_dot, false);
+        anc_set_line(gau_lbl_name, "GAUGES", c_muted());
+        anc_set_line(gau_lbl_val, "---", c_muted());
+        anc_set_line(gau_lbl_unit, "", c_muted());
+        anc_set_line(gau_lbl_msg, "NO PATH SET", c_muted());
+        anc_set_line(gau_lbl_lo, "", c_muted());
+        anc_set_line(gau_lbl_hi, "", c_muted());
+        return;
+    }
+    const knob_gauge_view_t *g = &snap.gauges[gau_page_peek()];
+    for (int i = 0; i < KNOB_GAUGE_MAX_ZONES; i++) {
+        bool on = i < g->n_zones && g->zones[i].b - g->zones[i].a > 0.004f;
+        anc_show(gau_zone[i], on);
+        if (!on) continue;
+        lv_arc_set_bg_angles(gau_zone[i], gau_angle(g->zones[i].a), gau_angle(g->zones[i].b));
+        int l = knob_zone_level((knob_zone_t)g->zones[i].state);
+        lv_color_t c = l == 2 ? c_red() : l == 1 ? c_amber() : (snap.night_palette ? COL_NIGHT_DIM : c_green());
+        lv_obj_set_style_arc_color(gau_zone[i], c, LV_PART_MAIN);
+        lv_obj_set_style_arc_opa(gau_zone[i], l == 0 ? LV_OPA_60 : LV_OPA_COVER, LV_PART_MAIN);
+    }
+    bool alert = g->valid && knob_zone_level((knob_zone_t)g->state) > 0;
+    lv_color_t col = g->valid ? gau_col(g->state) : c_muted();
+    float a = g->origin < g->frac ? g->origin : g->frac, b = g->origin < g->frac ? g->frac : g->origin;
+    if (g->valid && b - a > 0.004f) {
+        lv_arc_set_angles(gau_track, gau_angle(a), gau_angle(b));
+        lv_obj_set_style_arc_color(gau_track, col, LV_PART_INDICATOR);
+        lv_obj_set_style_arc_opa(gau_track, LV_OPA_COVER, LV_PART_INDICATOR);
+    } else {
+        lv_obj_set_style_arc_opa(gau_track, LV_OPA_TRANSP, LV_PART_INDICATOR);
+    }
+    anc_show(gau_dot, g->valid);
+    if (g->valid) {
+        float rad = (float)(GAUGE_A0 + g->frac * GAUGE_SWEEP) * (float)(M_PI / 180.0);
+        lv_obj_set_pos(gau_dot, (int32_t)lroundf(120.0f + 103.0f * cosf(rad)) - 6, (int32_t)lroundf(120.0f + 103.0f * sinf(rad)) - 6);
+        lv_obj_set_style_bg_color(gau_dot, c_text(), 0);
+    }
+    // A long name (HOUSE BATTERY) in 14 px: 20 px fits about ten capitals inside the track.
+    lv_obj_set_style_text_font(gau_lbl_name, strlen(g->name) > 10 ? &knob_font_14 : &knob_font_20, 0);
+    lv_obj_align(gau_lbl_name, LV_ALIGN_CENTER, 0, strlen(g->name) > 10 ? -56 : -60);
+    anc_set_line(gau_lbl_name, g->name, c_muted());
+    anc_set_line(gau_lbl_val, g->text, !g->valid ? c_muted() : alert ? col : c_text());
+    anc_set_line(gau_lbl_unit, g->unit, c_muted());
+    anc_set_line(gau_lbl_msg, g->valid ? g->message : "NO DATA", g->valid ? col : c_muted());
+    anc_set_line(gau_lbl_lo, g->lo_text, c_muted());
+    anc_set_line(gau_lbl_hi, g->hi_text, c_muted());
+}
+
+// Turn: the next or the previous page. Presses do nothing here (a double press opens the ring as everywhere).
+static void gauge_on_input(marine_semantic_input_t ev, int32_t val) {
+    if (ev == MARINE_INPUT_TURN && snap.gauge_count > 1) gau_page = (uint8_t)knob_list_wrap(gau_page_peek(), val, snap.gauge_count);
+    gauge_refresh();
 }
 
 // --- CONTROL ON notice: allow control was switched on from the web page or the API (ui-design section 4) ---
@@ -4129,3 +4280,4 @@ void marine_ui_set_power(uint32_t dim_after_ms, uint8_t dim_pct, uint32_t off_af
 
 uint8_t marine_ui_get_selected_light(void) { return dimmer_selected_group; }
 uint8_t marine_ui_get_selected_vol_target(void) { return vol_sel; }
+uint8_t marine_ui_get_gauge_page(void) { return gau_page_peek(); }

@@ -16,6 +16,7 @@ Name files `issue-<n>-<short-name>.md` for a GitHub issue, `<short-name>.md` oth
 | [issue-7-autopilot-modes.md](issue-7-autopilot-modes.md) | #7 | Built. Needs the SeaTalk pilot wired to the server, compass mode proven on the boat (#12), and an upstream fix for wind targets |
 | [issue-8-motor-mode.md](issue-8-motor-mode.md) | #8 | Built, most of it checked in demo mode. The motor side (plugin and path) is not decided, so the knob is built against configurable defaults and the demo |
 | [issue-10-auto-demo.md](issue-10-auto-demo.md) | #10 | Built. Left: the internal RAM dip, the fonts of zone and channel names, the bench checks, a video |
+| [issue-16-gauge-mode.md](issue-16-gauge-mode.md) | #16 | Built 2026-11-27. Left: the hardware checks |
 | [issue-2-user-manual.md](issue-2-user-manual.md) | #2 | Follows the behaviour, so it finishes last |
 | [release.md](release.md) | #13 | v0.1.0 and v0.1.1 are out. Left: the rest of the release and OTA checks, the espOS registry, v1.0.0 |
 

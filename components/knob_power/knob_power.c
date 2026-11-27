@@ -231,6 +231,26 @@ static void level_pattern(const marine_ui_snapshot_t *s, marine_ui_mode_t mode)
     s_level = true;
 }
 
+/* Gauges (#16): where the value is on its arc, on the four rim LEDs, in the colour of its zone: blue while normal, amber for
+ * a warning, red for an alarm. Stale or no value: all off. Off at night like the other levels. */
+static const uint8_t COL_GAUGE[3][3] = { { 0, 32, 64 }, { 64, 40, 0 }, { 64, 0, 0 } };
+
+static void gauge_pattern(const marine_ui_snapshot_t *s)
+{
+    uint8_t f[BOARD_LED_COUNT][3];
+    memset(f, 0, sizeof(f));
+    uint8_t p = marine_ui_get_gauge_page();
+    if (p < s->gauge_count && s->gauges[p].valid) {
+        const knob_gauge_view_t *g = &s->gauges[p];
+        uint16_t lv[4];
+        knob_led_fill(g->frac, 4, lv);
+        const uint8_t *col = COL_GAUGE[knob_zone_level((knob_zone_t)g->state)];
+        for (int k = 0; k < 4; k++) px_set(f, FILL_IDX[k], col, lv[k]);
+    }
+    for (int i = 0; i < BOARD_LED_COUNT; i++) { s_px[i][0] = f[i][0]; s_px[i][1] = f[i][1]; s_px[i][2] = f[i][2]; }
+    s_level = true;
+}
+
 void knob_power_apply_snapshot(const marine_ui_snapshot_t *s, marine_ui_mode_t active_mode)
 {
     static bool on_course;
@@ -268,6 +288,11 @@ void knob_power_apply_snapshot(const marine_ui_snapshot_t *s, marine_ui_mode_t a
         if (active_mode == MARINE_MODE_MOTOR && s->active_alarm == MARINE_ALARM_NONE) {
             s_steer = STEER_NONE;
             motor_pattern(s);
+            return;
+        }
+        if (active_mode == MARINE_MODE_GAUGE && s->active_alarm == MARINE_ALARM_NONE) {
+            s_steer = STEER_NONE;
+            gauge_pattern(s);
             return;
         }
         if ((active_mode == MARINE_MODE_DIMMER || active_mode == MARINE_MODE_MUSIC) && s->active_alarm == MARINE_ALARM_NONE) {

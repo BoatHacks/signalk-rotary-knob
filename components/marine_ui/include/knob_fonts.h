@@ -9,5 +9,5 @@
 LV_FONT_DECLARE(knob_font_14)
 LV_FONT_DECLARE(knob_font_20)
 LV_FONT_DECLARE(knob_font_32)
-LV_FONT_DECLARE(knob_icon_28)   /* the mode ring's seven icons: Font Awesome, the propeller from assets/icons */
+LV_FONT_DECLARE(knob_icon_28)   /* the mode ring's eight icons: Font Awesome, the propeller from assets/icons */
 LV_FONT_DECLARE(knob_icon_96)   /* only LV_SYMBOL_WARNING and LV_SYMBOL_GPS, for the alarm screen */

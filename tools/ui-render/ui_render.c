@@ -4,6 +4,7 @@
 #include "knob_logic.h"
 #include "knob_demo.h"
 #include "knob_motor.h"
+#include "knob_gauge.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -38,6 +39,8 @@ static bool ack, night, gps_lost;
 static bool live, control_off, link_down, heading_stale;
 static marine_system_screen_t sys = MARINE_SCREEN_OPERATIONAL;
 static uint16_t seq;
+static knob_gauge_src_t gs[KNOB_GAUGE_MAX];
+static double gv[KNOB_GAUGE_MAX] = { NAN, NAN, NAN, NAN };   /* a fixed gauge value (SI) for a picture, NAN: the demo's */
 
 static uint8_t gear(void) { return mo.set_pct > 0 ? KNOB_GEAR_FORWARD : mo.set_pct < 0 ? KNOB_GEAR_REVERSE : KNOB_GEAR_NEUTRAL; }
 static knob_motor_in_t motor_in(void)
@@ -139,6 +142,13 @@ static void apply(void)
     s.motor_rpm = a * 3000; s.motor_torque_pct = a * 80; s.motor_power_w = a * 4000; s.motor_reported_pct = mo.set_pct;
     s.motor_rpm_ms = s.motor_torque_ms = s.motor_reported_ms = now;
     s.motor_power_ms = 0; /* the default: no power path set */
+    s.gauge_mode = true;
+    s.gauge_count = KNOB_GAUGE_MAX;
+    for (int i = 0; i < KNOB_GAUGE_MAX; i++) {
+        knob_gauge_demo(&gs[i], i, now);
+        if (!isnan(gv[i])) knob_gauge_value(&gs[i], gv[i], now);
+        knob_gauge_view(&gs[i], knob_gauge_demo_path(i), "", now, &s.gauges[i]);
+    }
     s.usb_host_enumerated = true;
     s.hid_profile = hid;
     int16_t *v = s.setting;
@@ -259,6 +269,13 @@ static void manual(void)
     ringto(MARINE_MODE_DIMMER); turn(-4); run(1500); shot("lights-dimmer");
     press(); run(500); press(); run(500); turn(1); run(1200); shot("lights-relay");
     ringto(MARINE_MODE_MUSIC); run(1000); shot("music");
+    gv[0] = 3.1; gv[1] = 5.8 / 1.9438445; gv[2] = 27.0 / 1.9438445; gv[3] = 12.62;
+    ringto(MARINE_MODE_GAUGE); run(800); both("gauge-depth");
+    turn(1); run(600); shot("gauge-sog");
+    turn(1); run(600); both("gauge-wind");
+    turn(1); run(600); shot("gauge-battery");
+    gv[0] = 1.6; turn(1); run(600); shot("gauge-depth-alarm");
+    gv[0] = gv[1] = gv[2] = gv[3] = NAN;
 
     ringto(MARINE_MODE_MOTOR); shot("motor-disarmed");
     lng(); run(400); shot("motor-confirm"); turn(1); run(1500); turn(24); run(2000); shot("motor-ahead");

@@ -169,6 +169,11 @@ layer (section 6.1).
   (ratio), and watts from `knob.motor_power` if set. There is no standard throttle command path; the default is a guess
   until a motor plugin exists **(verify)**. Requirement on the motor side: go to neutral after about 3 s without a throttle.
   Needs allow control.
+- **Gauges (#16)**: up to four paths from `knob.gauge1_path` .. `gauge4_path` (defaults
+  `environment.depth.belowTransducer`, `navigation.speedOverGround`, `environment.wind.speedApparent`,
+  `electrical.batteries.house.voltage`), subscribed at 1 s, and their meta from the stream: `units`, `displayScale`
+  `{lower, upper}`, `zones` `[{lower?, upper?, state, message}]` with the states `nominal`, `normal`, `alert`, `warn`, `alarm`,
+  `emergency`, `timeout`, `shortName`, `displayName`. Read only.
 - **Alarm ack/silence**: documented only for the server Notifications API
   (`POST /signalk/v2/api/notifications/{id}/acknowledge` and `/silence`). Unconfirmed whether the anchor plugin's
   alarms go through it.

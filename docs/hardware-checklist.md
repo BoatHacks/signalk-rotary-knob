@@ -162,6 +162,20 @@ First in demo mode (a simulated motor), then against a test plugin, then with th
 | Idle 60 s in N disarms, 0 = never | open | | | |
 | At the boat, before connecting the motor: the motor side goes to neutral without the keepalive | open | | | needs the motor plugin |
 
+## Gauges (#16)
+
+| Item | Status | Date | Commit | Notes |
+|---|---|---|---|---|
+| GAUGE on the ring after MUSIC, eight slots fit without overlap (with a USB host); the MODES page shows seven pills | open | | | renderer only (2026-11-27) |
+| The four default pages against the boat's server: name, unit, value, range | open | | | |
+| A path with zones (for example networking.lte.rsrp): the zone band, the fill, number and message in the zone's colour | open | 2026-11-27 | | the meta with its 3 zones and units dBm arrives from the boat's server (serial log); the screen not looked at |
+| Turn steps through the pages and wraps; presses do nothing | open | | | |
+| `PUT /api/v1/knob/mode {"mode":"gauge"}` switches to it, a reboot comes back to it | ok | 2026-11-27 | | boot mode 7. Lowest internal RAM 33.4 KB live (was 39.8 KB before #16) |
+| A stale or missing value: `---` and `NO DATA` | open | | | |
+| LEDs: the fill in the zone's colour, dark at night | open | | | |
+| Night palette | open | | | renderer only |
+| Demo mode: the four simulated pages | open | | | |
+
 ## Lights
 
 | Item | Status | Date | Commit | Notes |

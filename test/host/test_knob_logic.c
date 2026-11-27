@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: Apache-2.0
  * Host unit tests for knob_logic (pure C). Build and run with make in this folder, see the Makefile for the Unity path. */
+#include <math.h>
 #include <string.h>
 
 #include "knob_logic.h"
 #include "knob_demo.h"
 #include "knob_motor.h"
 #include "knob_autodemo.h"
+#include "knob_gauge.h"
 #include "unity.h"
 
 void setUp(void) {}
@@ -198,7 +200,9 @@ static void test_mode_names(void)
     TEST_ASSERT_EQUAL_INT(5, knob_mode_from_name("music"));
     TEST_ASSERT_EQUAL_STRING("motor", knob_mode_name(6));
     TEST_ASSERT_EQUAL_INT(6, knob_mode_from_name("motor"));
-    TEST_ASSERT_EQUAL_STRING("unknown", knob_mode_name(7));
+    TEST_ASSERT_EQUAL_STRING("gauge", knob_mode_name(7));
+    TEST_ASSERT_EQUAL_INT(7, knob_mode_from_name("gauge"));
+    TEST_ASSERT_EQUAL_STRING("unknown", knob_mode_name(8));
     TEST_ASSERT_EQUAL_STRING("unknown", knob_mode_name(-1));
 }
 
@@ -1005,11 +1009,15 @@ static void test_autodemo_script_loops(void)
 static void test_modes_page(void)
 {
     TEST_ASSERT_EQUAL_INT(6, knob_modes_count(0x3F));
+    TEST_ASSERT_EQUAL_INT(7, knob_modes_count(0x7F));
     TEST_ASSERT_TRUE(knob_modes_toggle_ok(0x3F, 0));      /* off with others on */
     TEST_ASSERT_FALSE(knob_modes_toggle_ok(0x04, 2));     /* the last one on stays on */
     TEST_ASSERT_TRUE(knob_modes_toggle_ok(0x04, 1));      /* switching another one on is fine */
-    TEST_ASSERT_FALSE(knob_modes_toggle_ok(0x3F, 6));
+    TEST_ASSERT_TRUE(knob_modes_toggle_ok(0x3F, 6));      /* GAUGE (#16) is item 6 */
+    TEST_ASSERT_FALSE(knob_modes_toggle_ok(0x7F, 7));
     TEST_ASSERT_EQUAL_INT(KNOB_MODE_HID, knob_modes_page[5]);
+    TEST_ASSERT_EQUAL_INT(KNOB_MODE_GAUGE, knob_modes_page[6]);
+    TEST_ASSERT_EQUAL_STRING("GAUGE", knob_modes_page_name[6]);
     TEST_ASSERT_EQUAL_STRING("MODES", knob_setting_desc(KNOB_SET_MODES)->name);
     TEST_ASSERT_EQUAL_INT(KNOB_KIND_PAGE, knob_setting_desc(KNOB_SET_MODES)->kind);
 }
@@ -1041,6 +1049,222 @@ static void test_settings_sublist(void)
     TEST_ASSERT_EQUAL_INT(all - 2, cnt);
     /* standing on a hidden item, one on is the next visible one */
     TEST_ASSERT_EQUAL_INT(KNOB_SET_MODES, knob_setting_list_next(KNOB_SET_MOTOR_STEPS, 1, -1, KNOB_SET_MOTOR_HIDDEN));
+}
+
+/* ---- Gauges (#16) ---- */
+
+static const char *LTE_META =
+    "{\"units\":\"dBm\",\"displayName\":\"LTE signal\",\"description\":\"x, {y} [z]\","
+    "\"zones\":[{\"upper\":-115,\"state\":\"alarm\",\"message\":\"LTE signal very weak\"},"
+    "{\"lower\":-115,\"upper\":-105,\"state\":\"warn\",\"message\":\"LTE signal weak\"},"
+    "{\"lower\":-105,\"state\":\"normal\",\"message\":\"LTE signal ok\"}],\"timeout\":60}";
+
+static void test_gauge_zones(void)
+{
+    knob_gauge_zone_t z[KNOB_GAUGE_MAX_ZONES];
+    TEST_ASSERT_EQUAL_INT(3, knob_gauge_parse_zones(LTE_META, z, KNOB_GAUGE_MAX_ZONES));
+    TEST_ASSERT_TRUE(isinf(z[0].lower) && z[0].lower < 0);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -115.0f, (float)z[0].upper);
+    TEST_ASSERT_EQUAL_INT(KNOB_ZONE_ALARM, z[0].state);
+    TEST_ASSERT_EQUAL_STRING("LTE signal very weak", z[0].message);
+    TEST_ASSERT_EQUAL_INT(KNOB_ZONE_WARN, z[1].state);
+    TEST_ASSERT_TRUE(isinf(z[2].upper) && z[2].upper > 0);
+    TEST_ASSERT_EQUAL_INT(0, knob_gauge_zone_at(z, 3, -120));
+    TEST_ASSERT_EQUAL_INT(1, knob_gauge_zone_at(z, 3, -110));
+    TEST_ASSERT_EQUAL_INT(2, knob_gauge_zone_at(z, 3, -88));
+    TEST_ASSERT_EQUAL_INT(0, knob_gauge_zone_at(z, 3, -115));   /* on a shared bound the more severe zone wins */
+    TEST_ASSERT_EQUAL_INT(1, knob_gauge_parse_zones(LTE_META, z, 1));   /* only max zones */
+    TEST_ASSERT_EQUAL_INT(-1, knob_gauge_parse_zones("{\"units\":\"m\"}", z, 4));
+    TEST_ASSERT_EQUAL_INT(0, knob_gauge_parse_zones("{\"zones\":[]}", z, 4));
+    TEST_ASSERT_EQUAL_INT(1, knob_gauge_parse_zones("{\"zones\":[{\"lower\":1,\"state\":\"bogus\"},{\"lower\":2,\"state\":\"alert\"}]}", z, 4));
+    TEST_ASSERT_EQUAL_INT(KNOB_ZONE_ALERT, z[0].state);
+    TEST_ASSERT_EQUAL_INT(-1, knob_gauge_parse_zones("{\"zones\":[{\"lower\":1,", z, 4)); /* cut off: nothing read past the end */
+    TEST_ASSERT_EQUAL_INT(-1, knob_gauge_parse_zones(NULL, z, 4));
+    /* "zones" inside another object is not the path's zones */
+    TEST_ASSERT_EQUAL_INT(-1, knob_gauge_parse_zones("{\"x\":{\"zones\":[{\"state\":\"alarm\"}]}}", z, 4));
+    TEST_ASSERT_EQUAL_INT(0, knob_zone_level(KNOB_ZONE_NORMAL));
+    TEST_ASSERT_EQUAL_INT(1, knob_zone_level(KNOB_ZONE_ALERT));
+    TEST_ASSERT_EQUAL_INT(2, knob_zone_level(KNOB_ZONE_EMERGENCY));
+}
+
+static void test_gauge_meta_and_units(void)
+{
+    knob_gauge_src_t g;
+    knob_gauge_src_init(&g);
+    knob_gauge_meta(&g, LTE_META);
+    TEST_ASSERT_EQUAL_STRING("dBm", g.units);
+    TEST_ASSERT_EQUAL_STRING("LTE signal", g.display_name);
+    TEST_ASSERT_EQUAL_UINT32(60000, g.timeout_ms);
+    TEST_ASSERT_EQUAL_INT(3, g.n_zones);
+    TEST_ASSERT_FALSE(g.has_scale);
+    knob_gauge_meta(&g, "{\"units\":\"m\",\"displayScale\":{\"lower\":0,\"upper\":50,\"type\":\"linear\"}}");
+    TEST_ASSERT_EQUAL_INT(0, g.n_zones);   /* a meta item replaces the old one */
+    TEST_ASSERT_TRUE(g.has_scale);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 50.0f, (float)g.scale_hi);
+
+    knob_gauge_unit_t u;
+    knob_gauge_unit("m/s", &u);
+    TEST_ASSERT_EQUAL_STRING("kn", u.unit);
+    TEST_ASSERT_FLOAT_WITHIN(0.0001f, 1.9438f, (float)u.scale);
+    knob_gauge_unit("K", &u);
+    TEST_ASSERT_EQUAL_STRING("\xC2\xB0" "C", u.unit);
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 20.0f, (float)(293.15 * u.scale + u.offset));
+    knob_gauge_unit("ratio", &u);
+    TEST_ASSERT_EQUAL_STRING("%", u.unit);
+    knob_gauge_unit("dBm", &u);
+    TEST_ASSERT_EQUAL_STRING("dBm", u.unit);
+    TEST_ASSERT_EQUAL_INT(-1, u.decimals);
+    knob_gauge_unit(NULL, &u);
+    TEST_ASSERT_EQUAL_STRING("", u.unit);
+}
+
+static void test_gauge_range(void)
+{
+    knob_gauge_src_t g;
+    knob_gauge_unit_t u;
+    double lo, hi;
+    knob_gauge_src_init(&g);
+    knob_gauge_meta(&g, "{\"units\":\"m\"}");
+    knob_gauge_unit(g.units, &u);
+    knob_gauge_range(&g, "environment.depth.belowTransducer", &u, &lo, &hi);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, (float)lo);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 30.0f, (float)hi);
+    knob_gauge_meta(&g, "{\"units\":\"m/s\"}");
+    knob_gauge_unit(g.units, &u);
+    knob_gauge_range(&g, "environment.wind.speedApparent", &u, &lo, &hi);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 40.0f, (float)hi);
+    knob_gauge_range(&g, "navigation.speedOverGround", &u, &lo, &hi);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 12.0f, (float)hi);
+    /* a battery by its voltage */
+    knob_gauge_meta(&g, "{\"units\":\"V\"}");
+    knob_gauge_unit(g.units, &u);
+    knob_gauge_value(&g, 52.4, 1000);
+    knob_gauge_range(&g, "electrical.batteries.main.voltage", &u, &lo, &hi);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 44.0f, (float)lo);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 58.0f, (float)hi);
+    /* displayScale wins */
+    knob_gauge_meta(&g, "{\"units\":\"V\",\"displayScale\":{\"lower\":10,\"upper\":16}}");
+    knob_gauge_range(&g, "electrical.batteries.main.voltage", &u, &lo, &hi);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.0f, (float)lo);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 16.0f, (float)hi);
+    /* an unknown unit: around the zones' bounds, grown to the values seen */
+    knob_gauge_src_init(&g);
+    knob_gauge_meta(&g, LTE_META);
+    knob_gauge_unit(g.units, &u);
+    knob_gauge_range(&g, "networking.lte.rsrp", &u, &lo, &hi);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -120.0f, (float)lo);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -100.0f, (float)hi);
+    knob_gauge_value(&g, -88, 1000);
+    knob_gauge_range(&g, "networking.lte.rsrp", &u, &lo, &hi);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, -88.0f, (float)hi);
+    /* nothing known: from zero to a quarter above the values seen, else 0..100 */
+    knob_gauge_src_init(&g);
+    knob_gauge_unit("", &u);
+    knob_gauge_range(&g, "x.y", &u, &lo, &hi);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 100.0f, (float)hi);
+    knob_gauge_value(&g, 8, 1000);
+    knob_gauge_value(&g, 4, 2000);
+    knob_gauge_range(&g, "x.y", &u, &lo, &hi);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, (float)lo);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 10.0f, (float)hi);
+}
+
+static void test_gauge_names_and_format(void)
+{
+    char b[20];
+    TEST_ASSERT_TRUE(knob_gauge_path_name("environment.depth.belowTransducer", b, sizeof(b)));
+    TEST_ASSERT_EQUAL_STRING("DEPTH", b);
+    TEST_ASSERT_TRUE(knob_gauge_path_name("electrical.batteries.house.voltage", b, sizeof(b)));
+    TEST_ASSERT_EQUAL_STRING("HOUSE BATTERY", b);
+    TEST_ASSERT_TRUE(knob_gauge_path_name("propulsion.main.revolutions", b, sizeof(b)));
+    TEST_ASSERT_EQUAL_STRING("MAIN RPM", b);
+    TEST_ASSERT_TRUE(knob_gauge_path_name("tanks.freshWater.0.currentLevel", b, sizeof(b)));
+    TEST_ASSERT_EQUAL_STRING("FRESHWATER", b);
+    TEST_ASSERT_FALSE(knob_gauge_path_name("networking.lte.rsrp", b, sizeof(b)));
+    TEST_ASSERT_EQUAL_STRING("RSRP", b);
+    TEST_ASSERT_FALSE(knob_gauge_path_name("environment.wind.directionChange", b, sizeof(b)));
+    TEST_ASSERT_EQUAL_STRING("DIRECTION CHANGE", b);
+    TEST_ASSERT_FALSE(knob_gauge_path_name("environment.wind.directionChange", b, 6));
+    TEST_ASSERT_EQUAL_STRING("DIREC", b);
+
+    knob_gauge_format(13.4234, 2, b, sizeof(b));
+    TEST_ASSERT_EQUAL_STRING("13.42", b);
+    knob_gauge_format(123.4, 2, b, sizeof(b));
+    TEST_ASSERT_EQUAL_STRING("123.4", b);
+    knob_gauge_format(-88, -1, b, sizeof(b));
+    TEST_ASSERT_EQUAL_STRING("-88", b);
+    knob_gauge_format(-88.26, -1, b, sizeof(b));
+    TEST_ASSERT_EQUAL_STRING("-88.3", b);
+    knob_gauge_format(-0.04, 1, b, sizeof(b));
+    TEST_ASSERT_EQUAL_STRING("0.0", b);
+    knob_gauge_format(4.567, -1, b, sizeof(b));
+    TEST_ASSERT_EQUAL_STRING("4.57", b);
+}
+
+static void test_gauge_view(void)
+{
+    knob_gauge_src_t g;
+    knob_gauge_view_t v;
+    knob_gauge_src_init(&g);
+    knob_gauge_view(&g, "networking.lte.rsrp", "", 5000, &v);
+    TEST_ASSERT_FALSE(v.valid);
+    TEST_ASSERT_EQUAL_STRING("---", v.text);
+    TEST_ASSERT_EQUAL_STRING("RSRP", v.name);
+    knob_gauge_meta(&g, LTE_META);
+    knob_gauge_value(&g, -110, 5000);
+    knob_gauge_view(&g, "networking.lte.rsrp", "", 6000, &v);
+    TEST_ASSERT_TRUE(v.valid);
+    TEST_ASSERT_EQUAL_STRING("LTE SIGNAL", v.name);    /* the server's name beats one made from the path */
+    TEST_ASSERT_EQUAL_STRING("dBm", v.unit);
+    TEST_ASSERT_EQUAL_STRING("-110", v.text);
+    TEST_ASSERT_EQUAL_INT(KNOB_ZONE_WARN, v.state);
+    TEST_ASSERT_EQUAL_STRING("LTE SIGNAL WEAK", v.message);
+    TEST_ASSERT_EQUAL_INT(3, v.n_zones);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, v.zones[0].a);   /* the open end is the start of the arc */
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.25f, v.zones[0].b);  /* -120 .. -100: -115 is a quarter */
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 1.0f, v.zones[2].b);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.5f, v.frac);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.0f, v.origin);
+    knob_gauge_view(&g, "networking.lte.rsrp", "Signal", 6000, &v);
+    TEST_ASSERT_EQUAL_STRING("SIGNAL", v.name);
+    /* normal: no message; stale after the meta's 60 s */
+    knob_gauge_value(&g, -95, 7000);
+    knob_gauge_view(&g, "networking.lte.rsrp", "", 8000, &v);
+    TEST_ASSERT_EQUAL_INT(KNOB_ZONE_NORMAL, v.state);
+    TEST_ASSERT_EQUAL_STRING("", v.message);
+    knob_gauge_view(&g, "networking.lte.rsrp", "", 7000 + 60001, &v);
+    TEST_ASSERT_FALSE(v.valid);
+    /* knots and the fill from zero on a range across it */
+    knob_gauge_src_init(&g);
+    knob_gauge_meta(&g, "{\"units\":\"A\",\"displayScale\":{\"lower\":-50,\"upper\":50}}");
+    knob_gauge_value(&g, -12.5, 1000);
+    knob_gauge_view(&g, "electrical.batteries.house.current", "", 1000, &v);
+    TEST_ASSERT_EQUAL_STRING("HOUSE CURRENT", v.name);
+    TEST_ASSERT_EQUAL_STRING("-12.5", v.text);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.5f, v.origin);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f, 0.375f, v.frac);
+    TEST_ASSERT_EQUAL_STRING("-50", v.lo_text);
+    TEST_ASSERT_EQUAL_STRING("50", v.hi_text);
+    knob_gauge_meta(&g, "{\"units\":\"V\",\"displayScale\":{\"lower\":11.5,\"upper\":15}}");
+    knob_gauge_view(&g, "electrical.batteries.house.voltage", "", 1000, &v);
+    TEST_ASSERT_EQUAL_STRING("11.5", v.lo_text);
+    TEST_ASSERT_EQUAL_STRING("15", v.hi_text);
+    TEST_ASSERT_EQUAL_INT(KNOB_ZONE_NONE, v.state);
+}
+
+static void test_gauge_demo(void)
+{
+    knob_gauge_src_t g;
+    knob_gauge_view_t v;
+    for (int i = 0; i < KNOB_GAUGE_MAX; i++) {
+        knob_gauge_src_init(&g);
+        knob_gauge_demo(&g, i, 30000);
+        knob_gauge_view(&g, knob_gauge_demo_path(i), "", 30000, &v);
+        TEST_ASSERT_TRUE(v.valid);
+        TEST_ASSERT_TRUE(v.n_zones > 0 || i == 1);
+        TEST_ASSERT_TRUE(v.name[0] != '\0');
+        TEST_ASSERT_TRUE(v.frac >= 0.0f && v.frac <= 1.0f);
+    }
 }
 
 int main(void)
@@ -1092,5 +1316,11 @@ int main(void)
     RUN_TEST(test_autodemo_script_loops);
     RUN_TEST(test_modes_page);
     RUN_TEST(test_settings_sublist);
+    RUN_TEST(test_gauge_zones);
+    RUN_TEST(test_gauge_meta_and_units);
+    RUN_TEST(test_gauge_range);
+    RUN_TEST(test_gauge_names_and_format);
+    RUN_TEST(test_gauge_view);
+    RUN_TEST(test_gauge_demo);
     return UNITY_END();
 }
