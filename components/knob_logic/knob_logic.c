@@ -332,6 +332,14 @@ knob_ap_state_t knob_ap_state_from(const char *s)
     return KNOB_AP_UNKNOWN;
 }
 
+knob_ap_state_t knob_ap_state_resolve(const char *state, bool engaged)
+{
+    if (!state) return KNOB_AP_UNKNOWN;
+    knob_ap_state_t st = knob_ap_state_from(state);
+    if (st != KNOB_AP_UNKNOWN) return st;
+    return engaged ? KNOB_AP_AUTO : KNOB_AP_STANDBY;
+}
+
 const char *knob_ap_state_name(knob_ap_state_t s)
 {
     return (s >= KNOB_AP_STANDBY && s <= KNOB_AP_ROUTE) ? s_ap_states[s] : NULL;

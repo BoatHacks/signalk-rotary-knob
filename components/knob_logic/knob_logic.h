@@ -87,6 +87,10 @@ knob_mode_req_t knob_mode_request(const char *json, bool usb_host, int *mode);
 typedef enum { KNOB_AP_STANDBY = 0, KNOB_AP_AUTO, KNOB_AP_WIND, KNOB_AP_ROUTE, KNOB_AP_UNKNOWN } knob_ap_state_t;
 /* The provider's state string ("standby", "auto", "wind", "route") to the state, KNOB_AP_UNKNOWN for anything else or NULL. */
 knob_ap_state_t knob_ap_state_from(const char *s);
+/* The state the knob shows for a poll of the provider. No state (null or missing) is UNKNOWN whatever `engaged` says: a broken
+ * provider can report null and engaged false while the pilot steers, and showing STANDBY then would be wrong. A state string
+ * the knob does not know falls back to AUTO when engaged, else STANDBY. */
+knob_ap_state_t knob_ap_state_resolve(const char *state, bool engaged);
 /* The state's name for PUT .../state ("auto" ...), NULL for UNKNOWN. */
 const char *knob_ap_state_name(knob_ap_state_t s);
 

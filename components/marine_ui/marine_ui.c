@@ -695,7 +695,8 @@ static void refresh_mode_ring_center_preview(void) {
     char top_b[24], mid_b[24], bot_b[24];
     if (active_mode == MARINE_MODE_AUTOPILOT) {
         snprintf(top_b, sizeof(top_b), "%03d°%s", (int)roundf(wrap_deg(snap.heading_deg)), heading_ref_str());
-        snprintf(mid_b, sizeof(mid_b), "%s", snap.ap_engaged ? "AUTO" : "STANDBY");
+        snprintf(mid_b, sizeof(mid_b), "%s",
+                 snap.ap_state == KNOB_AP_UNKNOWN ? "UNKNOWN" : snap.ap_engaged ? "AUTO" : "STANDBY");
         snprintf(bot_b, sizeof(bot_b), "CTS %03d°", (int)roundf(wrap_deg(snap.cts_deg)));
     } else if (active_mode == MARINE_MODE_ANCHOR_WATCH) {
         snprintf(top_b, sizeof(top_b), "%s", snap.anchor_dropped ? "ANCHORED" : "READY");
@@ -916,6 +917,16 @@ static bool ap_turn_allowed(void) {
 }
 
 static void ap_on_input(marine_semantic_input_t ev, int32_t val) {
+    // The provider reports no state: the pilot may be steering or not. No target changes and no engage, a long press opens
+    // the pilot dialog with STANDBY and CANCEL so standby stays reachable.
+    if (snap.ap_state == KNOB_AP_UNKNOWN) {
+        if (ev == MARINE_INPUT_LONG_PRESS) {
+            ap_pending_active = false;
+            ap_pending_sent = false;
+            pilot_open_dialog(true);
+        }
+        return;
+    }
     if (ev == MARINE_INPUT_TURN && snap.ap_engaged && !ap_turn_allowed()) return;
     if (ev == MARINE_INPUT_TURN && snap.ap_engaged) {
         int32_t base = ap_pending_active ? ap_pending_cts : (int32_t)roundf(snap.cts_deg);
@@ -1079,7 +1090,11 @@ static void ap_refresh(void) {
     }
     lv_obj_set_style_text_color(ap_lbl_delta, c_muted(), 0);
 
-    if (snap.ap_engaged) {
+    if (snap.ap_state == KNOB_AP_UNKNOWN) {
+        lv_label_set_text(ap_lbl_mode, "UNKNOWN");   // never STANDBY: the pilot may be steering
+        lv_obj_set_style_text_color(ap_lbl_mode, c_amber(), 0);
+        lv_obj_set_style_border_color(ap_pill_mode, c_amber(), 0);
+    } else if (snap.ap_engaged) {
         snprintf(buf, sizeof(buf), "COMPASS • STEP %d°", ap_step_deg);
         lv_label_set_text(ap_lbl_mode, buf);
         lv_obj_set_style_text_color(ap_lbl_mode, c_primary(), 0);
@@ -2201,7 +2216,7 @@ static void pilot_close(void) {
 
 // Long press while engaged. With the pilot's data stale only STANDBY and CANCEL are offered (ui-design section 3.1).
 static void pilot_open_dialog(bool stale_only) {
-    static const char *const names[] = { "STANDBY", "COMPASS", "WIND", "ROUTE", "?" };
+    static const char *const names[] = { "STANDBY", "COMPASS", "WIND", "ROUTE", "UNKNOWN" };
     knob_ap_state_t st = snap.ap_state <= KNOB_AP_UNKNOWN ? (knob_ap_state_t)snap.ap_state : KNOB_AP_UNKNOWN;
     if (stale_only) {
         pilot_lines[0] = KNOB_PL_STANDBY;
@@ -3488,7 +3503,9 @@ static void dispatch_semantic(marine_semantic_input_t ev, int32_t val) {
         pilot_on_input(ev, val);
         return;
     }
-    if (active_mode == MARINE_MODE_AUTOPILOT && snap.ap_engaged && ev == MARINE_INPUT_LONG_PRESS && !ap_confirm_open &&
+    if (active_mode == MARINE_MODE_AUTOPILOT &&
+        (snap.ap_engaged || (snap.ap_state == KNOB_AP_UNKNOWN && snap.ap_state_updated_ms != 0)) &&
+        ev == MARINE_INPUT_LONG_PRESS && !ap_confirm_open &&
         current_stale() != STALE_NONE) {
         pilot_open_dialog(true);
         return;
@@ -4142,7 +4159,8 @@ void marine_ui_tick(uint32_t now_ms) {
     music_tick();
     dfx_tick();
     if (active_mode == MARINE_MODE_MOTOR) motor_refresh();   // the confirm countdown and the reason timeouts
-    if (pilot_open && (now_ms - pilot_opened_ms >= 5000 || !snap.ap_engaged || active_mode != MARINE_MODE_AUTOPILOT ||
+    if (pilot_open && (now_ms - pilot_opened_ms >= 5000 || (!snap.ap_engaged && snap.ap_state != KNOB_AP_UNKNOWN) ||
+                       active_mode != MARINE_MODE_AUTOPILOT ||
                        is_full_alarm_blocking())) {
         pilot_close();   // 5 s without input, or the pilot went to standby by itself, leaves the dialog
     }
@@ -4242,7 +4260,8 @@ void marine_ui_tick(uint32_t now_ms) {
 
     // 6. Idle backlight dimming (30 s -> 10 %, 10 min -> 0 % unless AP engaged or Alarm active)
     uint32_t idle_ms = now_ms - last_input_ms;
-    bool keep_awake = snap.ap_engaged || (snap.active_alarm != MARINE_ALARM_NONE);
+    bool keep_awake = snap.ap_engaged || (snap.active_alarm != MARINE_ALARM_NONE) ||
+                      (snap.ap_state == KNOB_AP_UNKNOWN && snap.ap_state_updated_ms != 0);   // the pilot may be steering
     uint8_t target_bl = 100;
     if (snap.motor_set_pct != 0) target_bl = 100;   // the motor is running: no dim, no off (#8)
     else if (idle_off_ms != 0 && idle_ms > idle_off_ms && !keep_awake) target_bl = 0;

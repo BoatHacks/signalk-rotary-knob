@@ -81,6 +81,8 @@ ticks, and the course to steer (`CTS`).
   Turn to choose `COMPASS`, `WIND` or `ROUTE`, or `TACK PORT` and `TACK STARBOARD` (in compass and wind), and press. A tack then
   asks for one click towards the tack side within 5 seconds. Even when the pilot's data is missing the dialog opens, with
   `STANDBY` only.
+- **UNKNOWN:** the autopilot plugin on the server does not say what the pilot is doing. The pilot may be steering, so the
+  knob neither engages nor changes the target. A long press offers `STANDBY`. Check the autopilot plugin on the server.
 - **Wind:** the apparent wind angle large with `P` or `S`, the pilot's target in amber, a cyan line for the wind. The wind
   target is set on the pilot itself for now (`ADJUST ON PILOT`).
 - **Route:** the distance off the track large, `STEER LEFT` or `STEER RIGHT` with a bar, bearing and distance to the next

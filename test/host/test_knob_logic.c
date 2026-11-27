@@ -416,6 +416,13 @@ static void test_ap_states(void)
     TEST_ASSERT_EQUAL_INT(KNOB_AP_STANDBY, knob_ap_state_from("standby"));
     TEST_ASSERT_EQUAL_INT(KNOB_AP_UNKNOWN, knob_ap_state_from("off-line"));
     TEST_ASSERT_EQUAL_INT(KNOB_AP_UNKNOWN, knob_ap_state_from(NULL));
+    /* No state from the provider is UNKNOWN, also with engaged false (signalk-autopilot 2.6.0 reported that while steering) */
+    TEST_ASSERT_EQUAL_INT(KNOB_AP_UNKNOWN, knob_ap_state_resolve(NULL, false));
+    TEST_ASSERT_EQUAL_INT(KNOB_AP_UNKNOWN, knob_ap_state_resolve(NULL, true));
+    TEST_ASSERT_EQUAL_INT(KNOB_AP_WIND, knob_ap_state_resolve("wind", true));
+    TEST_ASSERT_EQUAL_INT(KNOB_AP_STANDBY, knob_ap_state_resolve("standby", false));
+    TEST_ASSERT_EQUAL_INT(KNOB_AP_AUTO, knob_ap_state_resolve("off-line", true));
+    TEST_ASSERT_EQUAL_INT(KNOB_AP_STANDBY, knob_ap_state_resolve("off-line", false));
     TEST_ASSERT_EQUAL_STRING("auto", knob_ap_state_name(KNOB_AP_AUTO));
     TEST_ASSERT_NULL(knob_ap_state_name(KNOB_AP_UNKNOWN));
 }

@@ -15,6 +15,8 @@ Gauge mode with SignalK zones, readable setup screens, updates that need less me
 - `UPDATING FIRMWARE` on the screen while an update is installed.
 
 ### Fixed
+- The autopilot shows UNKNOWN, not STANDBY, when the server reports no state: the pilot may be steering. Only standby can be
+  sent then.
 - The text in the middle of JOIN WI-FI, NO SERVER and RESET was almost black on black.
 - Secure connections take their memory from PSRAM: an update could be cut off by a low-memory restart after hours of uptime.
 - A dimmer shows its real level, and one at 50 % or less is no longer shown as off.

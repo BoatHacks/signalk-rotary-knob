@@ -53,8 +53,14 @@ knob's config **(verify)**.
 | State | Turn | Single press | Long press |
 |---|---|---|---|
 | Standby | Nothing (or scroll the mode, see open items) | Nothing | Start engage: prompt, then confirm turn |
+| Unknown | Nothing | Nothing | Open the pilot dialog with `STANDBY` and `CANCEL` only |
 | Engaged | Change target by the current step (1 or 10 degrees) | Toggle step 1 / 10, shown on screen | Open the pilot dialog with `STANDBY` first and focused, so long press and one press is standby (decided 2026-11-23 with #7, replaces the direct standby). The dialog also lists the other pilot modes and tack, see docs/plans/issue-7-autopilot-modes.md |
 
+- **Unknown** (2026-11-27, from a user's report): when the provider's `state` is null or missing the pill says `UNKNOWN` in
+  amber, whatever `engaged` says. signalk-autopilot 2.6.0 reported null and engaged false while the pilot was steering, and
+  STANDBY would then be dangerous. No target changes and no engage; a long press opens the pilot dialog with `STANDBY` and
+  `CANCEL`. The LEDs are dim amber, the screen does not dim off. A state string the knob does not know still counts as
+  compass when engaged, else standby.
 - Engage is a long press followed by a confirm turn, as in SPEC. The confirm turn direction and timeout (suggested: one click
   clockwise within 5 s) are to be fixed when building.
 - Target changes are sent after a short pause (suggested 400 ms) so a run of clicks is one request. The displayed target is the

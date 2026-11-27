@@ -1072,8 +1072,7 @@ static void hook_set_autopilot(bool engaged, bool has_target, double target_rad,
     s_m.ap_has_target = has_target;
     s_m.ap_target_rad = target_rad;
     s_m.ap_ms = ms_now();
-    knob_ap_state_t st = knob_ap_state_from(state);
-    s_m.ap_state = (uint8_t)(st != KNOB_AP_UNKNOWN ? st : (engaged ? KNOB_AP_AUTO : KNOB_AP_STANDBY));
+    s_m.ap_state = (uint8_t)knob_ap_state_resolve(state, engaged);
     portEXIT_CRITICAL(&s_mux);
 }
 
